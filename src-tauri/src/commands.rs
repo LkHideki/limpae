@@ -411,11 +411,16 @@ pub fn get_settings(state: State<'_, Shared>) -> Settings {
 /// Replaces the preferences. The ignore list is not taken from the UI here (only `ignore_item` and `unignore`
 /// change it), so a stale settings object can't silently drop ignored paths.
 #[tauri::command]
-pub fn set_settings(state: State<'_, Shared>, settings: Settings) -> Result<(), String> {
+pub fn set_settings(app: AppHandle, state: State<'_, Shared>, settings: Settings) -> Result<(), String> {
     let mut cur = lock(&state.settings);
     let ignored = std::mem::take(&mut cur.ignored);
-    *cur = Settings { ignored, ..settings };
-    cur.save(&state.settings_path).map_err(|e| format!("Não foi possível salvar os ajustes: {e}"))
+    // Like the ignore list, the Sweep timestamp belongs to the backend (`mark_smart_care`).
+    let last_smart_care = cur.last_smart_care;
+    *cur = Settings { ignored, last_smart_care, ..settings };
+    let saved = cur.save(&state.settings_path).map_err(|e| format!("Não foi possível salvar os ajustes: {e}"));
+    drop(cur);
+    crate::tray::apply(&app);
+    saved
 }
 
 /// Adds a scanned item (or app) to the ignore list and forgets its id; it disappears from future scans.

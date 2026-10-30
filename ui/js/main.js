@@ -92,6 +92,12 @@ async function refreshDisk() {
   renderFoot();
 }
 
+// Pedido do menu da barra de menus ("Faxina…", "Esvaziar Lixeira…", "Ajustes…"). Respeita o
+// bloqueio de operação em andamento: sem `force`, uma limpeza ou análise nunca é interrompida por um clique ali.
+try {
+  Promise.resolve(window.__TAURI__.event.listen('navigate', (e) => navigate(String(e.payload)))).catch(() => {});
+} catch (e) { /* sem eventos do shell (preview no navegador) */ }
+
 buildNav();
 refreshDisk();
 api.settings().then((st) => { store.settings = st; setSoundEnabled(st.sounds); }).catch(() => {});

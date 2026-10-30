@@ -1,13 +1,17 @@
 mod cmd_apps;
 mod cmd_cleanup;
 mod cmd_clutter;
+mod cmd_health;
 mod cmd_lens;
 mod commands;
 mod dto;
 mod registry;
 mod state;
+mod tray;
 
 use std::sync::Arc;
+
+use tauri::{Manager, RunEvent, WindowEvent};
 
 use state::AppState;
 
@@ -20,8 +24,25 @@ fn main() {
         }
     };
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .manage(Arc::new(state))
+        .manage(tray::TrayState::default())
+        .setup(|app| {
+            tray::apply(app.handle());
+            tray::start_timer(app.handle());
+            Ok(())
+        })
+        // With the menu bar extra on, closing the window only hides it (the app keeps living in the menu bar and
+        // the Dock icon stays). Without it, closing quits as before.
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event
+                && window.label() == "main"
+                && tray::menu_bar_enabled(window.app_handle())
+            {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::disk_overview,
             commands::scan_junk,
@@ -57,7 +78,17 @@ fn main() {
             cmd_lens::lens_select_review,
             cmd_lens::cloud_scan,
             cmd_lens::cloud_evict,
+            cmd_health::health,
+            cmd_health::activity,
+            cmd_health::mark_smart_care,
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("erro ao iniciar o Limpaemeo");
+
+    app.run(|app, event| {
+        // Clicking the Dock icon while the window is hidden brings it back.
+        if let RunEvent::Reopen { has_visible_windows: false, .. } = event {
+            tray::show_main(app, None);
+        }
+    });
 }

@@ -23,9 +23,12 @@ export function enter(ctx) {
     try { await api.saveSettings(s); } catch (e) { s = store.settings = prev; setSoundEnabled(prev.sounds); render(); }
   }
 
-  const toggle = (label, hint, on, onChange) => h('div', { class: 'set-row' },
-    h('div', null, h('div', { class: 'set-label' }, label), hint ? h('div', { class: 'set-hint' }, hint) : null),
-    checkbox(on ? 'on' : 'off', (st) => onChange(st !== 'on'), label));
+  // O checkbox não muda sozinho de estado: aplica o novo valor no próprio botão (mantém o foco) antes de salvar.
+  const toggle = (label, hint, on, onChange) => {
+    const cb = checkbox(on ? 'on' : 'off', (st) => { const v = st !== 'on'; cb.set(v ? 'on' : 'off'); onChange(v); }, label);
+    return h('div', { class: 'set-row' },
+      h('div', null, h('div', { class: 'set-label' }, label), hint ? h('div', { class: 'set-hint' }, hint) : null), cb);
+  };
 
   function render() {
     if (!s) return mount(root, h('div', { class: 'set-loading' }, h('span', { class: 'spin' })));
@@ -33,7 +36,8 @@ export function enter(ctx) {
     mount(root,
       h('header', { class: 'set-head' }, h('h1', { class: 'h2' }, 'Ajustes')),
       h('section', { class: 'set-card' }, h('h3', null, 'Geral'),
-        toggle('Reproduzir sons nas ações principais', 'Ao iniciar e concluir análises e limpezas.', s.sounds, (v) => { save({ ...s, sounds: v }); if (v) play('found'); })),
+        toggle('Reproduzir sons nas ações principais', 'Ao iniciar e concluir análises e limpezas.', s.sounds, (v) => { save({ ...s, sounds: v }); if (v) play('found'); }),
+        toggle('Mostrar na barra de menus', 'Saúde, espaço livre, memória e Lixeira num relance. Com o ícone ligado, fechar a janela mantém o app aberto na barra de menus.', !!s.menuBar, (v) => save({ ...s, menuBar: v }))),
       h('section', { class: 'set-card' }, h('h3', null, 'Faxina'),
         h('p', { class: 'set-hint' }, 'Módulos incluídos na análise.'),
         SCOPE.map(([k, label]) => toggle(label, null, scope[k] !== false, (v) => save({ ...s, smartCare: { ...scope, [k]: v } })))),
