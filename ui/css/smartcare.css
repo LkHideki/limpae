@@ -1,0 +1,58 @@
+/* Faxina: ajustes do bento para 4 a 6 tiles, checkbox de inclusão, resumo da confirmação. */
+.orb[data-mod="protect"] { --shape: 34% 34% 46% 46% / 28% 28% 58% 58%; }
+.orb[data-mod="perf"] { --shape: 42% 58% 46% 54% / 54% 44% 56% 46%; }
+
+.bento-head .btn.left { white-space: nowrap; }
+.bento-head span { text-align: center; white-space: nowrap; font-size: 23px; }
+.bento-head { padding: 0 8px; }
+
+/* topo do tile: checkbox (só nos resultados) + rótulo */
+.tile .t-top { position: absolute; top: 14px; left: 16px; right: 16px; display: flex; align-items: center; gap: 10px; z-index: 2; transition: opacity .3s; }
+.tile .t-top .t-label { position: static; font-size: 13.5px; transition: none; }
+.tile.hot .t-top { opacity: 0; pointer-events: none; }
+.t-cb { display: none; }
+.bento[data-phase="results"] .t-cb { display: grid; }
+.t-cb[hidden] { display: none !important; }
+.bento[data-phase="results"] .tile .t-top .t-label { margin-left: 0; }
+.bento:not([data-phase="results"]) .tile .t-top .t-label { margin-left: 4px; }
+
+/* tile pulado: esmaece e tira a cor do orb */
+.tile.skipped { opacity: .66; }
+.tile.skipped .tile-orb { filter: grayscale(.9) brightness(.9); transition: filter .4s; }
+.tile.skipped .t-num { color: var(--text-2); }
+.tile[data-st="done"] .t-sub, .tile[data-st="final"] .t-sub { min-height: 18px; }
+
+/* o tile em destaque na execução ocupa mais espaço e mostra a lista de grupos */
+.tile[data-st="clean"] .t-list { width: 58%; }
+
+/* 5 e 6 tiles: números menores */
+.bento[data-n="5"] .t-num, .bento[data-n="6"] .t-num { font-size: 26px; }
+.bento[data-n="5"] .t-num.sm, .bento[data-n="6"] .t-num.sm { font-size: 21px; }
+.bento[data-n="5"] .t-verb, .bento[data-n="6"] .t-verb { font-size: 22px; }
+.bento[data-n="5"] .tile-orb .orb, .bento[data-n="6"] .tile-orb .orb { --s: 148px; margin: -74px 0 0 -74px; }
+.bento[data-n="6"] .tile:not(.hot) .tile-orb { left: 86%; top: 28%; }
+
+/* a lista de grupos da execução cabe em tiles estreitos */
+.tile[data-st="clean"] .t-list { left: 18px; top: 66px; }
+.tile .t-link { font-size: 13px; }
+
+.sc-scope { margin-top: 14px; }
+
+/* confirmação combinada */
+.sc-plan { width: 100%; margin-top: 14px; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.sc-plan-row { display: flex; align-items: flex-start; gap: 12px; padding: 11px 14px; border-radius: 14px; background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .09); }
+.sc-plan-ic { width: 30px; height: 30px; border-radius: 10px; flex: none; display: grid; place-items: center; color: #fff; background: linear-gradient(150deg, var(--m1), var(--m2)); box-shadow: 0 5px 12px -5px rgba(var(--glow), .8), inset 0 1px 0 rgba(255, 255, 255, .35); }
+.sc-plan-t { flex: 1; min-width: 0; }
+.sc-plan-t b { display: block; font-size: 14px; font-weight: 600; }
+.sc-plan-d { margin-top: 2px; font-size: 12.5px; color: var(--text-2); line-height: 1.35; }
+.sc-plan-d.warn { color: #ffb0a6; }
+.sc-plan-sz { flex: none; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; padding-top: 5px; }
+
+@media (prefers-reduced-motion: reduce) { .tile.skipped .tile-orb { transition: none; } }
+
+/* o botão Revisar ocupa o canto: o texto de apoio contorna */
+.tile.has-rv .t-main .t-sub { max-width: calc(100% - 92px); line-height: 1.3; }
+.tile.has-rv .t-main { right: 14px; }
+.tile.dim { opacity: .62; }
+.tile.has-rv .t-main { bottom: 14px; }
+.tile.has-rv .t-main .t-sub { min-height: 30px; }

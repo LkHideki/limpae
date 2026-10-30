@@ -1,0 +1,47 @@
+/* Minhas Ferramentas + Modo de limpeza de tela */
+[data-mod="tools"] { --m1: #d9b0ff; --m2: #8b5cf6; --t1: #7a3fe0; --t2: #4f23a8; --glow: 170, 115, 255; }
+
+.tools { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 -32px -24px; padding: 0 32px 24px; overflow: auto; }
+.tl-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+.tl-title { min-width: 0; }
+.tl-sub { margin-top: 6px; max-width: 560px; font-size: 15px; line-height: 1.4; color: var(--text-2); }
+.tl-head .search { flex: none; width: 240px; margin-top: 4px; }
+.tl-head .search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.tl-body { display: flex; flex-direction: column; }
+.tl-sec { margin: 6px 0 12px; font-size: 14px; font-weight: 500; color: var(--text-2); }
+.tl-sec:not(:first-child) { margin-top: 26px; }
+.tl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: 14px; }
+.tl-empty { padding: 56px 0; text-align: center; color: var(--text-3); font-size: 15px; }
+
+.tl-tile { position: relative; display: flex; flex-direction: column; min-height: 188px; padding: 16px 16px 14px; border-radius: var(--r-l); overflow: hidden; background: linear-gradient(160deg, rgba(255, 255, 255, .11), rgba(255, 255, 255, .04)); border: 1px solid rgba(255, 255, 255, .12); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); box-shadow: 0 16px 36px -24px rgba(0, 0, 0, .6); transition: border-color .25s, transform .25s var(--ease), background-color .25s; }
+.tl-tile::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s var(--ease); background: radial-gradient(90% 70% at 0% 0%, rgba(var(--glow), .22), transparent 70%); }
+.tl-tile:hover { border-color: rgba(255, 255, 255, .26); transform: translateY(-2px); }
+.tl-tile:hover::before { opacity: 1; }
+.tl-top { position: relative; display: flex; align-items: center; justify-content: space-between; }
+.tl-ic { width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; color: #fff; background: radial-gradient(90% 70% at 30% 15%, rgba(255, 255, 255, .5), transparent 60%), linear-gradient(150deg, var(--m1), var(--m2)); box-shadow: inset 0 -4px 8px rgba(0, 0, 0, .2), 0 8px 18px -6px rgba(var(--glow), .7); }
+.tl-ic svg { filter: drop-shadow(0 1px 1px rgba(0, 0, 0, .3)); }
+.tl-star { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 7px; border-radius: 14px; color: var(--text-3); transition: color .2s, background-color .2s, transform .2s var(--ease); }
+.tl-star:hover { color: var(--text); background: rgba(255, 255, 255, .12); }
+.tl-star:active { transform: scale(.9); }
+.tl-star svg { fill: transparent; transition: fill .2s, color .2s; }
+.tl-star[aria-pressed="true"] { color: #ffd479; background: rgba(255, 255, 255, .1); }
+.tl-star[aria-pressed="true"] svg { fill: currentColor; }
+.tl-saved { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.tl-name { position: relative; margin-top: 14px; font-size: 16px; font-weight: 600; letter-spacing: -.005em; line-height: 1.25; }
+.tl-desc { position: relative; margin-top: 5px; font-size: 13px; line-height: 1.4; color: var(--text-2); flex: 1; }
+.tl-act { position: relative; margin-top: 12px; display: flex; justify-content: flex-end; }
+.tl-open { background: rgba(255, 255, 255, .92); color: #1c1540; border-color: transparent; }
+.tl-open:hover:not(:disabled) { background: #fff; }
+
+/* Modo de limpeza de tela */
+.sclean { position: fixed; inset: 0; z-index: 10000; background: #000; display: grid; place-items: center; cursor: none; user-select: none; -webkit-user-select: none; animation: fade .35s var(--ease) both; }
+.sclean.out { opacity: 0; transition: opacity .2s; }
+.sc-center { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.sc-ring { width: 64px; height: 64px; transform: rotate(-90deg); opacity: 0; transition: opacity .25s; }
+.sclean.holding .sc-ring { opacity: 1; }
+.sc-ring circle { fill: none; stroke-width: 3; stroke-linecap: round; }
+.sc-ring .track { stroke: rgba(255, 255, 255, .14); }
+.sc-ring .arc { stroke: rgba(255, 255, 255, .85); }
+.sc-hint { position: fixed; left: 0; right: 0; bottom: 34px; text-align: center; font-size: 13px; letter-spacing: .02em; color: rgba(255, 255, 255, .34); }
+.sclean.holding .sc-hint { color: rgba(255, 255, 255, .6); }
+@media (prefers-reduced-motion: reduce) { .sclean { animation: none; } .tl-tile, .tl-star { transition: none; } }
