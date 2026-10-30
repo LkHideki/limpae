@@ -51,15 +51,20 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
 // Primeiro botão = cancelar (valor false); último = confirmar (true).
 // permanentChoice: mostra a chave "Apagar definitivamente" (itens que iriam para o Lixo). Retorna false, true
 // ou 'permanent' quando a chave está ligada — o chamador repassa `permanent` à remoção.
-export function confirmDialog({ title, body, confirm = 'Confirmar', cancel = 'Cancelar', danger = false, glyph = 'alert', mod, permanentChoice = false, permanentDefault = false }) {
+// trashCount: quantos itens do lote iriam para o Lixo (o resto já é apagado direto, como caches); a nota fala
+// só deles, para não contradizer o corpo do diálogo em seleções mistas.
+export function confirmDialog({ title, body, confirm = 'Confirmar', cancel = 'Cancelar', danger = false, glyph = 'alert', mod, permanentChoice = false, permanentDefault = false, trashCount = null }) {
   let permanent = permanentChoice && permanentDefault;
+  const mixed = trashCount != null && danger;
   const confirmBtn = { label: confirm, value: true, kind: danger ? 'danger' : 'primary' };
   let extra = null;
   if (permanentChoice) {
     const note = h('p', { class: 'perm-note' });
     const paint = (row) => {
       const card = row.closest('.modal');
-      note.textContent = permanent ? 'Os itens serão apagados sem passar pelo Lixo. Não dá para desfazer.' : 'Os itens vão para o Lixo e podem ser recuperados de lá.';
+      const who = trashCount == null ? 'Os itens' : trashCount === 1 ? 'O item recuperável' : `Os ${trashCount} itens recuperáveis`;
+      const verb = trashCount === 1 ? ['será apagado', 'vai', 'pode ser recuperado'] : ['serão apagados', 'vão', 'podem ser recuperados'];
+      note.textContent = permanent ? `${who} ${verb[0]} sem passar pelo Lixo. Não dá para desfazer.` : `${who} ${verb[1]} para o Lixo e ${verb[2]} de lá.`;
       if (!card) return;
       card.classList.toggle('danger', permanent || danger);
       // O texto sobre o Lixo deixa de valer: título reescrito e corpo escondido (a nota acima explica).
@@ -69,7 +74,8 @@ export function confirmDialog({ title, body, confirm = 'Confirmar', cancel = 'Ca
         const m = /^Mover (.+) para o Lixo\?$/.exec(h3.dataset.orig);
         h3.textContent = permanent ? (m ? `Apagar ${m[1]} definitivamente?` : 'Apagar definitivamente?') : h3.dataset.orig;
       }
-      if (bodyEl) bodyEl.hidden = permanent;
+      // Corpo escondido só quando ele fala apenas do Lixo; em lotes mistos ele descreve os itens já definitivos.
+      if (bodyEl) bodyEl.hidden = permanent && !mixed;
       const btn = card.querySelector('.btns .btn:last-child');
       if (btn) { btn.textContent = permanent ? 'Apagar definitivamente' : confirm; btn.className = 'btn ' + (permanent || danger ? 'danger' : 'primary'); }
     };

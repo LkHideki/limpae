@@ -576,7 +576,7 @@ export function enter(ctx) {
     };
     for (const id of okIds) S.psel.delete(id);
     bump(); store.trash = null;
-    S.done = { kind: 'privacy', n: okIds.size, bytes: freed, failed: failures.length };
+    S.done = { kind: 'privacy', n: okIds.size, bytes: freed, failed: failures.length, permanent };
     S.phase = 'done';
     play(okIds.size ? 'clean' : 'error');
     ctx.setBusy(false);
@@ -592,8 +592,8 @@ export function enter(ctx) {
     const head = d.kind === 'perms'
       ? [h('div', { class: 'big' }, fmtNum(d.n)), h('div', { class: 'big-cap' }, d.n === 1 ? 'permissão revogada' : 'permissões revogadas'),
         h('p', { class: 'sub' }, 'Os apps vão pedir acesso de novo na próxima vez que precisarem.')]
-      : [h('div', { class: 'big' }, bytesParts(d.bytes).value, h('small', null, bytesParts(d.bytes).unit)), h('div', { class: 'big-cap' }, 'movidos para o Lixo'),
-        h('p', { class: 'sub' }, 'Esvazie a Lixeira para liberar o espaço no disco. Pode ser preciso entrar de novo em alguns sites.')];
+      : [h('div', { class: 'big' }, bytesParts(d.bytes).value, h('small', null, bytesParts(d.bytes).unit)), h('div', { class: 'big-cap' }, d.permanent ? 'apagados definitivamente' : 'movidos para o Lixo'),
+        h('p', { class: 'sub' }, (d.permanent ? '' : 'Esvazie a Lixeira para liberar o espaço no disco. ') + 'Pode ser preciso entrar de novo em alguns sites.')];
     st.show(...head,
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),

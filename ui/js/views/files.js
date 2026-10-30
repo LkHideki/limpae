@@ -537,7 +537,7 @@ export function enter(ctx) {
     }
     if (S.res.ownsStore && store.large === S.res.largeRef) { store.large = S.res.large; S.res.largeRef = store.large; }
     bump(); store.trash = null;
-    F.moved = freed; F.failed = failures.length; F.phase = 'done';
+    F.moved = freed; F.failed = failures.length; F.permanent = permanent; F.phase = 'done';
     play(freed ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
@@ -548,8 +548,8 @@ export function enter(ctx) {
 
   function renderDone() {
     const left = CATS.some((c) => countOf(c.id));
-    st.show(h('div', { class: 'big' }, bytesParts(F.moved).value, h('small', null, bytesParts(F.moved).unit)), h('div', { class: 'big-cap' }, 'movidos para o Lixo'),
-      h('p', { class: 'sub' }, 'Esvazie a Lixeira para liberar o espaço no disco.'),
+    st.show(h('div', { class: 'big' }, bytesParts(F.moved).value, h('small', null, bytesParts(F.moved).unit)), h('div', { class: 'big-cap' }, F.permanent ? 'apagados definitivamente' : 'movidos para o Lixo'),
+      h('p', { class: 'sub' }, F.permanent ? 'O espaço já foi liberado.' : 'Esvazie a Lixeira para liberar o espaço no disco.'),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
         left ? h('button', { class: 'btn', type: 'button', onClick: () => { F.phase = S.res.full ? 'results' : 'review'; render(); } }, 'Revisar mais itens') : null,
