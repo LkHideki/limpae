@@ -35,6 +35,13 @@ pub struct Resolved {
 pub const ERR_UNKNOWN_ITEM: &str = "item desconhecido";
 pub const ERR_LEFTOVER_VIA_REMOVE: &str = "restos de app só podem ser removidos pela desinstalação do app";
 pub const ERR_LEFTOVER_OTHER_APP: &str = "item não pertence a este app";
+pub const ERR_EVICT_ONLY: &str = "arquivos do iCloud só podem ser removidos do Mac pela opção de desincronizar";
+pub const ERR_WRONG_TASK: &str = "item não pertence a esta análise";
+
+/// iCloud Drive files found by the cloud scan; they are evicted, never removed.
+pub const TASK_ICLOUD: Task = Task::Other("icloud");
+/// Items chosen in Disk Map; removable through `remove` (Trash policy).
+pub const TASK_LENS: Task = Task::Other("lens");
 
 #[derive(Default)]
 pub struct Registry {
@@ -105,8 +112,14 @@ impl Registry {
     pub fn resolve_removal(&self, ids: &[u64]) -> Resolved {
         self.resolve(ids, |task| match task {
             Task::Leftovers(_) => Err(ERR_LEFTOVER_VIA_REMOVE),
+            t if t == TASK_ICLOUD => Err(ERR_EVICT_ONLY),
             _ => Ok(()),
         })
+    }
+
+    /// Ids that must belong to the last scan of exactly `task` (e.g. the iCloud eviction).
+    pub fn resolve_task(&self, task: Task, ids: &[u64]) -> Resolved {
+        self.resolve(ids, |t| if t == task { Ok(()) } else { Err(ERR_WRONG_TASK) })
     }
 
     /// Ids for `uninstall(app_id)`: only leftovers found for exactly that app are accepted.
@@ -262,6 +275,25 @@ mod tests {
         assert_eq!(r.get(&a_old).1, a_old);
         assert_eq!(r.get(&b).0.len(), 1);
         assert_eq!(r.get(&a_new).0.len(), 1);
+    }
+
+    #[test]
+    fn icloud_items_are_refused_by_remove_and_resolved_only_for_their_task() {
+        let mut r = Registry::new();
+        let junk = ids(&r.replace(Task::Junk, vec![group("a", &[("x", 1)])]));
+        let cloud = ids(&r.replace(TASK_ICLOUD, vec![group("icloud", &[("f", 9)])]));
+        let lens = ids(&r.replace(TASK_LENS, vec![group("lens", &[("l", 2)])]));
+        let res = r.resolve_removal(&[junk[0], cloud[0], lens[0]]);
+        assert_eq!(res.items.iter().map(|(id, _)| *id).collect::<Vec<_>>(), vec![junk[0], lens[0]]);
+        assert_eq!(res.rejected, vec![(cloud[0], ERR_EVICT_ONLY)]);
+
+        let res = r.resolve_task(TASK_ICLOUD, &[cloud[0], junk[0], lens[0], 777]);
+        assert_eq!(res.items.iter().map(|(id, _)| *id).collect::<Vec<_>>(), cloud);
+        assert_eq!(res.rejected, vec![(junk[0], ERR_WRONG_TASK), (lens[0], ERR_WRONG_TASK), (777, ERR_UNKNOWN_ITEM)]);
+        // A new cloud scan invalidates the previous ids.
+        let newer = ids(&r.replace(TASK_ICLOUD, vec![group("icloud", &[("f", 9)])]));
+        assert_eq!(r.resolve_task(TASK_ICLOUD, &cloud).rejected, vec![(cloud[0], ERR_UNKNOWN_ITEM)]);
+        assert_eq!(r.resolve_task(TASK_ICLOUD, &newer).items.len(), 1);
     }
 
     #[test]

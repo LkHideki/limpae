@@ -42,6 +42,7 @@ const P = {
   ban: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M6.3 6.3l11.4 11.4'],
   select: ['M5 5h14v14H5z', 'M8.5 12l2.5 2.5 4.5-5'],
   chevron: ['M7 10l5 5 5-5'],
+  cloud: ['M7.5 18.5a4.5 4.5 0 0 1-.5-8.97 5.5 5.5 0 0 1 10.6-.8A4.5 4.5 0 0 1 17 18.5z'],
 };
 
 export function icon(name, size = 18, cls = '') {
@@ -53,7 +54,7 @@ export function icon(name, size = 18, cls = '') {
 const GROUP_ICON = {
   user_caches: 'box', user_logs: 'log', xcode: 'hammer', dev_caches: 'code', ai_clutter: 'chip', broken_prefs: 'prefs',
   broken_login_items: 'unlink', ios_backups: 'phone', mail_attachments: 'mail', video: 'video', archive: 'archive',
-  disk_image: 'disk', audio: 'audio', other: 'file', trash: 'trash', volume_trash: 'disk', apps: 'apps', leftovers: 'folder',
+  disk_image: 'disk', audio: 'audio', other: 'file', trash: 'trash', volume_trash: 'disk', apps: 'apps', leftovers: 'folder', icloud: 'cloud',
 };
 export const groupIcon = (id) => {
   const key = String(id).startsWith('trash:') ? 'volume_trash' : id;
@@ -77,6 +78,7 @@ export const MODS = [
   { id: 'apps', label: 'Aplicativos', glyph: 'apps' },
   { id: 'files', label: 'Meus Arquivos', glyph: 'folder' },
   { id: 'lens', label: 'Disk Map', glyph: 'lens' },
+  { id: 'cloud', label: 'Nuvem', glyph: 'cloud' },
   { spacer: true },
   { id: 'activity', label: 'Minha Atividade', glyph: 'pulse' },
   { id: 'settings', label: 'Ajustes', glyph: 'gear' },

@@ -5,10 +5,18 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use limpa_core::Guard;
 use limpa_core::apps::AppInfo;
+use limpa_core::lens::{LensTree, Root};
 use limpa_core::log::ActionLog;
 use limpa_core::settings::Settings;
 
 use crate::registry::Registry;
+
+/// Disk Map: the scannable roots last offered to the UI and the tree of the last finished scan.
+#[derive(Default)]
+pub struct LensState {
+    pub roots: Vec<Root>,
+    pub tree: Option<Arc<LensTree>>,
+}
 
 pub struct AppState {
     pub home: PathBuf,
@@ -22,6 +30,7 @@ pub struct AppState {
     pub active: Mutex<Vec<Arc<AtomicBool>>>,
     pub settings: Mutex<Settings>,
     pub settings_path: PathBuf,
+    pub lens: Mutex<LensState>,
 }
 
 impl AppState {
@@ -42,6 +51,7 @@ impl AppState {
             apps: Mutex::default(),
             icons: Mutex::default(),
             active: Mutex::default(),
+            lens: Mutex::default(),
         }
     }
 }

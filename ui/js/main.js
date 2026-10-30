@@ -13,11 +13,12 @@ import * as files from './views/files.js';
 import * as protect from './views/protection.js';
 import * as perf from './views/performance.js';
 import * as lens from './views/lens.js';
+import * as cloud from './views/cloud.js';
 import * as activity from './views/activity.js';
 import * as settings from './views/settings.js';
 import { setSoundEnabled } from './sound.js';
 
-const VIEWS = { smart, clean, trash, protect, perf, apps, files, lens, activity, settings };
+const VIEWS = { smart, clean, trash, protect, perf, apps, files, lens, cloud, activity, settings };
 const view = document.getElementById('view');
 const go = createGo(document.getElementById('dock'));
 const navEl = document.getElementById('nav');

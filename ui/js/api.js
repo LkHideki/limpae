@@ -59,4 +59,10 @@ export const api = {
   appsOverview: () => call('apps_overview'),
   appMeta: () => call('app_meta', undefined, { quiet: true }),
   openUpdate: (appId) => call('open_update', { appId }),
+  lensRoots: () => call('lens_roots'),
+  lensScan: (root) => call('lens_scan', { root }),
+  lensChildren: (nodeId) => call('lens_children', { nodeId }),
+  lensReview: (nodeIds) => call('lens_select_review', { nodeIds }),
+  cloudScan: () => call('cloud_scan'),
+  cloudEvict: (ids) => call('cloud_evict', { ids }),
 };

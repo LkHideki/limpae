@@ -1,6 +1,7 @@
 mod cmd_apps;
 mod cmd_cleanup;
 mod cmd_clutter;
+mod cmd_lens;
 mod commands;
 mod dto;
 mod registry;
@@ -50,6 +51,12 @@ fn main() {
             cmd_apps::apps_overview,
             cmd_apps::app_meta,
             cmd_apps::open_update,
+            cmd_lens::lens_roots,
+            cmd_lens::lens_scan,
+            cmd_lens::lens_children,
+            cmd_lens::lens_select_review,
+            cmd_lens::cloud_scan,
+            cmd_lens::cloud_evict,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Limpaemeo");
