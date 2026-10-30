@@ -29,7 +29,7 @@ use crate::state::{AppState, lock};
 
 pub(crate) type Shared = Arc<AppState>;
 
-const OWN_BUNDLE_ID: &str = "br.com.limpaemeo";
+pub(crate) const OWN_BUNDLE_ID: &str = "br.com.limpaemeo";
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 const ERR_CANCELLED: &str = "Varredura cancelada.";
 const ERR_APP_GONE: &str = "App não encontrado. Atualize a lista de apps.";
@@ -182,21 +182,23 @@ pub async fn scan_large(app: AppHandle, state: State<'_, Shared>, min_mb: u64) -
 
 #[tauri::command]
 pub async fn list_apps(app: AppHandle, state: State<'_, Shared>) -> Result<Vec<AppDto>, String> {
-    run_scan(app, &state, "apps", |st, p| {
-        let roots = [PathBuf::from("/Applications"), st.home.join("Applications")];
-        let apps = core_list_apps(&roots, &running_bundle_ids(), OWN_BUNDLE_ID, p);
-        if p.cancelled() {
-            return Err(ERR_CANCELLED.into());
-        }
-        let mut reg = lock(&st.registry);
-        let with_ids: Vec<_> = apps.into_iter().map(|a| (reg.alloc_id(), a)).collect();
-        drop(reg);
-        let dto = with_ids.iter().map(|(id, a)| AppDto::new(*id, a)).collect();
-        *lock(&st.apps) = with_ids.into_iter().collect();
-        lock(&st.icons).clear();
-        Ok(dto)
-    })
-    .await
+    run_scan(app, &state, "apps", load_apps).await
+}
+
+/// Scans the installed apps and replaces the app map in the state (ids are fresh on every call).
+pub(crate) fn load_apps(st: &AppState, p: &Progress) -> Result<Vec<AppDto>, String> {
+    let roots = [PathBuf::from("/Applications"), st.home.join("Applications")];
+    let apps = core_list_apps(&roots, &running_bundle_ids(), OWN_BUNDLE_ID, p);
+    if p.cancelled() {
+        return Err(ERR_CANCELLED.into());
+    }
+    let mut reg = lock(&st.registry);
+    let with_ids: Vec<_> = apps.into_iter().map(|a| (reg.alloc_id(), a)).collect();
+    drop(reg);
+    let dto = with_ids.iter().map(|(id, a)| AppDto::new(*id, a)).collect();
+    *lock(&st.apps) = with_ids.into_iter().collect();
+    lock(&st.icons).clear();
+    Ok(dto)
 }
 
 #[tauri::command]
@@ -325,7 +327,7 @@ pub fn cancel_scan(state: State<'_, Shared>) {
 }
 
 /// `/usr/bin/open` with an argument vector (no shell involved).
-fn open(args: &[&OsStr]) -> Result<(), String> {
+pub(crate) fn open(args: &[&OsStr]) -> Result<(), String> {
     match Command::new("/usr/bin/open").args(args).status() {
         Ok(s) if s.success() => Ok(()),
         Ok(_) => Err("O macOS não conseguiu abrir o item.".into()),

@@ -56,4 +56,7 @@ export const api = {
   downloads: () => call('scan_downloads'),
   largeAt: (location, minMb) => call('scan_large_at', { location, minMb }),
   thumb: (id) => call('thumb', { id }, { quiet: true }),
+  appsOverview: () => call('apps_overview'),
+  appMeta: () => call('app_meta', undefined, { quiet: true }),
+  openUpdate: (appId) => call('open_update', { appId }),
 };

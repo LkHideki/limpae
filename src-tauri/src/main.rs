@@ -1,3 +1,4 @@
+mod cmd_apps;
 mod cmd_cleanup;
 mod cmd_clutter;
 mod commands;
@@ -46,6 +47,9 @@ fn main() {
             cmd_clutter::scan_downloads,
             cmd_clutter::scan_large_at,
             cmd_clutter::thumb,
+            cmd_apps::apps_overview,
+            cmd_apps::app_meta,
+            cmd_apps::open_update,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Limpaemeo");
