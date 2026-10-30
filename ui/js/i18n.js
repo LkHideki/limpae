@@ -26,7 +26,9 @@ export function applyLangSetting(code) {
 export function onLang(cb) { listeners.add(cb); return () => listeners.delete(cb); }
 
 const fill = (s, p) => (p ? s.replace(/\{(\w+)\}/g, (m, k) => (k in p ? String(p[k]) : m)) : s);
-const pick = (key) => { const e = lang === 'pt' ? null : DICT[key]; return e ? (e[lang] ?? e.en ?? key) : key; };
+// Uma mesma palavra em português com dois sentidos usa sufixo de contexto: 'Atualizar||update'. Em pt, o sufixo cai.
+const base = (key) => { const i = key.indexOf('||'); return i < 0 ? key : key.slice(0, i); };
+const pick = (key) => { const e = lang === 'pt' ? null : DICT[key]; return e ? (e[lang] ?? e.en ?? base(key)) : base(key); };
 
 export function t(key, params) { return fill(pick(key), params); }
 
@@ -49,6 +51,15 @@ function compile() {
   patterns.sort((a, b) => b.re.source.length - a.re.source.length);
 }
 
+// Valores já formatados pelo Rust em pt-BR ('5,5 GB', '31/12/2025'): em inglês viram '5.5 GB' e '12/31/2025'.
+// Nada é traduzido aqui: o valor capturado pode ser nome de volume, app ou arquivo.
+function localeValue(v) {
+  if (lang !== 'en') return v;
+  if (/^\d+,\d+ (B|KB|MB|GB|TB)$/.test(v)) return v.replace(',', '.');
+  const d = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(v);
+  return d ? `${d[2]}/${d[1]}/${d[3]}` : v;
+}
+
 /** Traduz texto vindo do backend: busca exata, depois padrões com `{param}`. Nunca use em nomes/caminhos do disco. */
 export function tr(s) {
   if (lang === 'pt' || typeof s !== 'string' || !s) return s;
@@ -59,7 +70,7 @@ export function tr(s) {
   let out = s;
   for (const p of patterns) {
     const m = p.re.exec(s);
-    if (m) { out = fill(pick(p.key), Object.fromEntries(p.names.map((n, i) => [n, tr(m[i + 1])]))); break; }
+    if (m) { out = fill(pick(p.key), Object.fromEntries(p.names.map((n, i) => [n, localeValue(m[i + 1])]))); break; }
   }
   trCache.set(ck, out);
   return out;
