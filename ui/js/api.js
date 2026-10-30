@@ -65,4 +65,10 @@ export const api = {
   lensReview: (nodeIds) => call('lens_select_review', { nodeIds }),
   cloudScan: () => call('cloud_scan'),
   cloudEvict: (ids) => call('cloud_evict', { ids }),
+  securityChecks: () => call('security_checks'),
+  openSecurityFix: (checkId) => call('open_security_fix', { checkId }),
+  tccPermissions: () => call('tcc_permissions'),
+  tccRevoke: (ids) => call('tcc_revoke', { ids }),
+  privacyScan: () => call('privacy_scan'),
+  privacyRemove: (ids) => call('privacy_remove', { ids }),
 };
