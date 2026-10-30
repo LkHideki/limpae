@@ -4,10 +4,11 @@ import { h, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
 import { store, selectedIds, selectedSize, pruneResult, bump, countItems } from '../store.js';
-import { bytesParts, fmtBytes, plural } from '../format.js';
+import { bytesParts, fmtBytes } from '../format.js';
 import { confirmDialog, failuresSheet, stage, features } from '../ui.js';
 import { removeGroups, stopDock } from '../actions.js';
 import { createReview } from './review.js';
+import { t, tn, tr } from '../i18n.js';
 
 const bigNum = (n, cap) => [
   h('div', { class: 'big' }, bytesParts(n).value, h('small', null, bytesParts(n).unit)),
@@ -16,11 +17,15 @@ const bigNum = (n, cap) => [
 
 // Tiles do resumo,: cada um agrupa categorias do backend e tem Revisar e Limpar próprios.
 const AI_GROUP = 'ai_clutter', MAIL_GROUP = 'mail_attachments';
-const TILES = [
-  { id: 'system', title: 'Lixo do sistema', ic: 'clean', blurb: 'Caches, registros, Xcode, ferramentas de desenvolvimento e backups antigos.', has: (g) => g.id !== AI_GROUP && g.id !== MAIL_GROUP },
-  { id: 'ai', title: 'Lixo de IA', ic: 'chip', blurb: 'Caches e logs de ferramentas de IA; modelos locais ficam desmarcados.', has: (g) => g.id === AI_GROUP },
-  { id: 'mail', title: 'Anexos do Mail', ic: 'mail', blurb: 'Cópias de anexos que o Mail baixa de novo; os que você editou ficam de fora.', has: (g) => g.id === MAIL_GROUP },
+const tileDefs = () => [
+  { id: 'system', title: t('Lixo do sistema'), ic: 'clean', blurb: t('Caches, registros, Xcode, ferramentas de desenvolvimento e backups antigos.'), has: (g) => g.id !== AI_GROUP && g.id !== MAIL_GROUP },
+  { id: 'ai', title: t('Lixo de IA'), ic: 'chip', blurb: t('Caches e logs de ferramentas de IA; modelos locais ficam desmarcados.'), has: (g) => g.id === AI_GROUP },
+  { id: 'mail', title: t('Anexos do Mail'), ic: 'mail', blurb: t('Cópias de anexos que o Mail baixa de novo; os que você editou ficam de fora.'), has: (g) => g.id === MAIL_GROUP },
 ];
+
+// Texto traduzido com um trecho em negrito: o tradutor posiciona {b} e o nó entra no lugar dele.
+const MARK = '\u0001';
+const withNode = (s, node) => { const [a, b = ''] = s.split(MARK); return [a, node, b]; };
 
 export function enter(ctx) {
   const C = store.cleanup;
@@ -45,9 +50,9 @@ export function enter(ctx) {
 
   function renderIdle() {
     C.phase = 'idle';
-    st.show(h('h1', { class: 'h1' }, 'Limpeza'), h('p', { class: 'sub' }, 'Libere espaço removendo o que o Mac acumulou sem você perceber.'),
-      features('clean', [['box', 'Lixo do sistema: caches, registros, Xcode e backups antigos'], ['chip', 'Lixo de IA e modelos locais'], ['mail', 'Anexos do Mail']]));
-    ctx.setDock({ label: 'Analisar', mod: 'clean', onClick: scan });
+    st.show(h('h1', { class: 'h1' }, t('Limpeza')), h('p', { class: 'sub' }, t('Libere espaço removendo o que o Mac acumulou sem você perceber.')),
+      features('clean', [['box', t('Lixo do sistema: caches, registros, Xcode e backups antigos')], ['chip', t('Lixo de IA e modelos locais')], ['mail', t('Anexos do Mail')]]));
+    ctx.setDock({ label: t('Analisar'), mod: 'clean', onClick: scan });
   }
 
   async function scan() {
@@ -57,9 +62,9 @@ export function enter(ctx) {
     ctx.setBusy(true);
     st.busy(true);
     const ticker = h('div', { class: 'ticker' });
-    st.show(h('h1', { class: 'h1' }, 'Procurando lixo…'), h('p', { class: 'sub' }, 'Isso pode levar alguns instantes.'), ticker);
+    st.show(h('h1', { class: 'h1' }, t('Procurando lixo…')), h('p', { class: 'sub' }, t('Isso pode levar alguns instantes.')), ticker);
     ctx.onProgress((p) => { if (p.task === 'junk') ticker.textContent = p.path || ''; });
-    ctx.setDock({ label: 'Parar', busy: true, mod: 'clean', onClick: () => { cancelled = true; ctx.setDock({ label: 'Parando', busy: true, disabled: true, mod: 'clean' }); api.cancel().catch(() => {}); } });
+    ctx.setDock({ label: t('Parar'), busy: true, mod: 'clean', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'clean' }); api.cancel().catch(() => {}); } });
     try {
       const r = await api.junk();
       if (!cancelled) { store.junk = r; store.junkSel = selectedIds(r); bump(); C.phase = 'summary'; play('found'); }
@@ -75,35 +80,35 @@ export function enter(ctx) {
     if (!r.groups.length || r.total === 0) {
       ensureStage();
       st.busy(false);
-      st.show(h('h1', { class: 'h1' }, 'Tudo limpo'), h('p', { class: 'sub' }, 'Não encontramos lixo para remover agora.'),
-        h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, 'Analisar de novo')));
+      st.show(h('h1', { class: 'h1' }, t('Tudo limpo')), h('p', { class: 'sub' }, t('Não encontramos lixo para remover agora.')),
+        h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, t('Analisar de novo'))));
       ctx.setDock(null);
       return;
     }
     st = null;
     ctx.reserveDock(true);
     const sel = selectedSize(r, store.junkSel);
-    const tiles = TILES.map((t) => {
-      const gs = r.groups.filter(t.has);
+    const tiles = tileDefs().map((tl) => {
+      const gs = r.groups.filter(tl.has);
       if (!gs.length) return null;
       const items = gs.flatMap((g) => g.items);
       const pre = items.filter((i) => store.junkSel.has(i.id));
-      return { t, gs, total: gs.reduce((a, g) => a + g.total, 0), pre, preBytes: pre.reduce((a, i) => a + i.size, 0) };
+      return { tl, gs, total: gs.reduce((a, g) => a + g.total, 0), pre, preBytes: pre.reduce((a, i) => a + i.size, 0) };
     }).filter(Boolean);
     const review = (gid) => { focusGid = gid; C.phase = 'review'; render(); };
-    mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'clean' }, 'aria-label': 'Resultados da Limpeza' },
-      h('h2', { class: 'fl-title' }, `Encontramos ${fmtBytes(r.total)} de lixo no seu Mac.`),
-      h('p', { class: 'sub fl-sub' }, sel.bytes !== r.total ? `${fmtBytes(sel.bytes)} pré-selecionados para limpar.` : 'Itens seguros de remover já vêm selecionados.'),
-      h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => review(null) }, 'Revisar todo o lixo'),
-      h('div', { class: 'cl-tiles', dataset: { n: tiles.length } }, tiles.map(({ t, gs, total, pre, preBytes }) => h('div', { class: 'cl-tile', dataset: { tile: t.id } },
-        h('span', { class: 'fl-tile-ic' }, icon(t.ic, 26)),
+    mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'clean' }, 'aria-label': t('Resultados da Limpeza') },
+      h('h2', { class: 'fl-title' }, t('Encontramos {size} de lixo no seu Mac.', { size: fmtBytes(r.total) })),
+      h('p', { class: 'sub fl-sub' }, sel.bytes !== r.total ? t('{size} pré-selecionados para limpar.', { size: fmtBytes(sel.bytes) }) : t('Itens seguros de remover já vêm selecionados.')),
+      h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => review(null) }, t('Revisar todo o lixo')),
+      h('div', { class: 'cl-tiles', dataset: { n: tiles.length } }, tiles.map(({ tl, gs, total, pre, preBytes }) => h('div', { class: 'cl-tile', dataset: { tile: tl.id } },
+        h('span', { class: 'fl-tile-ic' }, icon(tl.ic, 26)),
         h('div', { class: 'cl-tile-n' }, fmtBytes(total)),
-        h('div', { class: 'cl-tile-t' }, t.title),
-        h('div', { class: 'fl-tile-s' }, pre.length ? `${fmtBytes(preBytes)} pré-selecionados. ${t.blurb}` : `Nada pré-selecionado: revise para escolher. ${t.blurb}`),
+        h('div', { class: 'cl-tile-t' }, tl.title),
+        h('div', { class: 'fl-tile-s' }, pre.length ? t('{size} pré-selecionados. {blurb}', { size: fmtBytes(preBytes), blurb: tl.blurb }) : t('Nada pré-selecionado: revise para escolher. {blurb}', { blurb: tl.blurb })),
         h('div', { class: 'cl-tile-act' },
-          h('button', { class: 'btn sm', type: 'button', onClick: () => review(gs[0].id) }, 'Revisar'),
-          h('button', { class: 'btn sm primary', type: 'button', disabled: !pre.length, onClick: () => clean(new Set(pre.map((i) => i.id))) }, 'Limpar')))))));
-    ctx.setDock({ label: 'Limpar', mod: 'clean', disabled: sel.bytes === 0, onClick: () => clean() });
+          h('button', { class: 'btn sm', type: 'button', onClick: () => review(gs[0].id) }, t('Revisar')),
+          h('button', { class: 'btn sm primary', type: 'button', disabled: !pre.length, onClick: () => clean(new Set(pre.map((i) => i.id))) }, t('Limpar'))))))));
+    ctx.setDock({ label: t('Limpar'), mod: 'clean', disabled: sel.bytes === 0, onClick: () => clean() });
   }
 
   function renderReview() {
@@ -112,8 +117,8 @@ export function enter(ctx) {
     ctx.setDock(null);
     const back = () => { C.phase = 'summary'; render(); };
     const rv = createReview({
-      result: store.junk, sel: store.junkSel, mod: 'clean', title: 'Limpeza', subtitle: 'Revisar detalhes · escolha o que será removido.',
-      actionLabel: 'Limpar', gid: focusGid, onBack: back, onAction: () => clean(),
+      result: store.junk, sel: store.junkSel, mod: 'clean', title: t('Limpeza'), subtitle: t('Revisar detalhes · escolha o que será removido.'),
+      actionLabel: t('Limpar'), gid: focusGid, onBack: back, onAction: () => clean(),
     });
     mount(ctx.root, rv.el);
     ctx.onBack(back);
@@ -126,12 +131,16 @@ export function enter(ctx) {
     const moved = new Set();
     for (const g of store.junk.groups) for (const i of g.items) if (selected.has(i.id) && i.trash) moved.add(i.id);
     const perm = count - moved.size;
-    const trashNote = [`${plural(moved.size, 'item vai', 'itens vão')} para o `, h('strong', null, 'Lixo'), ' e dá para recuperá-' + (moved.size === 1 ? 'lo' : 'los') + ' de lá; o espaço só é liberado quando você esvaziar a Lixeira.'];
-    const permNote = [`${plural(perm, 'item será', 'itens serão')} `, h('strong', null, perm === 1 ? 'removido definitivamente' : 'removidos definitivamente'), '. Esta ação não pode ser desfeita.'];
+    const trashNote = withNode(tn(moved.size,
+      '{n} item vai para o {b} e dá para recuperá-lo de lá; o espaço só é liberado quando você esvaziar a Lixeira.',
+      '{n} itens vão para o {b} e dá para recuperá-los de lá; o espaço só é liberado quando você esvaziar a Lixeira.', { b: MARK }), h('strong', null, t('Lixo')));
+    const permNote = withNode(tn(perm,
+      '{n} item será {b}. Esta ação não pode ser desfeita.',
+      '{n} itens serão {b}. Esta ação não pode ser desfeita.', { b: MARK }), h('strong', null, tn(perm, 'removido definitivamente', 'removidos definitivamente')));
     const ok = await confirmDialog({
-      title: moved.size === count ? `Mover ${fmtBytes(bytes)} para o Lixo?` : `Limpar ${fmtBytes(bytes)}?`,
+      title: moved.size === count ? t('Mover {size} para o Lixo?', { size: fmtBytes(bytes) }) : t('Limpar {size}?', { size: fmtBytes(bytes) }),
       body: moved.size === 0 ? permNote : perm === 0 ? trashNote : [...permNote, h('br'), ...trashNote],
-      confirm: moved.size === count ? 'Mover para o Lixo' : 'Limpar', danger: perm > 0, glyph: 'trash', mod: 'clean',
+      confirm: moved.size === count ? t('Mover para o Lixo') : t('Limpar'), danger: perm > 0, glyph: 'trash', mod: 'clean',
       permanentChoice: moved.size > 0, permanentDefault: !!(store.settings && store.settings.permanentDelete), trashCount: moved.size,
     });
     if (!ok) return;
@@ -140,8 +149,8 @@ export function enter(ctx) {
     ensureStageFresh();
     st.busy(true);
     const groups = store.junk.groups.filter((g) => g.items.some((i) => selected.has(i.id)));
-    const rows = new Map(groups.map((g) => [g.id, h('div', { class: 'prog-row', dataset: { st: 'wait' } }, h('span', { class: 'nm', title: g.title }, g.title), h('span', { class: 'sz' }), h('span', { class: 'st' }))]));
-    st.show(h('h1', { class: 'h1' }, 'Limpando…'), h('div', { class: 'group-list' }, [...rows.values()]));
+    const rows = new Map(groups.map((g) => [g.id, h('div', { class: 'prog-row', dataset: { st: 'wait' } }, h('span', { class: 'nm', title: tr(g.title) }, tr(g.title)), h('span', { class: 'sz' }), h('span', { class: 'st' }))]));
+    st.show(h('h1', { class: 'h1' }, t('Limpando…')), h('div', { class: 'group-list' }, [...rows.values()]));
     const sd = stopDock(ctx, 'clean');
     const res = await removeGroups(store.junk, selected, (g, status, info) => {
       const row = rows.get(g.id);
@@ -171,13 +180,13 @@ export function enter(ctx) {
     const remaining = countItems(store.junk);
     // Sem nada liberado de fato, o número grande é o que foi para o Lixo (nunca chamado de "liberado").
     const onlyTrash = !C.freed && C.trashed > 0;
-    st.show(...bigNum(onlyTrash ? C.trashed : C.freed, onlyTrash ? 'enviados ao Lixo' : 'liberados'),
-      h('p', { class: 'sub' }, C.failed ? `${plural(C.failed, 'item não foi removido', 'itens não foram removidos')}.` : onlyTrash ? 'Esvazie a Lixeira para liberar esse espaço.' : 'Seu Mac agradece. Tudo certo por aqui.'),
-      C.trashed > 0 && !onlyTrash ? h('p', { class: 'sub fine' }, `${fmtBytes(C.trashed)} foram para o Lixo; esvazie a Lixeira para liberar esse espaço.`) : null,
+    st.show(...bigNum(onlyTrash ? C.trashed : C.freed, onlyTrash ? t('enviados ao Lixo') : t('liberados')),
+      h('p', { class: 'sub' }, C.failed ? tn(C.failed, '{n} item não foi removido.', '{n} itens não foram removidos.') : onlyTrash ? t('Esvazie a Lixeira para liberar esse espaço.') : t('Seu Mac agradece. Tudo certo por aqui.')),
+      C.trashed > 0 && !onlyTrash ? h('p', { class: 'sub fine' }, t('{size} foram para o Lixo; esvazie a Lixeira para liberar esse espaço.', { size: fmtBytes(C.trashed) })) : null,
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
-        remaining ? h('button', { class: 'btn', type: 'button', onClick: () => { focusGid = null; C.phase = 'review'; render(); } }, icon('search', 15), 'Revisar itens restantes') : null,
-        h('button', { class: 'btn primary', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, 'Concluir')));
+        h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
+        remaining ? h('button', { class: 'btn', type: 'button', onClick: () => { focusGid = null; C.phase = 'review'; render(); } }, icon('search', 15), t('Revisar itens restantes')) : null,
+        h('button', { class: 'btn primary', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, t('Concluir'))));
     ctx.setDock(null);
   }
 
