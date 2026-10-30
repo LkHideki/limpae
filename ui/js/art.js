@@ -1,0 +1,57 @@
+// Ícones SVG (traço) e ilustrações "orb" em CSS. Arte original, sem assets externos.
+import { h, s } from './dom.js';
+
+const P = {
+  smart: ['M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z', 'M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z'],
+  clean: ['M14.5 9.5L20 4', 'M9 10.5l4.5 4.5-2 3.5c-1.6 1.2-4.4 1.4-7-.5 1.2-.7 1.7-2.2 1.8-3.5.2-1.7 1.6-3.2 2.7-4z'],
+  trash: ['M4 7h16', 'M9.5 7V4.5h5V7', 'M6.2 7l.9 12.2a1 1 0 0 0 1 .9h7.8a1 1 0 0 0 1-.9L17.8 7', 'M10 11v6', 'M14 11v6'],
+  apps: ['M5 5h5.5v5.5H5z', 'M13.5 5H19v5.5h-5.5z', 'M5 13.5h5.5V19H5z', 'M16.2 13v6M13.5 16.2H19'],
+  folder: ['M3.5 7.5a2 2 0 0 1 2-2h3.8l2 2.2h7.2a2 2 0 0 1 2 2v7.3a2 2 0 0 1-2 2H5.5a2 2 0 0 1-2-2z'],
+  file: ['M7 3.5h6.5L18 8v12.5H7z', 'M13.5 3.5V8H18'],
+  video: ['M4 6.5h11v11H4z', 'M15 10.5l5-3v9l-5-3'],
+  archive: ['M4 4.5h16v4H4z', 'M5.5 8.5v11h13v-11', 'M10 12.5h4'],
+  disk: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z'],
+  audio: ['M9 17.5V6.5l10-2v11', 'M9 17.5a2.5 2.5 0 1 1-2.5-2.5A2.5 2.5 0 0 1 9 17.5z', 'M19 15.5a2.5 2.5 0 1 1-2.5-2.5 2.5 2.5 0 0 1 2.5 2.5z'],
+  code: ['M8.5 8l-4 4 4 4', 'M15.5 8l4 4-4 4', 'M13 5.5l-2 13'],
+  box: ['M4 8l8-4 8 4v8l-8 4-8-4z', 'M4 8l8 4 8-4', 'M12 12v8'],
+  log: ['M5 6.5h14', 'M5 12h14', 'M5 17.5h9'],
+  hammer: ['M13 6l5 5', 'M4.5 19.5l8.5-8.5', 'M12 5l3-2 5 5-2 3z'],
+  search: ['M11 4.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13z', 'M20 20l-4.2-4.2'],
+  check: ['M5.5 12.5l4.2 4.2L18.5 7.8'],
+  dash: ['M6.5 12h11'],
+  back: ['M14.5 5.5L8 12l6.5 6.5'],
+  x: ['M6.5 6.5l11 11M17.5 6.5l-11 11'],
+  reveal: ['M13.5 4.5H19.5v6', 'M19.5 4.5l-8 8', 'M17.5 14v4.5a1 1 0 0 1-1 1h-10a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1H11'],
+  lock: ['M6.5 11h11v8.5h-11z', 'M8.5 11V8.5a3.5 3.5 0 0 1 7 0V11'],
+  alert: ['M12 4.5l8.5 14.5h-17z', 'M12 10v4', 'M12 16.8v.1'],
+  refresh: ['M19.5 11a7.5 7.5 0 1 0-2.2 5.3', 'M19.8 5v6h-6'],
+  shield: ['M12 3.5l7 2.8v5c0 4.5-3 7.5-7 9.2-4-1.7-7-4.7-7-9.2v-5z', 'M9 12l2.2 2.2L15.5 10'],
+  bolt: ['M13 3.5L5.5 13.5H12l-1 7 7.5-10H12z'],
+  clock: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M12 8v4.2l2.8 1.8'],
+  restart: ['M4.5 12a7.5 7.5 0 1 1 2.2 5.3', 'M4.2 18v-6h6'],
+};
+
+export function icon(name, size = 18, cls = '') {
+  return s('svg', { viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', class: `i-${name} ${cls}`.trim(), 'aria-hidden': 'true' },
+    ...P[name].map((d) => s('path', { d })));
+}
+
+// Ícone por id de grupo (junk/large); cai em "file".
+const GROUP_ICON = { user_caches: 'box', user_logs: 'log', xcode: 'hammer', dev_caches: 'code', video: 'video', archive: 'archive', disk_image: 'disk', audio: 'audio', other: 'file', trash: 'trash', apps: 'apps', leftovers: 'folder' };
+export const groupIcon = (id) => (P[GROUP_ICON[id]] ? GROUP_ICON[id] : 'folder');
+
+// Orb: bolha glossy em camadas de gradiente radial + glifo; `mod` escolhe paleta/forma via CSS.
+export function orb(mod, size = 200, glyph) {
+  const g = icon(glyph || mod, 24, 'orb-glyph');
+  g.removeAttribute('width'); g.removeAttribute('height');
+  return h('div', { class: 'orb', dataset: { mod }, vars: { '--s': size + 'px' } },
+    h('div', { class: 'orb-body' }), h('div', { class: 'orb-rim' }), h('div', { class: 'orb-gloss' }), g);
+}
+
+export const MODS = [
+  { id: 'smart', label: 'Faxina', glyph: 'smart' },
+  { id: 'clean', label: 'Limpeza', glyph: 'clean' },
+  { id: 'trash', label: 'Lixeira', glyph: 'trash' },
+  { id: 'apps', label: 'Aplicativos', glyph: 'apps' },
+  { id: 'files', label: 'Meus Arquivos', glyph: 'folder' },
+];
