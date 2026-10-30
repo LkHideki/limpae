@@ -318,7 +318,7 @@ export function enter(ctx) {
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
-    U.done = { headline: plural(r.okIds.size, kind === 'installers' ? 'instalador removido' : 'resto de app removido', kind === 'installers' ? 'instaladores removidos' : 'restos de apps removidos'), freed: r.freed, failed: r.failures.length, again: () => { U.pane = 'leftovers'; U.restGroup = kind; } };
+    U.done = { headline: plural(r.okIds.size, kind === 'installers' ? 'instalador removido' : 'resto de app removido', kind === 'installers' ? 'instaladores removidos' : 'restos de apps removidos'), freed: r.freed, failed: r.failures.length, permanent: ok === 'permanent', again: () => { U.pane = 'leftovers'; U.restGroup = kind; } };
     U.phase = 'done';
     render();
     if (r.failures.length) failuresSheet(r.failures);
@@ -334,7 +334,7 @@ export function enter(ctx) {
     const more = () => { const fn = d.again; U.done = null; U.phase = 'manager'; if (fn) fn(); render(); };
     st.show(h('h1', { class: 'h1' }, 'Pronto!'),
       h('div', { class: 'big-cap' }, d.headline),
-      h('p', { class: 'sub' }, [`${fmtBytes(d.freed)} movidos para o Lixo.`, d.failed ? ` ${plural(d.failed, 'item não foi removido', 'itens não foram removidos')}.` : ''].join('')),
+      h('p', { class: 'sub' }, [d.permanent ? `${fmtBytes(d.freed)} apagados definitivamente.` : `${fmtBytes(d.freed)} movidos para o Lixo. Esvazie a Lixeira para liberar o espaço.`, d.failed ? ` ${plural(d.failed, 'item não foi removido', 'itens não foram removidos')}.` : ''].join('')),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
         h('button', { class: 'btn', type: 'button', onClick: more }, 'Gerenciar mais'),
@@ -655,7 +655,7 @@ export function enter(ctx) {
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
-    U.done = { headline: okCount === 1 ? '1 aplicativo desinstalado' : `${okCount} aplicativos desinstalados`, freed, failed: failures.length, again: () => { U.pane = 'uninstaller'; U.group = 'all'; } };
+    U.done = { headline: okCount === 1 ? '1 aplicativo desinstalado' : `${okCount} aplicativos desinstalados`, freed, failed: failures.length, permanent, again: () => { U.pane = 'uninstaller'; U.group = 'all'; } };
     U.phase = okCount || failures.length ? 'done' : back;
     render();
     if (failures.length) failuresSheet(failures);

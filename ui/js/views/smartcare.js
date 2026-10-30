@@ -343,6 +343,7 @@ export function enter(ctx) {
       body: 'Confira o que vai acontecer:',
       confirm: 'Executar', danger: !!d.trash, glyph: d.trash ? 'trash' : 'clean', mod: d.trash ? 'trash' : 'clean',
       permanentChoice: movedAny, permanentDefault: !!(store.settings && store.settings.permanentDelete),
+      trashCount: movedAny ? d.clean.moved : null,
     });
     // O corpo do diálogo some quando "Apagar definitivamente" está ligado; o resumo fica fora dele e acompanha a chave.
     const card = Array.from(document.querySelectorAll('#modal-root .modal')).pop();
@@ -421,7 +422,16 @@ export function enter(ctx) {
   function renderDone() {
     bento.dataset.phase = 'done';
     mods().forEach((m) => paint(m, 'final'));
-    setHead(S.stopped ? 'Execução interrompida. O que já rodou foi concluído.' : 'Muito bem! Seu Mac está em ótima forma.',
+    // O título diz o que de fato aconteceu: falhas e pontos ainda abertos não viram "ótima forma".
+    const outs = Object.values(S.out);
+    const failed = outs.some((o) => o === 'failed' || o === 'partial');
+    const sm = S.sum || {};
+    const open = (sm.protect && sm.protect.bad) || (sm.perf && sm.perf.flagged) || (sm.apps && (sm.apps.updates || sm.apps.unused));
+    const head = S.stopped ? 'Execução interrompida. O que já rodou foi concluído.'
+      : failed ? 'Concluído, mas alguns itens não puderam ser removidos.'
+        : open ? 'Limpeza concluída. Ainda há pontos para revisar.'
+          : 'Muito bem! Seu Mac está em ótima forma.';
+    setHead(head,
       h('button', { class: 'btn sm ghost left', type: 'button', onClick: restart }, icon('restart', 14), 'Recomeçar'));
     ctx.setDock(null);
     root.append(h('div', { class: 'bento-foot enter' }, h('button', { class: 'btn sm', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 14), 'Ver log')));

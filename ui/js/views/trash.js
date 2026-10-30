@@ -24,7 +24,7 @@ export function enter(ctx) {
     const ticker = h('div', { class: 'ticker' });
     st.show(h('h1', { class: 'h1' }, 'Verificando…'), h('p', { class: 'sub' }, 'Lendo o conteúdo da Lixeira.'), ticker);
     ctx.onProgress((p) => { if (p.task === 'trash') ticker.textContent = p.path || ''; });
-    ctx.setDock({ label: 'Parar', busy: true, mod: 'trash', onClick: () => { cancelled = true; api.cancel().catch(() => {}); } });
+    ctx.setDock({ label: 'Parar', busy: true, mod: 'trash', onClick: () => { cancelled = true; ctx.setDock({ label: 'Parando', busy: true, disabled: true, mod: 'trash' }); api.cancel().catch(() => {}); } });
     try {
       const r = await api.trash();
       if (!cancelled) { store.trash = r; T.phase = 'ready'; }
@@ -38,6 +38,11 @@ export function enter(ctx) {
   function render() {
     const r = store.trash;
     if (T.phase === 'done') return renderDone();
+    if (!r && cancelled) {
+      // Parado pelo usuário: volta ao começo, sem mensagem de falha.
+      st.show(h('h1', { class: 'h1' }, 'Lixeira'), h('p', { class: 'sub' }, 'Verificação interrompida.'));
+      return ctx.setDock({ label: 'Verificar', mod: 'trash', onClick: load });
+    }
     if (!r) {
       st.show(h('h1', { class: 'h1' }, 'Lixeira'), h('p', { class: 'sub' }, 'Não foi possível ler a Lixeira agora.'),
         h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: load }, 'Tentar de novo')));

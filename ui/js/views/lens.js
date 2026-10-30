@@ -640,7 +640,7 @@ export function enter(ctx) {
     const sd = stopDock(ctx, 'lens');
     const res = await removeGroups(result, sel, (g, status, info) => { if (status !== 'run') sd.progress(info.done / info.total); }, { permanent, stopped: sd.stopped });
     bump(); store.trash = null;
-    S.moved = res.freed; S.phase = 'done'; S.hasMap = false; S.cur = null; S.review = null; S.sel = new Set();
+    S.moved = res.freed; S.permanent = permanent; S.phase = 'done'; S.hasMap = false; S.cur = null; S.review = null; S.sel = new Set();
     play(res.freed ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
@@ -650,8 +650,8 @@ export function enter(ctx) {
   }
 
   function renderDone() {
-    st.show(h('div', { class: 'big' }, bytesParts(S.moved).value, h('small', null, bytesParts(S.moved).unit)), h('div', { class: 'big-cap' }, 'movidos para o Lixo'),
-      h('p', { class: 'sub' }, 'Esvazie a Lixeira para liberar o espaço no disco. O mapa mudou: analise de novo para ver o resultado.'),
+    st.show(h('div', { class: 'big' }, bytesParts(S.moved).value, h('small', null, bytesParts(S.moved).unit)), h('div', { class: 'big-cap' }, S.permanent ? 'apagados definitivamente' : 'movidos para o Lixo'),
+      h('p', { class: 'sub' }, (S.permanent ? 'O espaço já foi liberado.' : 'Esvazie a Lixeira para liberar o espaço no disco.') + ' O mapa mudou: analise de novo para ver o resultado.'),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
         h('button', { class: 'btn primary', type: 'button', onClick: () => { S.phase = 'idle'; st = null; render(); } }, 'Analisar de novo'),

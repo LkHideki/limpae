@@ -121,6 +121,8 @@ const DEV_ITEMS: &[(&str, &str, bool)] = &[
     (".gradle", ".gradle/caches", true),
 ];
 
+const EDITED_NOTE: &str = "Modificado depois de baixado; pode ser a única cópia";
+const MODULE_CACHE_NOTE: &str = "Cache de módulos; o próximo build fica mais lento";
 const HEAVY_NOTE: &str = "Grande para baixar de novo";
 const RUNNING_NOTE: &str = "App em execução";
 
@@ -240,7 +242,10 @@ fn candidates(home: &Path, running: &HashSet<String>) -> Vec<Candidate> {
     for rel in XCODE_ROOTS {
         let root = home.join(rel);
         for path in children(&root) {
-            out.push(Candidate::junk(path, &root, XCODE));
+            let c = Candidate::junk(path, &root, XCODE);
+            // Module caches stay unselected: rebuilding them slows every project's next build.
+            let module_cache = file_name(&c.path).eq_ignore_ascii_case("ModuleCache.noindex");
+            out.push(if module_cache { c.unselected(MODULE_CACHE_NOTE) } else { c });
         }
     }
     // Archives hold the dSYMs needed to symbolicate shipped builds: Trash, never pre-selected.
@@ -409,10 +414,25 @@ fn mail_attachments(home: &Path, out: &mut Vec<Candidate>) {
         let c = Candidate::junk(path.clone(), &root, MAIL_ATTACHMENTS);
         // Mail stores each attachment as `<uuid>/<file>`: show the file name instead of the uuid.
         let inner = if fs::symlink_metadata(&path).is_ok_and(|m| m.is_dir()) { children(&path) } else { Vec::new() };
+        // An attachment opened from Mail and edited in place exists only here: never pre-select it.
+        let edited = std::iter::once(&path).chain(inner.iter()).any(|p| modified_after_download(p));
+        let c = if edited { c.unselected(EDITED_NOTE) } else { c };
         out.push(match inner.as_slice() {
             [only] => c.named(file_name(only)),
             _ => c,
         });
+    }
+}
+
+/// A regular file whose content changed more than a minute after it was created (downloaded).
+fn modified_after_download(path: &Path) -> bool {
+    let Ok(md) = fs::symlink_metadata(path) else { return false };
+    if !md.is_file() {
+        return false;
+    }
+    match (md.created(), md.modified()) {
+        (Ok(c), Ok(m)) => m.duration_since(c).is_ok_and(|d| d.as_secs() > 60),
+        _ => true, // unknown: be safe
     }
 }
 
@@ -838,5 +858,28 @@ mod tests {
             assert_eq!(item.selected, !archive, "{}", item.name);
             assert_eq!(item.note.as_deref(), archive.then_some("Necessário para símbolos de depuração"));
         }
+    }
+
+    #[test]
+    fn edited_mail_attachments_and_module_cache_start_unselected() {
+        let (_t, home) = fake_home();
+        let md = home.join("Library/Containers/com.apple.mail/Data/Library/Mail Downloads");
+        write(&md.join("AAA/fresh.pdf"), KB64);
+        write(&md.join("BBB/edited.docx"), KB64);
+        // Simulate an in-place edit: content timestamp well after creation.
+        let later = std::time::SystemTime::now() + Duration::from_secs(3600);
+        fs::File::options().write(true).open(md.join("BBB/edited.docx")).unwrap().set_modified(later).unwrap();
+        let dd = home.join("Library/Developer/Xcode/DerivedData");
+        write(&dd.join("ModuleCache.noindex/m"), KB64);
+        write(&dd.join("App-abc/b"), KB64);
+        let groups = scan(&home, &[]);
+        let mail = group(&groups, "mail_attachments");
+        let by = |n: &str| mail.items.iter().find(|i| i.name == n).unwrap();
+        assert!(by("fresh.pdf").selected);
+        assert!(!by("edited.docx").selected);
+        assert_eq!(by("edited.docx").note.as_deref(), Some(EDITED_NOTE));
+        let xcode = group(&groups, "xcode");
+        assert!(!xcode.items.iter().find(|i| i.path.ends_with("ModuleCache.noindex")).unwrap().selected);
+        assert!(xcode.items.iter().find(|i| i.path.ends_with("App-abc")).unwrap().selected);
     }
 }
