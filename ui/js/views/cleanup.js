@@ -14,9 +14,17 @@ const bigNum = (n, cap) => [
   h('div', { class: 'big-cap' }, cap),
 ];
 
+// Tiles do resumo,: cada um agrupa categorias do backend e tem Revisar e Limpar próprios.
+const AI_GROUP = 'ai_clutter', MAIL_GROUP = 'mail_attachments';
+const TILES = [
+  { id: 'system', title: 'Lixo do sistema', ic: 'clean', blurb: 'Caches, registros, Xcode, ferramentas de desenvolvimento e backups antigos.', has: (g) => g.id !== AI_GROUP && g.id !== MAIL_GROUP },
+  { id: 'ai', title: 'Lixo de IA', ic: 'chip', blurb: 'Caches e logs de ferramentas de IA; modelos locais ficam desmarcados.', has: (g) => g.id === AI_GROUP },
+  { id: 'mail', title: 'Anexos do Mail', ic: 'mail', blurb: 'Cópias de anexos que o Mail baixa de novo; os que você editou ficam de fora.', has: (g) => g.id === MAIL_GROUP },
+];
+
 export function enter(ctx) {
   const C = store.cleanup;
-  let st = null, cancelled = false;
+  let st = null, cancelled = false, focusGid = null;
   if (!['summary', 'review', 'done'].includes(C.phase) || (C.phase !== 'done' && !store.junk)) C.phase = 'idle';
 
   function ensureStage() {
@@ -26,10 +34,11 @@ export function enter(ctx) {
   }
 
   function render() {
+    ctx.onBack(null);
     if (C.phase === 'review' && store.junk) return renderReview();
+    if (C.phase === 'summary' && store.junk) return renderSummary();
     ensureStage();
     st.busy(false);
-    if (C.phase === 'summary') return renderSummary();
     if (C.phase === 'done') return renderDone();
     return renderIdle();
   }
@@ -37,7 +46,7 @@ export function enter(ctx) {
   function renderIdle() {
     C.phase = 'idle';
     st.show(h('h1', { class: 'h1' }, 'Limpeza'), h('p', { class: 'sub' }, 'Libere espaço removendo o que o Mac acumulou sem você perceber.'),
-      features('clean', [['box', 'Caches de aplicativos e registros'], ['chip', 'Lixo de ferramentas de IA e modelos locais'], ['code', 'Caches de desenvolvimento e Xcode'], ['phone', 'Backups antigos de iPhone e iPad'], ['mail', 'Anexos do Mail e preferências quebradas']]));
+      features('clean', [['box', 'Lixo do sistema: caches, registros, Xcode e backups antigos'], ['chip', 'Lixo de IA e modelos locais'], ['mail', 'Anexos do Mail']]));
     ctx.setDock({ label: 'Analisar', mod: 'clean', onClick: scan });
   }
 
@@ -64,15 +73,36 @@ export function enter(ctx) {
   function renderSummary() {
     const r = store.junk;
     if (!r.groups.length || r.total === 0) {
+      ensureStage();
+      st.busy(false);
       st.show(h('h1', { class: 'h1' }, 'Tudo limpo'), h('p', { class: 'sub' }, 'Não encontramos lixo para remover agora.'),
         h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, 'Analisar de novo')));
       ctx.setDock(null);
       return;
     }
+    st = null;
+    ctx.reserveDock(true);
     const sel = selectedSize(r, store.junkSel);
-    st.show(...bigNum(r.total, 'de lixo encontrado'),
-      sel.bytes !== r.total ? h('p', { class: 'sub' }, `${fmtBytes(sel.bytes)} pré-selecionados para limpar`) : h('p', { class: 'sub' }, 'Itens seguros de remover já vêm selecionados.'),
-      h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: () => { C.phase = 'review'; render(); } }, 'Revisar detalhes')));
+    const tiles = TILES.map((t) => {
+      const gs = r.groups.filter(t.has);
+      if (!gs.length) return null;
+      const items = gs.flatMap((g) => g.items);
+      const pre = items.filter((i) => store.junkSel.has(i.id));
+      return { t, gs, total: gs.reduce((a, g) => a + g.total, 0), pre, preBytes: pre.reduce((a, i) => a + i.size, 0) };
+    }).filter(Boolean);
+    const review = (gid) => { focusGid = gid; C.phase = 'review'; render(); };
+    mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'clean' }, 'aria-label': 'Resultados da Limpeza' },
+      h('h2', { class: 'fl-title' }, `Encontramos ${fmtBytes(r.total)} de lixo no seu Mac.`),
+      h('p', { class: 'sub fl-sub' }, sel.bytes !== r.total ? `${fmtBytes(sel.bytes)} pré-selecionados para limpar.` : 'Itens seguros de remover já vêm selecionados.'),
+      h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => review(null) }, 'Revisar todo o lixo'),
+      h('div', { class: 'cl-tiles', dataset: { n: tiles.length } }, tiles.map(({ t, gs, total, pre, preBytes }) => h('div', { class: 'cl-tile', dataset: { tile: t.id } },
+        h('span', { class: 'fl-tile-ic' }, icon(t.ic, 26)),
+        h('div', { class: 'cl-tile-n' }, fmtBytes(total)),
+        h('div', { class: 'cl-tile-t' }, t.title),
+        h('div', { class: 'fl-tile-s' }, pre.length ? `${fmtBytes(preBytes)} pré-selecionados. ${t.blurb}` : `Nada pré-selecionado: revise para escolher. ${t.blurb}`),
+        h('div', { class: 'cl-tile-act' },
+          h('button', { class: 'btn sm', type: 'button', onClick: () => review(gs[0].id) }, 'Revisar'),
+          h('button', { class: 'btn sm primary', type: 'button', disabled: !pre.length, onClick: () => clean(new Set(pre.map((i) => i.id))) }, 'Limpar')))))));
     ctx.setDock({ label: 'Limpar', mod: 'clean', disabled: sel.bytes === 0, onClick: () => clean() });
   }
 
@@ -80,17 +110,21 @@ export function enter(ctx) {
     st = null;
     ctx.reserveDock(false);
     ctx.setDock(null);
+    const back = () => { C.phase = 'summary'; render(); };
     const rv = createReview({
-      result: store.junk, sel: store.junkSel, mod: 'clean', title: 'Revisar detalhes', subtitle: 'Escolha o que será removido.',
-      actionLabel: 'Limpar', onBack: () => { C.phase = 'summary'; render(); }, onAction: () => clean(),
+      result: store.junk, sel: store.junkSel, mod: 'clean', title: 'Limpeza', subtitle: 'Revisar detalhes · escolha o que será removido.',
+      actionLabel: 'Limpar', gid: focusGid, onBack: back, onAction: () => clean(),
     });
     mount(ctx.root, rv.el);
+    ctx.onBack(back);
   }
 
-  async function clean() {
-    const { bytes, count } = selectedSize(store.junk, store.junkSel);
+  // `only` = ids de um tile; sem ele, limpa toda a seleção atual.
+  async function clean(only = null) {
+    const selected = only || store.junkSel;
+    const { bytes, count } = selectedSize(store.junk, selected);
     const moved = new Set();
-    for (const g of store.junk.groups) for (const i of g.items) if (store.junkSel.has(i.id) && i.trash) moved.add(i.id);
+    for (const g of store.junk.groups) for (const i of g.items) if (selected.has(i.id) && i.trash) moved.add(i.id);
     const perm = count - moved.size;
     const trashNote = [`${plural(moved.size, 'item vai', 'itens vão')} para o `, h('strong', null, 'Lixo'), ' e dá para recuperá-' + (moved.size === 1 ? 'lo' : 'los') + ' de lá; o espaço só é liberado quando você esvaziar a Lixeira.'];
     const permNote = [`${plural(perm, 'item será', 'itens serão')} `, h('strong', null, perm === 1 ? 'removido definitivamente' : 'removidos definitivamente'), '. Esta ação não pode ser desfeita.'];
@@ -105,11 +139,11 @@ export function enter(ctx) {
     ctx.setBusy(true);
     ensureStageFresh();
     st.busy(true);
-    const groups = store.junk.groups.filter((g) => g.items.some((i) => store.junkSel.has(i.id)));
+    const groups = store.junk.groups.filter((g) => g.items.some((i) => selected.has(i.id)));
     const rows = new Map(groups.map((g) => [g.id, h('div', { class: 'prog-row', dataset: { st: 'wait' } }, h('span', { class: 'nm', title: g.title }, g.title), h('span', { class: 'sz' }), h('span', { class: 'st' }))]));
     st.show(h('h1', { class: 'h1' }, 'Limpando…'), h('div', { class: 'group-list' }, [...rows.values()]));
     const sd = stopDock(ctx, 'clean');
-    const res = await removeGroups(store.junk, store.junkSel, (g, status, info) => {
+    const res = await removeGroups(store.junk, selected, (g, status, info) => {
       const row = rows.get(g.id);
       row.dataset.st = status;
       if (status === 'run') { mount(row.querySelector('.st'), h('span', { class: 'spin' })); return; }
@@ -120,9 +154,10 @@ export function enter(ctx) {
     store.junk = pruneResult(store.junk, res.okIds);
     for (const id of res.okIds) store.junkSel.delete(id);
     bump();
-    C.freed = res.freed; C.failed = res.failures.length; C.phase = 'done';
-    C.moved = [...moved].filter((id) => res.okIds.has(id)).length;
-    play(res.freed ? 'clean' : 'error');
+    // "liberados" só conta o que foi apagado de vez; o que foi para o Lixo aparece à parte.
+    C.freed = res.freed; C.trashed = res.trashed; C.failed = res.failures.length; C.phase = 'done';
+    C.moved = ok === 'permanent' ? 0 : [...moved].filter((id) => res.okIds.has(id)).length;
+    play(res.handled ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
@@ -134,13 +169,15 @@ export function enter(ctx) {
 
   function renderDone() {
     const remaining = countItems(store.junk);
-    st.show(...bigNum(C.freed, 'liberados'),
-      h('p', { class: 'sub' }, C.failed ? `${plural(C.failed, 'item não foi removido', 'itens não foram removidos')}.` : 'Seu Mac agradece. Tudo certo por aqui.'),
-      C.moved ? h('p', { class: 'sub fine' }, `${plural(C.moved, 'item foi', 'itens foram')} para o Lixo: esvazie a Lixeira para liberar esse espaço.`) : null,
+    // Sem nada liberado de fato, o número grande é o que foi para o Lixo (nunca chamado de "liberado").
+    const onlyTrash = !C.freed && C.trashed > 0;
+    st.show(...bigNum(onlyTrash ? C.trashed : C.freed, onlyTrash ? 'enviados ao Lixo' : 'liberados'),
+      h('p', { class: 'sub' }, C.failed ? `${plural(C.failed, 'item não foi removido', 'itens não foram removidos')}.` : onlyTrash ? 'Esvazie a Lixeira para liberar esse espaço.' : 'Seu Mac agradece. Tudo certo por aqui.'),
+      C.trashed > 0 && !onlyTrash ? h('p', { class: 'sub fine' }, `${fmtBytes(C.trashed)} foram para o Lixo; esvazie a Lixeira para liberar esse espaço.`) : null,
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
-        remaining ? h('button', { class: 'btn', type: 'button', onClick: () => { C.phase = 'review'; render(); } }, icon('search', 15), 'Revisar itens restantes') : null,
-        h('button', { class: 'btn primary', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, icon('restart', 15), 'Recomeçar')));
+        remaining ? h('button', { class: 'btn', type: 'button', onClick: () => { focusGid = null; C.phase = 'review'; render(); } }, icon('search', 15), 'Revisar itens restantes') : null,
+        h('button', { class: 'btn primary', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, 'Concluir')));
     ctx.setDock(null);
   }
 

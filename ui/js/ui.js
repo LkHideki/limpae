@@ -88,6 +88,26 @@ export function confirmDialog({ title, body, confirm = 'Confirmar', cancel = 'Ca
   return modal({ title, body, danger, glyph, mod, extra, buttons: [{ label: cancel, value: false }, confirmBtn] }).then((ok) => (ok && permanent ? 'permanent' : ok));
 }
 
+// "Recomeçar" descarta resultados e marcações: sempre com confirmação (nada foi removido até ali).
+export function confirmRestart(mod) {
+  return confirmDialog({
+    title: 'Recomeçar a análise?', body: 'Os resultados e as marcações atuais serão descartados. Nada foi removido até agora.',
+    confirm: 'Recomeçar', glyph: 'restart', mod: mod || 'smart',
+  });
+}
+
+// Barra superior de todo gerenciador: "‹ Voltar" + nome do módulo à esquerda; busca e ordenação (`controls`) à
+// direita. O rodapé do gerenciador fica só com a seleção e a ação principal.
+// `into`: barra já existente para repintar no lugar (a busca mantém o foco entre repinturas só se não for refeita).
+export function managerBar({ title, subtitle, onBack, controls = [], into = null }) {
+  const kids = [
+    h('button', { class: 'btn sm ghost mgr-back', type: 'button', title: 'Voltar (Esc)', onClick: onBack }, icon('back', 14), 'Voltar'),
+    h('div', { class: 'rv-title' }, h('h2', null, title), subtitle ? h('p', null, subtitle) : null),
+    controls,
+  ];
+  return into ? mount(into, kids) : h('div', { class: 'rv-head mgr-bar' }, kids);
+}
+
 // Chave liga/desliga (role=switch), animada.
 export function toggleSwitch(on, onChange, label) {
   const b = h('button', { class: 'switch', type: 'button', role: 'switch', 'aria-label': label || '', 'aria-checked': String(!!on) }, h('i'));

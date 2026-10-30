@@ -6,8 +6,9 @@ import { icon, orb, groupIcon } from '../art.js';
 import { api } from '../api.js';
 import { store, selectedSize, selectedIds, pruneResult, bump } from '../store.js';
 import { fmtBytes, plural } from '../format.js';
-import { checkbox, confirmDialog, failuresSheet, stage, features, toast } from '../ui.js';
+import { checkbox, confirmDialog, failuresSheet, stage, features, toast, managerBar } from '../ui.js';
 import { removeGroups, stopDock } from '../actions.js';
+import { attachMenu, selectMenuButton } from '../menus.js';
 
 const NAME_MATCH = 'Correspondência pelo nome';
 const UNUSED_DAYS = 180;
@@ -117,6 +118,7 @@ export function enter(ctx) {
   // ---------- roteamento ----------
   function render() {
     M = null;
+    ctx.onBack(null);
     ctx.setDock(null);
     ctx.reserveDock(false);
     if (U.phase === 'results') return renderResults();
@@ -287,9 +289,9 @@ export function enter(ctx) {
     if (!count) return;
     const what = kind === 'installers' ? plural(count, 'instalador', 'instaladores') : plural(count, 'resto de app', 'restos de apps');
     const ok = await confirmDialog({
-      title: `Remover ${fmtBytes(bytes)}?`,
+      title: `Mover ${fmtBytes(bytes)} para o Lixo?`,
       body: [h('strong', null, `${what} vão para o Lixo`), `. Você pode restaurá-${count === 1 ? 'lo' : 'los'} de lá até esvaziar a Lixeira.`],
-      confirm: 'Remover', glyph: 'trash', mod: 'apps',
+      confirm: 'Mover para o Lixo', glyph: 'trash', mod: 'apps',
       permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;
@@ -314,11 +316,11 @@ export function enter(ctx) {
     const pruned = pruneResult(res, r.okIds);
     if (kind === 'installers') { U.over.installers = pruned; r.okIds.forEach((id) => U.instSel.delete(id)); } else { U.over.leftovers = pruned; r.okIds.forEach((id) => U.leftSel.delete(id)); }
     bump(); store.trash = null;
-    play(r.freed ? 'clean' : 'error');
+    play(r.handled ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
-    U.done = { headline: plural(r.okIds.size, kind === 'installers' ? 'instalador removido' : 'resto de app removido', kind === 'installers' ? 'instaladores removidos' : 'restos de apps removidos'), freed: r.freed, failed: r.failures.length, permanent: ok === 'permanent', again: () => { U.pane = 'leftovers'; U.restGroup = kind; } };
+    U.done = { headline: plural(r.okIds.size, kind === 'installers' ? 'instalador removido' : 'resto de app removido', kind === 'installers' ? 'instaladores removidos' : 'restos de apps removidos'), freed: r.handled, failed: r.failures.length, permanent: ok === 'permanent', again: () => { U.pane = 'leftovers'; U.restGroup = kind; } };
     U.phase = 'done';
     render();
     if (r.failures.length) failuresSheet(r.failures);
@@ -348,7 +350,7 @@ export function enter(ctx) {
 
   function renderManager() {
     M = {
-      head: h('div', { class: 'am-head' }),
+      head: h('div', { class: 'rv-head mgr-bar' }),
       left: h('nav', { class: 'am-left', 'aria-label': 'Seções' }),
       mid: h('div', { class: 'am-mid' }),
       main: h('div', { class: 'am-main' }),
@@ -356,6 +358,7 @@ export function enter(ctx) {
     };
     mount(root, h('section', { class: 'am enter', dataset: { mod: 'apps' }, 'aria-label': 'Gerenciador de Aplicativos' },
       M.head, h('div', { class: 'am-body' }, M.left, M.mid, M.main), M.foot));
+    ctx.onBack(goBack);
     paintAll();
   }
 
@@ -380,10 +383,7 @@ export function enter(ctx) {
       } }, label));
       sort = [h('div', { class: 'seg', role: 'group', 'aria-label': 'Ordenar por' }, btns), dirBtn];
     }
-    mount(M.head,
-      h('button', { class: 'btn sm ghost am-back', type: 'button', onClick: goBack }, icon('back', 14), 'Voltar'),
-      h('div', { class: 'am-title' }, h('h2', null, 'Aplicativos'), h('p', null, `Gerenciador · ${plural(apps().length, 'app', 'apps')} · ${fmtBytes(apps().reduce((x, a) => x + a.size, 0))}`)),
-      search, sort);
+    managerBar({ into: M.head, title: 'Aplicativos', subtitle: `${plural(apps().length, 'app', 'apps')} · ${fmtBytes(apps().reduce((x, a) => x + a.size, 0))}`, onBack: goBack, controls: [search, sort] });
   }
 
   function paintLeft() {
@@ -499,6 +499,8 @@ export function enter(ctx) {
     if (a.running) return;
     if (U.sel.has(a.id)) U.sel.delete(a.id); else { U.sel.add(a.id); ensureLo(a); }
     if (cb) cb.set(U.sel.has(a.id) ? 'on' : 'off');
+    const oldSel = M.main.querySelector('.am-bar .sel-btn');
+    if (oldSel) oldSel.replaceWith(selBtn());
     paintFoot();
     paintMid();
     if (U.group === 'selected') paintMain();
@@ -526,12 +528,14 @@ export function enter(ctx) {
       const row = (it) => {
         const cb = checkbox(lo.sel.has(it.id) ? 'on' : 'off', () => toggle(), `Selecionar ${it.name}`);
         const toggle = () => { if (lo.sel.has(it.id)) lo.sel.delete(it.id); else lo.sel.add(it.id); cb.set(lo.sel.has(it.id) ? 'on' : 'off'); paintFoot(); };
-        return h('div', { class: 'lo-row' + (it.note ? ' maybe' : ''), onClick: toggle }, cb, h('div', { class: 'rv-ic' }, icon(KIND_ICON[it.name] || 'folder', 16)),
+        const el = h('div', { class: 'lo-row' + (it.note ? ' maybe' : ''), onClick: toggle }, cb, h('div', { class: 'rv-ic' }, icon(KIND_ICON[it.name] || 'folder', 16)),
           h('div', { class: 'rv-main' },
             h('div', { class: 'rv-name' }, h('span', { title: it.name }, it.name)),
             h('div', { class: 'rv-meta', title: it.path }, mid(tilde(it.path), 26)),
             it.note ? h('div', { class: 'lo-why' }, icon('alert', 12), h('span', null, it.note)) : null),
           h('span', { class: 'rv-size' }, fmtBytes(it.size)));
+        attachMenu(el, () => ({ id: it.id, name: it.name, ignore: false, select: { on: lo.sel.has(it.id), toggle } }));
+        return el;
       };
       if (sure.length) kids.push(h('div', { class: 'ap-sec ok', title: 'Pastas com o identificador do app ou de componentes dentro dele, agentes que executam o app e grupos declarados na assinatura.' }, icon('shield', 13), 'Do app · verificado'), ...sure.map(row));
       if (maybe.length) kids.push(h('div', { class: 'ap-sec warn', title: 'Parecem ser do app, mas não há prova. Vêm desmarcados.' }, icon('alert', 13), 'Talvez do app · revise'), ...maybe.map(row));
@@ -548,23 +552,45 @@ export function enter(ctx) {
       paintRes(a, node);
     };
     const sub = [vendorOf(a), lastText(m.lastUsed)].filter(Boolean).join(' · ');
-    const node = h('div', { class: 'am-item', dataset: { app: String(a.id) } },
-      h('div', { class: 'am-row', onClick: toggleOpen },
+    // Clicar na linha seleciona; a seta expande os arquivos relacionados. App aberto não seleciona.
+    const rowEl = h('div', { class: 'am-row', onClick: () => (a.running ? toggleOpen() : toggleApp(a, cb)) },
         cb, iconBox(a, true),
         h('div', { class: 'rv-main' },
           h('div', { class: 'rv-name' }, h('span', { title: a.name }, a.name), a.running ? h('span', { class: 'badge info' }, 'Em execução') : null, isUnused(a) ? h('span', { class: 'badge' }, 'Não usado') : null),
           h('div', { class: 'am-sub', title: sub }, sub)),
         h('span', { class: 'rv-size' }, fmtBytes(a.size)),
-        h('button', { class: 'am-chev', type: 'button', 'aria-label': `Arquivos relacionados de ${a.name}`, 'aria-expanded': String(U.open.has(a.id)), onClick: (e) => { e.stopPropagation(); toggleOpen(); } }, icon('back', 14))),
-      h('div', { class: 'am-res', hidden: true }));
+        h('button', { class: 'am-chev', type: 'button', 'aria-label': `Arquivos relacionados de ${a.name}`, 'aria-expanded': String(U.open.has(a.id)), onClick: (e) => { e.stopPropagation(); toggleOpen(); } }, icon('back', 14)));
+    const node = h('div', { class: 'am-item', dataset: { app: String(a.id) } }, rowEl, h('div', { class: 'am-res', hidden: true }));
+    // Botão direito: Abrir, Mostrar no Finder e Ignorar (e Selecionar quando o app pode ser desinstalado).
+    attachMenu(rowEl, () => ({
+      id: a.id, name: a.name, openApp: true, quickLook: false,
+      select: a.running ? null : { on: U.sel.has(a.id), toggle: () => toggleApp(a, cb) },
+      onIgnored: () => {
+        store.apps = apps().filter((x) => x.id !== a.id);
+        U.appsRef = store.apps;
+        U.sel.delete(a.id); U.lo.delete(a.id); U.open.delete(a.id);
+        paintAll();
+      },
+    }));
     if (U.open.has(a.id)) paintRes(a, node);
     return node;
   }
 
+  // "Selecionar: Tudo/Nada/Parcial ▾" da barra da lista (refeito quando a seleção muda).
+  function selBtn() {
+    const selectable = visibleApps().filter((a) => !a.running);
+    const nSel = selectable.filter((a) => U.sel.has(a.id)).length;
+    return selectMenuButton({
+      modes: [['all', 'Tudo'], ['none', 'Nada']], mode: selectable.length && nSel === selectable.length ? 'all' : nSel ? 'part' : 'none', disabled: !selectable.length,
+      onPick: (mode) => {
+        for (const a of selectable) { if (mode === 'none') U.sel.delete(a.id); else { U.sel.add(a.id); ensureLo(a); } }
+        paintMid(); paintMain(); paintFoot();
+      },
+    });
+  }
+
   function paintMainApps() {
     const list = visibleApps();
-    const selectable = list.filter((a) => !a.running);
-    const allSel = selectable.length > 0 && selectable.every((a) => U.sel.has(a.id));
     const prev = M.main.querySelector('.am-list');
     const top = prev ? prev.scrollTop : 0;
     const listEl = h('div', { class: 'am-list' });
@@ -573,10 +599,7 @@ export function enter(ctx) {
     mount(M.main,
       h('div', { class: 'am-bar' },
         h('span', { class: 'am-count' }, `${plural(list.length, 'app', 'apps')} · ${fmtBytes(list.reduce((x, a) => x + a.size, 0))}`),
-        h('button', { class: 'btn sm ghost', type: 'button', disabled: !selectable.length, onClick: () => {
-          for (const a of selectable) { if (allSel) U.sel.delete(a.id); else { U.sel.add(a.id); ensureLo(a); } }
-          paintMid(); paintMain(); paintFoot();
-        } }, allSel ? 'Desmarcar todos' : 'Selecionar todos')),
+        selBtn()),
       listEl);
     listEl.scrollTop = top;
   }
@@ -742,11 +765,18 @@ export function enter(ctx) {
       for (const it of items) {
         const cb = checkbox(sel.has(it.id) ? 'on' : 'off', () => toggle(), `Selecionar ${it.name}`);
         const toggle = () => { if (sel.has(it.id)) sel.delete(it.id); else sel.add(it.id); cb.set(sel.has(it.id) ? 'on' : 'off'); gcb.set(state()); paintFoot(); };
-        listEl.append(h('div', { class: 'rv-item am-it', onClick: toggle }, cb,
+        // Por que um item não vem marcado (ou o que ele é) fica à vista: selo curto ao lado do nome, nota longa em linha própria.
+        const longNote = !!it.note && it.note.length > 30;
+        const row = h('div', { class: 'rv-item am-it' + (longNote ? ' has-note' : ''), onClick: toggle }, cb,
           h('div', { class: 'rv-ic' }, icon(U.restGroup === 'installers' ? 'disk' : groupIcon('leftovers'), 16)),
-          h('div', { class: 'rv-main' }, h('div', { class: 'rv-name' }, h('span', { title: it.note ? `${it.name}: ${it.note}` : it.name }, it.name)), h('div', { class: 'rv-meta' }, mid(it.path, 24))),
+          h('div', { class: 'rv-main' },
+            h('div', { class: 'rv-name' }, h('span', { title: it.name }, it.name), it.note && !longNote ? h('span', { class: 'badge' + (it.selected ? ' info' : ''), title: it.note }, it.note) : null),
+            h('div', { class: 'rv-meta' }, mid(it.path, 24)),
+            longNote ? h('div', { class: 'rv-note' + (it.selected ? ' info' : ''), title: it.note }, it.note) : null),
           h('span', { class: 'rv-size' }, fmtBytes(it.size)),
-          h('button', { class: 'icon-btn rv-act', type: 'button', title: 'Mostrar no Finder', 'aria-label': `Mostrar ${it.name} no Finder`, onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16))));
+          h('button', { class: 'icon-btn rv-act', type: 'button', title: 'Mostrar no Finder', 'aria-label': `Mostrar ${it.name} no Finder`, onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)));
+        attachMenu(row, () => ({ id: it.id, name: it.name, ignore: false, select: { on: sel.has(it.id), toggle } }));
+        listEl.append(row);
       }
     }
     mount(M.main, listEl);

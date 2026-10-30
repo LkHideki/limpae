@@ -8,8 +8,9 @@ import { icon } from '../art.js';
 import { api } from '../api.js';
 import { store, bump } from '../store.js';
 import { bytesParts, fmtBytes, fmtNum, plural } from '../format.js';
-import { confirmDialog, failuresSheet, stage, checkbox, segmented, features } from '../ui.js';
+import { confirmDialog, confirmRestart, failuresSheet, stage, checkbox, segmented, features, managerBar } from '../ui.js';
 import { outcomesToFailures, stopDock } from '../actions.js';
+import { attachMenu, selectMenuButton } from '../menus.js';
 
 const REMOVE_BATCH = 100;
 
@@ -50,6 +51,21 @@ const SERVICE_UI = {
 };
 
 const AREAS = [{ value: 'checks', label: 'Verificação' }, { value: 'perms', label: 'Permissões' }, { value: 'privacy', label: 'Privacidade' }];
+
+// Nomes legíveis das listas de itens recentes do macOS (o arquivo real aparece no tooltip e no caminho).
+const RECENT_NAMES = {
+  'com.apple.LSSharedFileList.RecentApplications.sfl3': 'Apps abertos recentemente',
+  'com.apple.LSSharedFileList.RecentDocuments.sfl3': 'Documentos abertos recentemente',
+  'com.apple.LSSharedFileList.RecentServers.sfl3': 'Servidores acessados recentemente',
+  'com.apple.LSSharedFileList.RecentHosts.sfl3': 'Servidores acessados recentemente',
+};
+function recentLabel(name) {
+  if (RECENT_NAMES[name]) return RECENT_NAMES[name];
+  const generic = /^com\.apple\.LSSharedFileList\.Recent(\w+)\.sfl\d?$/.exec(name);
+  if (generic) return `Recentes: ${generic[1]}`;
+  const app = /^(?:[\w-]+\.)+([\w-]+)\.sfl\d?$/.exec(name); // com.apple.preview.sfl3 -> Preview
+  return app ? `Documentos recentes do ${app[1].charAt(0).toUpperCase()}${app[1].slice(1)}` : name;
+}
 
 const dtf = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const fmtDate = (sec) => (sec ? dtf.format(new Date(sec * 1000)) : '');
@@ -116,6 +132,7 @@ export function enter(ctx) {
 
   function render() {
     teardown();
+    ctx.onBack(null);
     if (S.phase === 'review') return renderReview();
     if (S.phase === 'results') return renderResults();
     st = null;
@@ -231,12 +248,15 @@ export function enter(ctx) {
       h('div', { class: 'pr-tile-s' }, items.length
         ? `${fmtBytes(itemBytes)} em itens recentes e dados de navegação.${running.length ? ` Feche ${running.map((b) => b.name).join(', ')} para incluir.` : ''}`
         : (running.length ? `Feche ${running.map((b) => b.name).join(', ')} para limpar os dados de navegação.` : (S.priv.needsFda ? 'Conceda o Acesso Total ao Disco para ver os itens recentes.' : 'Nada para limpar por aqui.'))),
-      items.length || running.length ? h('button', { class: 'btn sm', type: 'button', onClick: () => open('privacy') }, 'Revisar') : null);
+      items.length || running.length ? h('div', { class: 'pr-tile-act' },
+        h('button', { class: 'btn sm', type: 'button', onClick: () => open('privacy') }, 'Revisar'),
+        S.psel.size ? h('button', { class: 'btn sm primary', type: 'button', onClick: removePrivacy }, 'Remover') : null) : null);
 
     mount(ctx.root, h('section', { class: 'pr-results enter', dataset: { mod: 'protect' }, 'aria-label': 'Resultados da Proteção' },
-      h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: () => { S.phase = 'idle'; render(); } }, icon('back', 15), 'Recomeçar'), h('span', { class: 'fl-where-tag' }, 'Proteção')),
+      h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('protect')) { S.phase = 'idle'; render(); } } }, icon('back', 15), 'Recomeçar'), h('span', { class: 'fl-where-tag' }, 'Proteção')),
       h('h2', { class: 'fl-title' }, protectedMac && !unk ? 'Seu Mac está protegido.' : bad ? `${plural(bad, 'ponto precisa', 'pontos precisam')} da sua atenção.` : 'Análise concluída.'),
       h('p', { class: 'sub fl-sub' }, 'Revise cada área. Nada é alterado nem removido sem a sua confirmação.'),
+      h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => open('checks') }, 'Revisar tudo'),
       h('div', { class: 'pr-tiles' }, mainTile, permTile, privTile)));
   }
 
@@ -260,25 +280,6 @@ export function enter(ctx) {
       mount(areaSeg, segmented(AREAS, S.area, (v) => { S.area = v; renderReview(); }, 'Área de proteção'));
     }
 
-    // Menu "Selecionar ▾" (mesmo padrão do gerenciador de arquivos).
-    function menu(modes, onPick) {
-      const label = h('b', null, 'escolher');
-      const btn = h('button', { class: 'fm-sel', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, h('span', null, 'Selecionar:'), label, pi('down', 14));
-      const pop = h('div', { class: 'fm-menu', role: 'menu', hidden: true }, modes.map(([mode, text]) => h('button', { class: 'fm-menu-i', type: 'button', role: 'menuitem', onClick: () => { close(); label.textContent = text.toLowerCase(); onPick(mode); } }, text)));
-      const onDoc = (e) => { if (!wrap.contains(e.target)) close(); };
-      const onKey = (e) => { if (e.key === 'Escape') { close(); btn.focus(); } };
-      function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('mousedown', onDoc, true); document.removeEventListener('keydown', onKey, true); }
-      btn.addEventListener('click', () => {
-        if (!pop.hidden) return close();
-        pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
-        document.addEventListener('mousedown', onDoc, true); document.addEventListener('keydown', onKey, true);
-        listeners.push(close);
-        pop.querySelector('button').focus();
-      });
-      const wrap = h('div', { class: 'fm-menu-wrap' }, btn, pop);
-      return wrap;
-    }
-
     function pane(title, desc, tools) {
       const kids = [h('div', { class: 'fm-pane-t' }, h('h3', null, title), h('p', null, desc))];
       if (tools) kids.push(h('div', { class: 'fm-tools' }, tools));
@@ -286,7 +287,6 @@ export function enter(ctx) {
     }
 
     const back = () => { S.phase = 'results'; render(); };
-    const backBtn = h('button', { class: 'btn', type: 'button', onClick: back }, 'Voltar');
 
     // ---- Verificação ----
     function viewChecks() {
@@ -350,9 +350,13 @@ export function enter(ctx) {
       }
       const g = S.tcc.groups.find((x) => x.service === S.svc);
       const [, desc] = SERVICE_UI[g.service] || ['lock', ''];
-      pane(g.title, desc, grantedOf(g).length ? menu([['all', 'Todos'], ['none', 'Nada']], (mode) => {
-        for (const r of grantedOf(g)) mode === 'all' ? S.rsel.add(r.id) : S.rsel.delete(r.id);
-        paintPermCats(); paintPermPane(); paintPermFoot();
+      const granted = grantedOf(g), nPicked = granted.filter((r) => S.rsel.has(r.id)).length;
+      pane(g.title, desc, granted.length ? selectMenuButton({
+        modes: [['all', 'Tudo'], ['none', 'Nada']], mode: nPicked === granted.length ? 'all' : nPicked === 0 ? 'none' : 'part',
+        onPick: (mode) => {
+          for (const r of grantedOf(g)) mode === 'all' ? S.rsel.add(r.id) : S.rsel.delete(r.id);
+          paintPermCats(); paintPermPane(); paintPermFoot();
+        },
       }) : null);
       listEl.scrollTop = 0;
       mount(listEl, rowsOf(g).map((r) => permRow(r)));
@@ -374,7 +378,8 @@ export function enter(ctx) {
 
     function paintPermFoot() {
       const n = selCount();
-      mount(selEl, 'Selecionadas: ', h('b', null, fmtNum(n)), h('small', null, n === 1 ? 'permissão' : 'permissões'));
+      if (!n) mount(selEl, 'Nenhuma permissão selecionada');
+      else mount(selEl, 'Selecionadas: ', h('b', null, fmtNum(n)), h('small', null, n === 1 ? 'permissão' : 'permissões'));
       actionBtn.textContent = 'Revogar';
       actionBtn.disabled = n === 0;
       actionBtn.onclick = revoke;
@@ -404,15 +409,26 @@ export function enter(ctx) {
       }));
     }
 
+    // Mesmos rótulos da Limpeza: Tudo, Nada, Inteligente (a seleção padrão do backend) ou Parcial.
+    function privMode(items) {
+      const n = items.filter((i) => S.psel.has(i.id)).length;
+      if (n === items.length) return 'all';
+      if (n === 0) return 'none';
+      return items.every((i) => S.psel.has(i.id) === !!i.selected) ? 'smart' : 'part';
+    }
+
     function paintPrivPane() {
       const c = privCats().find((x) => x.id === S.pcat);
       const isRecent = c.id === 'recent';
       pane(c.label, isRecent
         ? 'Listas de documentos, apps e servidores abertos recentemente. Vão para o Lixo e o macOS recria as listas conforme você usa o Mac.'
         : 'Dados de navegação que vão para o Lixo. Senhas salvas e favoritos do Chrome, Brave e Edge nunca são tocados.',
-      !c.running && catItems(c).length ? menu([['all', 'Tudo desta lista'], ['none', 'Nada']], (mode) => {
-        for (const i of catItems(c)) mode === 'all' ? S.psel.add(i.id) : S.psel.delete(i.id);
-        paintPrivCats(); paintPrivPane(); paintPrivFoot();
+      !c.running && catItems(c).length ? selectMenuButton({
+        modes: [['smart', 'Inteligente'], ['all', 'Tudo'], ['none', 'Nada']], mode: privMode(catItems(c)),
+        onPick: (mode) => {
+          for (const i of catItems(c)) (mode === 'all' || (mode === 'smart' && i.selected)) ? S.psel.add(i.id) : S.psel.delete(i.id);
+          paintPrivCats(); paintPrivPane(); paintPrivFoot();
+        },
       }) : null);
       listEl.scrollTop = 0;
       const items = catItems(c);
@@ -440,21 +456,26 @@ export function enter(ctx) {
         h('div', { class: 'fm-sec-head' }, cb, h('b', { title: g.title }, g.title), h('span', null, `${plural(g.items.length, 'item', 'itens')} · ${fmtBytes(total)}`)),
         g.items.map((it) => {
           const toggle = () => { S.psel.has(it.id) ? S.psel.delete(it.id) : S.psel.add(it.id); paintPrivCats(); paintPrivPane(); paintPrivFoot(); };
-          return h('div', { class: 'fm-row', onClick: toggle },
-            checkbox(S.psel.has(it.id) ? 'on' : 'off', toggle, `Selecionar ${it.name}`),
+          const label = g.id === 'recent' ? recentLabel(it.name) : it.name;
+          const row = h('div', { class: 'fm-row', onClick: toggle },
+            checkbox(S.psel.has(it.id) ? 'on' : 'off', toggle, `Selecionar ${label}`),
             h('div', { class: 'fm-ic' }, icon('file', 16)),
             h('div', { class: 'fm-main' },
-              h('div', { class: 'fm-name' }, h('span', { title: it.name }, it.name), it.note ? h('span', { class: 'badge info', title: it.note }, it.note) : null),
+              h('div', { class: 'fm-name' }, h('span', { title: it.name }, label), it.note ? h('span', { class: 'badge info', title: it.note }, it.note) : null),
               h('div', { class: 'fm-meta' }, mid(it.path, 26))),
             h('span', { class: 'fm-size' }, fmtBytes(it.size)),
-            h('button', { class: 'icon-btn fm-act', type: 'button', title: 'Mostrar no Finder', 'aria-label': `Mostrar ${it.name} no Finder`, onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)));
+            h('button', { class: 'icon-btn fm-act', type: 'button', title: 'Mostrar no Finder', 'aria-label': `Mostrar ${label} no Finder`, onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)));
+          // Arquivos internos (bancos de dados, listas): só Mostrar no Finder; nada de Visualização Rápida nem Ignorar.
+          attachMenu(row, () => ({ id: it.id, name: label, quickLook: false, ignore: false, select: { on: S.psel.has(it.id), toggle } }));
+          return row;
         }));
     }
 
     function paintPrivFoot() {
       const picked = privItems().filter((i) => S.psel.has(i.id));
       const bytes = picked.reduce((a, i) => a + i.size, 0);
-      mount(selEl, 'Selecionado: ', h('b', null, fmtBytes(bytes)), h('small', null, plural(picked.length, 'item', 'itens')));
+      if (!picked.length) mount(selEl, 'Nenhum item selecionado');
+      else mount(selEl, 'Selecionado: ', h('b', null, fmtBytes(bytes)), h('small', null, plural(picked.length, 'item', 'itens')));
       actionBtn.textContent = 'Remover';
       actionBtn.disabled = picked.length === 0;
       actionBtn.onclick = removePrivacy;
@@ -476,9 +497,10 @@ export function enter(ctx) {
     else viewPrivacy();
     const subtitle = { checks: 'Verificação de segurança', perms: 'Permissões de apps', privacy: 'Privacidade' }[S.area];
     mount(ctx.root, h('section', { class: 'review fm pr-manager enter', dataset: { mod: 'protect' }, 'aria-label': 'Gerenciador de proteção' },
-      h('div', { class: 'rv-head' }, h('div', { class: 'rv-title' }, h('h2', null, 'Gerenciador de proteção'), h('p', null, subtitle)), areaSeg),
+      managerBar({ title: 'Proteção', subtitle, onBack: back, controls: [areaSeg] }),
       bodyEl,
-      h('div', { class: 'rv-foot' }, selEl, backBtn, actionBtn)));
+      h('div', { class: 'rv-foot' }, selEl, actionBtn)));
+    ctx.onBack(back);
   }
 
   // ---------- Ações ----------
@@ -488,7 +510,7 @@ export function enter(ctx) {
     st = null; ensureStage(); st.busy(true);
     const prog = h('p', { class: 'sub' }, sub);
     st.show(h('h1', { class: 'h1' }, title), prog);
-    ctx.setDock({ label: 'Aguarde', busy: true, mod: 'protect' });
+    ctx.setDock(null); // sem ação possível aqui: nada de anel girando; a remoção de privacidade passa a mostrar "Parar"
     return prog;
   }
 
@@ -544,7 +566,7 @@ export function enter(ctx) {
       title: `Mover ${plural(picked.length, 'item', 'itens')} para o Lixo?`,
       body: [`${fmtBytes(bytes)} serão enviados ao Lixo. Você pode restaurá-los de lá `, h('strong', null, 'até esvaziar a Lixeira'), '. Senhas salvas não são tocadas.',
         notes.length ? h('span', { class: 'fl-warn' }, ' ' + notes.join(' ')) : null],
-      confirm: 'Remover', glyph: 'trash', mod: 'protect',
+      confirm: 'Mover para o Lixo', glyph: 'trash', mod: 'protect',
       permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;

@@ -25,6 +25,7 @@ const go = createGo(document.getElementById('dock'));
 const navEl = document.getElementById('nav');
 const foot = document.getElementById('sb-foot');
 let current = null, cleanups = [], alive = false;
+let backFn = null; // "Voltar" do gerenciador montado agora (Esc e ⌘[ chamam o mesmo)
 let fdaDismissed = false;
 try { fdaDismissed = localStorage.getItem('limpae.fda.dismissed') === '1'; } catch (e) { /* storage indisponível */ }
 
@@ -45,6 +46,8 @@ const ctx = {
   reserveDock: (b) => view.classList.toggle('has-dock', b),
   onProgress: (cb) => { cleanups.push(onProgress(cb)); },
   onCleanup: (fn) => { cleanups.push(fn); },
+  // Registra (ou limpa, com null) a ação "Voltar" da tela atual; só gerenciadores registram.
+  onBack: (fn) => { backFn = typeof fn === 'function' ? fn : null; },
   refreshDisk,
 };
 
@@ -54,6 +57,7 @@ function navigate(id, force = false) {
   cleanups.forEach((f) => { try { f(); } catch (e) { /* ignora */ } });
   cleanups = [];
   alive = false;
+  backFn = null;
   setBusy(false);
   go.set(null);
   current = id;
@@ -80,7 +84,7 @@ function renderFoot() {
       h('div', { class: 'disk-txt' }, h('b', null, fmtBytes(d.free)), ' livres de ', fmtBytes(d.total))));
     if (d.fda === false && !fdaDismissed) {
       kids.push(h('div', { class: 'fda-banner' },
-        h('b', null, 'Acesso Total ao Disco'), 'Conceda para uma análise completa, incluindo a Lixeira.',
+        h('b', null, 'Acesso Total ao Disco'), h('span', { class: 'fda-desc' }, 'Conceda para uma análise completa, incluindo a Lixeira.'),
         h('div', null, h('button', { class: 'link', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes')),
         h('button', { class: 'x', type: 'button', 'aria-label': 'Dispensar aviso', onClick: () => { fdaDismissed = true; try { localStorage.setItem('limpae.fda.dismissed', '1'); } catch (e) { /* ignora */ } renderFoot(); } }, icon('x', 14))));
     }
@@ -98,6 +102,19 @@ async function refreshDisk() {
 try {
   Promise.resolve(window.__TAURI__.event.listen('navigate', (e) => navigate(String(e.payload)))).catch(() => {});
 } catch (e) { /* sem eventos do shell (preview no navegador) */ }
+
+// Esc (ou ⌘[) sai do gerenciador aberto, como o "Voltar" do topo. Não age com menu, diálogo ou operação em andamento,
+// nem enquanto a busca tem texto (o primeiro Esc limpa o campo).
+document.addEventListener('keydown', (e) => {
+  const esc = e.key === 'Escape' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey;
+  const bracket = e.metaKey && !e.ctrlKey && !e.altKey && e.key === '[';
+  if (!(esc || bracket) || e.defaultPrevented || !backFn || store.busy) return;
+  if (document.querySelector('.modal-back:not(.out), .ctx-menu, .fm-menu:not([hidden])')) return;
+  const t = e.target;
+  if (esc && t instanceof HTMLInputElement && t.value) return;
+  e.preventDefault();
+  backFn();
+});
 
 // Pausa animações contínuas quando a janela não está em uso (ver body.idle no CSS).
 const syncIdle = () => document.body.classList.toggle('idle', document.hidden || !document.hasFocus());

@@ -4,13 +4,14 @@ export const store = {
   busy: false,
   disk: null,
   junk: null, junkSel: new Set(),
-  trash: null,
+  trash: null, trashSel: new Set(), trashSelRef: null,   // trashSel = itens marcados para esvaziar (tudo, por padrão)
   apps: null,
   large: null, largeMb: 500, largeSel: new Set(),
-  smart: { phase: 'idle', rev: 0, tiles: {}, freed: {}, mods: [], inc: {}, sum: {}, snap: {}, out: {}, apps: null, stopped: false },
+  smart: { phase: 'idle', rev: 0, tiles: {}, freed: {}, trashed: {}, mods: [], inc: {}, sum: {}, snap: {}, out: {}, apps: null, stopped: false },
   cleanup: { phase: 'idle', freed: 0, failed: 0 },
   trashUi: { phase: 'idle', freed: 0 },
   files: { phase: 'idle', moved: 0 },
+  filesFrom: null,   // resultado de duplicados em Downloads entregue pelo Faxina (revisão em Meus Arquivos)
   icons: new Map(),
   settings: null,
   openSection: null,   // dica de seção para o módulo de destino (Minhas Ferramentas); o módulo pode ler e limpar

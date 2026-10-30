@@ -6,7 +6,8 @@ import { h, s, mount, mid } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
 import { fmtBytes, fmtNum, plural } from '../format.js';
-import { confirmDialog, failuresSheet, stage, features, segmented, toast } from '../ui.js';
+import { confirmDialog, confirmRestart, failuresSheet, stage, features, segmented, toast, checkbox, managerBar } from '../ui.js';
+import { attachMenu } from '../menus.js';
 
 const TABS = [
   { id: 'agents', label: 'Agentes', ic: 'chip' },
@@ -27,7 +28,7 @@ const SIGNATURE_HINT = {
 };
 
 // Estado que sobrevive à troca de módulo (a view é recriada a cada entrada).
-const S = { phase: 'idle', res: null, tab: 'agents', filter: 'all', sysLimit: SYS_STEP, icons: new Map(), hist: [] };
+const S = { phase: 'idle', res: null, tab: 'agents', filter: 'all', sysLimit: SYS_STEP, icons: new Map(), hist: [], sel: new Set(), lsel: new Set(), note: null };
 
 const dtf = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const rtf = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' });
@@ -84,6 +85,7 @@ export function enter(ctx) {
 
   function render() {
     stopMonitor();
+    ctx.onBack(null);
     if (S.phase === 'results' && S.res) return renderResults();
     if (S.phase === 'manager' && S.res) return renderManager();
     return renderIdle();
@@ -137,6 +139,7 @@ export function enter(ctx) {
     S.icons = new Map();
     S.sysLimit = SYS_STEP;
     S.filter = 'all';
+    S.sel = new Set(); S.lsel = new Set(); S.note = null;
     const n = res.agents.length;
     mark('agents', plural(n, 'item', 'itens'));
     if (res.login.needsAutomation) mark('login', 'precisa de permissão', 'skip');
@@ -185,7 +188,7 @@ export function enter(ctx) {
       },
     ];
     const el = h('section', { class: 'pf-results enter', dataset: { mod: 'perf' }, 'aria-label': 'Resultados' },
-      h('div', { class: 'pf-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: () => { S.phase = 'idle'; render(); } }, icon('back', 15), 'Recomeçar')),
+      h('div', { class: 'pf-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('perf')) { S.phase = 'idle'; render(); } } }, icon('back', 15), 'Recomeçar')),
       h('h2', { class: 'pf-title' }, 'Veja o que roda no seu Mac.'),
       h('p', { class: 'sub pf-sub' }, 'Nada é alterado sem a sua escolha. O que você desativar pode ser reativado, e o que remover vai para o Lixo.'),
       h('button', { class: 'btn primary pf-all', type: 'button', onClick: () => openManager('agents') }, 'Abrir o gerenciador'),
@@ -206,7 +209,7 @@ export function enter(ctx) {
     let res = null;
     try { res = await api.perfScan(); } catch (e) { /* aviso já exibido */ }
     if (!ctx.alive) return;
-    if (res) { S.res = res; S.icons = new Map(); S.sysLimit = SYS_STEP; }
+    if (res) { S.res = res; S.icons = new Map(); S.sysLimit = SYS_STEP; S.sel = new Set(); S.lsel = new Set(); }
     render();
   }
 
@@ -219,6 +222,8 @@ export function enter(ctx) {
     const headEl = h('div', { class: 'fm-pane-head' });
     const bodyEl = h('div', { class: 'fm-list pf-body' });
     const footEl = h('div', { class: 'rv-sel' });
+    const back = () => { S.note = null; S.phase = 'results'; render(); };
+    const actionBtn = h('button', { class: 'btn primary', type: 'button', onClick: () => removeSelected() }, icon('trash', 16), 'Remover');
 
     const summary = (id) => {
       const r = S.res;
@@ -228,13 +233,23 @@ export function enter(ctx) {
       return r.snapshots.error ? 'Não concluído' : plural(r.snapshots.items.length, 'snapshot', 'snapshots');
     };
     function renderNav() {
-      mount(navEl, TABS.map((t) => h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(t.id === S.tab), onClick: () => { if (S.tab !== t.id) { S.tab = t.id; showTab(); } } },
+      mount(navEl, TABS.map((t) => h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(t.id === S.tab), onClick: () => { if (S.tab !== t.id) { S.tab = t.id; S.note = null; showTab(); } } },
         h('span', { class: 'fm-cat-ic' }, icon(t.ic, 17)),
         h('span', { class: 'fm-cat-t' }, h('b', null, t.label), h('span', null, summary(t.id))))), whyNote('pf-why-nav'));
     }
+    // Rodapé: seleção + "Remover" nas abas de agentes e itens de login; aviso do que acabou de acontecer (com "Ver log").
+    const selOfTab = () => (S.tab === 'agents' ? S.sel : S.tab === 'login' ? S.lsel : null);
     function renderFoot() {
       const flagged = S.res.agents.filter((a) => a.flagged).length;
-      mount(footEl, flagged ? h('span', { class: 'pf-foot-warn' }, icon('alert', 14), `${plural(flagged, 'agente pede', 'agentes pedem')} atenção`) : 'Tudo o que você desativar pode ser reativado.');
+      const sel = selOfTab();
+      const kids = [];
+      if (S.note) kids.push(S.note, ' ', h('button', { class: 'link', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, 'Ver log'));
+      else if (sel && sel.size) kids.push(h('b', null, plural(sel.size, 'item selecionado', 'itens selecionados')));
+      else if (sel) kids.push(flagged && S.tab === 'agents' ? h('span', { class: 'pf-foot-warn' }, icon('alert', 14), `${plural(flagged, 'agente pede', 'agentes pedem')} atenção`) : 'Nenhum item selecionado');
+      else kids.push(flagged ? h('span', { class: 'pf-foot-warn' }, icon('alert', 14), `${plural(flagged, 'agente pede', 'agentes pedem')} atenção`) : 'Tudo o que você desativar pode ser reativado.');
+      mount(footEl, kids);
+      actionBtn.hidden = !sel;
+      actionBtn.disabled = !sel || !sel.size;
     }
     function showTab() {
       stopMonitor();
@@ -257,7 +272,7 @@ export function enter(ctx) {
       const keep = (a) => S.filter === 'all' || a.flagged;
       const mine = userAgents().filter(keep), sys = systemAgents().filter(keep);
       const shown = sys.slice(0, S.sysLimit);
-      const kids = [];
+      const kids = [h('p', { class: 'pf-notice' }, icon('alert', 14), 'Alguns apps precisam dos itens em segundo plano para funcionar direito. Desative ou remova só o que você reconhece.')];
       if (mine.length) kids.push(h('section', { class: 'fm-sec' }, h('div', { class: 'fm-sec-head' }, h('b', null, 'Seus agentes'), h('span', null, plural(mine.length, 'item', 'itens'))), mine.map(agentRow)));
       if (sys.length) {
         kids.push(h('section', { class: 'fm-sec' },
@@ -265,7 +280,7 @@ export function enter(ctx) {
           shown.map(agentRow),
           sys.length > shown.length ? h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.sysLimit += SYS_STEP * 2; listAgents(); } }, `Mostrar mais (${plural(sys.length - shown.length, 'item', 'itens')})`)) : null));
       }
-      if (!kids.length) kids.push(h('div', { class: 'rv-empty' }, S.filter === 'flag' ? 'Nenhum agente pede atenção.' : 'Nenhum agente encontrado.'));
+      if (kids.length === 1) kids.push(h('div', { class: 'rv-empty' }, S.filter === 'flag' ? 'Nenhum agente pede atenção.' : 'Nenhum agente encontrado.'));
       mount(bodyEl, kids);
     }
     function agentRow(a) {
@@ -280,16 +295,21 @@ export function enter(ctx) {
       if (user && !a.manageable && a.note) pills.push(pill(a.note, 'idle'));
       const facts = [a.runAtLoad ? 'Abre no login' : null, a.keepAlive ? 'Reinicia sozinho' : null,
         a.signature === 'valid' ? (a.signer ? `Assinado por ${a.signer.replace(/^Developer ID Application: /, '')}` : 'Assinatura válida') : a.signature === 'adHoc' ? 'Assinatura ad hoc' : a.signature === 'unknown' ? 'Assinatura não verificada' : null].filter(Boolean);
-      const actions = user && a.manageable
-        ? [h('button', { class: 'pf-switch', type: 'button', role: 'switch', 'aria-checked': String(a.state !== 'disabled'), 'aria-label': `${a.state === 'disabled' ? 'Ativar' : 'Desativar'} ${agentName(a)}`, title: a.state === 'disabled' ? 'Ativar' : 'Desativar', onClick: (e) => toggle(a, e.currentTarget.closest('.pf-row')) }, h('i')),
-          h('button', { class: 'btn sm pf-rm', type: 'button', 'aria-label': `Remover ${agentName(a)}`, onClick: () => removeAgent(a) }, icon('trash', 14), 'Remover')]
+      const manageable = user && a.manageable;
+      const actions = manageable
+        ? [h('button', { class: 'pf-switch', type: 'button', role: 'switch', 'aria-checked': String(a.state !== 'disabled'), 'aria-label': `${a.state === 'disabled' ? 'Ativar' : 'Desativar'} ${agentName(a)}`, title: a.state === 'disabled' ? 'Ativar' : 'Desativar', onClick: (e) => toggle(a, e.currentTarget.closest('.pf-row')) }, h('i'))]
         : [h('span', { class: 'pf-lock', title: user ? a.note : 'Do sistema · requer administrador' }, icon('lock', 15))];
-      return h('div', { class: 'pf-row', dataset: { state: a.state || 'system' } }, slot,
+      const flip = () => { S.sel.has(a.id) ? S.sel.delete(a.id) : S.sel.add(a.id); cb.set(S.sel.has(a.id) ? 'on' : 'off'); renderFoot(); };
+      const cb = manageable ? checkbox(S.sel.has(a.id) ? 'on' : 'off', flip, `Selecionar ${agentName(a)}`) : h('span', { class: 'pf-nocb', 'aria-hidden': 'true' });
+      const row = h('div', { class: 'pf-row', dataset: { state: a.state || 'system' }, onClick: manageable ? (e) => { if (!e.target.closest('button')) flip(); } : null }, cb, slot,
         h('div', { class: 'fm-main' },
           h('div', { class: 'fm-name' }, h('span', { title: agentName(a) }, agentName(a)), pills),
           h('div', { class: 'fm-meta pf-meta' }, h('span', { class: 'pf-label', title: a.label }, a.label), a.program ? mid(a.program, 26) : h('span', null, 'Sem programa')),
           facts.length ? h('div', { class: 'pf-facts' }, facts.join(' · ')) : null),
         h('div', { class: 'pf-actions' }, actions));
+      // Botão direito (agentes do usuário, registrados no backend): Mostrar no Finder. Os do sistema são só leitura.
+      if (manageable) attachMenu(row, () => ({ id: a.id, name: agentName(a), quickLook: false, ignore: false, select: { on: S.sel.has(a.id), toggle: flip } }));
+      return row;
     }
     async function toggle(a, row) {
       const enable = a.state === 'disabled';
@@ -306,22 +326,41 @@ export function enter(ctx) {
       row.replaceWith(agentRow(a));
       renderNav();
     }
-    async function removeAgent(a) {
+    // Remove o que está marcado na aba aberta (agentes ou itens de login), com confirmação.
+    async function removeSelected() {
+      const agents = S.tab === 'agents';
+      const sel = agents ? S.sel : S.lsel;
+      const list = agents ? S.res.agents.filter((x) => sel.has(x.id)) : S.res.login.items.filter((x) => sel.has(x.id));
+      if (!list.length) return;
+      const one = list.length === 1;
+      const nameOf = (x) => (agents ? agentName(x) : x.name);
       const ok = await confirmDialog({
-        title: `Remover ${agentName(a)}?`, glyph: 'trash', danger: true, mod: 'perf', confirm: 'Remover',
-        body: h('span', null, 'O agente será parado agora e o arquivo de configuração (', h('b', null, a.file), ') irá para o Lixo, de onde dá para restaurar. O app dono não é removido.'),
+        title: one ? `Remover ${nameOf(list[0])}?` : agents ? `Remover ${plural(list.length, 'agente', 'agentes')}?` : `Remover ${plural(list.length, 'item', 'itens')} de login?`,
+        glyph: agents ? 'trash' : 'restart', danger: true, mod: 'perf', confirm: 'Remover',
+        body: agents
+          ? h('span', null, one ? ['O agente será parado agora e o arquivo de configuração (', h('b', null, list[0].file), ')'] : 'Os agentes serão parados agora e os arquivos de configuração', ' irão para o Lixo, de onde dá para restaurar. Os apps donos não são removidos.')
+          : h('span', null, 'Os apps deixam de abrir sozinhos quando você entra no Mac. Continuam instalados, e dá para adicioná-los de novo em Ajustes do Sistema › Geral › Itens de Início.'),
       });
       if (!ok || !ctx.alive) return;
       ctx.setBusy(true);
       let res = null;
-      try { res = await api.agentRemove([a.id]); } catch (e) { play('error'); }
+      try { res = await (agents ? api.agentRemove : api.loginItemRemove)(list.map((x) => x.id)); } catch (e) { play('error'); }
       ctx.setBusy(false);
       if (!res || !ctx.alive) return;
       const done = res.outcomes.filter((o) => o.ok).map((o) => o.id);
       const bad = res.outcomes.filter((o) => !o.ok);
-      if (done.length) { S.res.agents = S.res.agents.filter((x) => !done.includes(x.id)); play('clean'); }
-      if (S.tab === 'agents') { showTab(); } else { renderNav(); }
-      if (bad.length) { play('error'); await failuresSheet(bad.map((o) => ({ id: o.id, name: agentName(a), path: '', error: o.error }))); }
+      if (done.length) {
+        if (agents) S.res.agents = S.res.agents.filter((x) => !done.includes(x.id)); else S.res.login.items = S.res.login.items.filter((x) => !done.includes(x.id));
+        for (const id of done) sel.delete(id);
+        S.note = `${plural(done.length, 'item removido', 'itens removidos')}.`;
+        play('clean');
+      }
+      showTab();
+      if (bad.length) {
+        const byId = new Map(list.map((x) => [x.id, x]));
+        play('error');
+        await failuresSheet(bad.map((o) => ({ id: o.id, name: byId.has(o.id) ? nameOf(byId.get(o.id)) : 'Item', path: '', error: o.error })));
+      }
     }
 
     // --- Itens de login ---
@@ -345,26 +384,11 @@ export function enter(ctx) {
     function loginRow(it) {
       const slot = h('div', { class: 'pf-ic' }, icon('restart', 17));
       if (it.path && it.path.endsWith('.app')) loadIcon(it.id, slot);
-      return h('div', { class: 'pf-row' }, slot,
-        h('div', { class: 'fm-main' }, h('div', { class: 'fm-name' }, h('span', { title: it.name }, it.name)), h('div', { class: 'fm-meta pf-meta' }, it.path ? mid(it.path, 26) : h('span', null, 'Sem caminho'))),
-        h('div', { class: 'pf-actions' }, h('button', { class: 'btn sm pf-rm', type: 'button', 'aria-label': `Remover ${it.name} dos itens de login`, onClick: () => removeLogin(it) }, icon('trash', 14), 'Remover')));
-    }
-    async function removeLogin(it) {
-      const ok = await confirmDialog({
-        title: `Remover ${it.name} dos itens de login?`, glyph: 'restart', danger: true, mod: 'perf', confirm: 'Remover',
-        body: h('span', null, 'O app deixa de abrir sozinho quando você entra no Mac. Ele continua instalado, e dá para adicioná-lo de novo em Ajustes do Sistema › Geral › Itens de Início.'),
-      });
-      if (!ok || !ctx.alive) return;
-      ctx.setBusy(true);
-      let res = null;
-      try { res = await api.loginItemRemove([it.id]); } catch (e) { play('error'); }
-      ctx.setBusy(false);
-      if (!res || !ctx.alive) return;
-      const done = res.outcomes.filter((o) => o.ok).map((o) => o.id);
-      const bad = res.outcomes.filter((o) => !o.ok);
-      if (done.length) { S.res.login.items = S.res.login.items.filter((x) => !done.includes(x.id)); play('clean'); }
-      if (S.tab === 'login') showTab(); else renderNav();
-      if (bad.length) { play('error'); await failuresSheet(bad.map((o) => ({ id: o.id, name: it.name, path: it.path || '', error: o.error }))); }
+      const flip = () => { S.lsel.has(it.id) ? S.lsel.delete(it.id) : S.lsel.add(it.id); cb.set(S.lsel.has(it.id) ? 'on' : 'off'); renderFoot(); };
+      const cb = checkbox(S.lsel.has(it.id) ? 'on' : 'off', flip, `Selecionar ${it.name}`);
+      const row = h('div', { class: 'pf-row', onClick: (e) => { if (!e.target.closest('button')) flip(); } }, cb, slot,
+        h('div', { class: 'fm-main' }, h('div', { class: 'fm-name' }, h('span', { title: it.name }, it.name)), h('div', { class: 'fm-meta pf-meta' }, it.path ? mid(it.path, 26) : h('span', null, 'Sem caminho'))));
+      return row;
     }
 
     // --- Monitor ---
@@ -416,15 +440,16 @@ export function enter(ctx) {
       if (!res || !ctx.alive) return;
       S.res.snapshots.items = res.snapshots;
       play('clean');
-      toast(res.removed ? `${plural(res.removed, 'snapshot removido', 'snapshots removidos')}.` : 'Nenhum snapshot foi removido.', 'ok');
+      S.note = res.removed ? `${plural(res.removed, 'snapshot removido', 'snapshots removidos')}.` : 'Nenhum snapshot foi removido.';
       if (S.tab === 'snaps') showTab(); else renderNav();
     }
 
     const el = h('section', { class: 'review fm pf enter', dataset: { mod: 'perf' }, 'aria-label': 'Gerenciador de desempenho' },
-      h('div', { class: 'rv-head' }, h('div', { class: 'rv-title' }, h('h2', null, 'Gerenciador de desempenho'), h('p', null, 'Revise o que roda sozinho e acompanhe o uso do Mac.'))),
+      managerBar({ title: 'Desempenho', subtitle: 'Revise o que roda sozinho e acompanhe o uso do Mac.', onBack: back }),
       h('div', { class: 'fm-body' }, navEl, h('div', { class: 'fm-pane' }, headEl, bodyEl)),
-      h('div', { class: 'rv-foot' }, footEl, h('button', { class: 'btn', type: 'button', onClick: () => { S.phase = 'results'; render(); } }, 'Voltar')));
+      h('div', { class: 'rv-foot' }, footEl, actionBtn));
     mount(ctx.root, el);
+    ctx.onBack(back);
     showTab();
   }
 
