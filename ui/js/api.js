@@ -1,3 +1,4 @@
+import { play } from './sound.js';
 // Camada fina sobre window.__TAURI__ (withGlobalTauri). Erros do backend chegam como string rejeitada.
 const T = () => window.__TAURI__;
 const subs = new Set();
@@ -38,9 +39,9 @@ export const api = {
   apps: () => call('list_apps'),
   icon: (appId) => call('app_icon', { appId }, { quiet: true }),
   leftovers: (appId) => call('app_leftovers', { appId }),
-  remove: (ids) => call('remove', { ids }),
-  uninstall: (appId, leftoverIds) => call('uninstall', { appId, leftoverIds }),
-  cancel: () => call('cancel_scan', undefined, { quiet: true }),
+  remove: (ids, permanent = false) => call('remove', { ids, permanent }),
+  uninstall: (appId, leftoverIds, permanent = false) => call('uninstall', { appId, leftoverIds, permanent }),
+  cancel: () => { play('stop'); return call('cancel_scan', undefined, { quiet: true }); },
   reveal: (id) => call('reveal', { id }),
   revealLog: () => call('reveal_log'),
   openFda: () => call('open_fda_settings'),
@@ -70,5 +71,5 @@ export const api = {
   tccPermissions: () => call('tcc_permissions'),
   tccRevoke: (ids) => call('tcc_revoke', { ids }),
   privacyScan: () => call('privacy_scan'),
-  privacyRemove: (ids) => call('privacy_remove', { ids }),
+  privacyRemove: (ids, permanent = false) => call('privacy_remove', { ids, permanent }),
 };

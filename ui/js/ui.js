@@ -49,8 +49,44 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
 }
 
 // Primeiro botão = cancelar (valor false); último = confirmar (true).
-export function confirmDialog({ title, body, confirm = 'Confirmar', cancel = 'Cancelar', danger = false, glyph = 'alert', mod }) {
-  return modal({ title, body, danger, glyph, mod, buttons: [{ label: cancel, value: false }, { label: confirm, value: true, kind: danger ? 'danger' : 'primary' }] });
+// permanentChoice: mostra a chave "Apagar definitivamente" (itens que iriam para o Lixo). Retorna false, true
+// ou 'permanent' quando a chave está ligada — o chamador repassa `permanent` à remoção.
+export function confirmDialog({ title, body, confirm = 'Confirmar', cancel = 'Cancelar', danger = false, glyph = 'alert', mod, permanentChoice = false, permanentDefault = false }) {
+  let permanent = permanentChoice && permanentDefault;
+  const confirmBtn = { label: confirm, value: true, kind: danger ? 'danger' : 'primary' };
+  let extra = null;
+  if (permanentChoice) {
+    const note = h('p', { class: 'perm-note' });
+    const paint = (row) => {
+      const card = row.closest('.modal');
+      note.textContent = permanent ? 'Os itens serão apagados sem passar pelo Lixo. Não dá para desfazer.' : 'Os itens vão para o Lixo e podem ser recuperados de lá.';
+      if (!card) return;
+      card.classList.toggle('danger', permanent || danger);
+      // O texto sobre o Lixo deixa de valer: título reescrito e corpo escondido (a nota acima explica).
+      const h3 = card.querySelector('h3'), bodyEl = card.querySelector('.body');
+      if (h3) {
+        if (!h3.dataset.orig) h3.dataset.orig = h3.textContent;
+        const m = /^Mover (.+) para o Lixo\?$/.exec(h3.dataset.orig);
+        h3.textContent = permanent ? (m ? `Apagar ${m[1]} definitivamente?` : 'Apagar definitivamente?') : h3.dataset.orig;
+      }
+      if (bodyEl) bodyEl.hidden = permanent;
+      const btn = card.querySelector('.btns .btn:last-child');
+      if (btn) { btn.textContent = permanent ? 'Apagar definitivamente' : confirm; btn.className = 'btn ' + (permanent || danger ? 'danger' : 'primary'); }
+    };
+    const row = h('div', { class: 'perm-row' },
+      h('div', { class: 'perm-txt' }, h('b', null, 'Apagar definitivamente'), note),
+      toggleSwitch(permanent, (on) => { permanent = on; paint(row); }, 'Apagar definitivamente'));
+    extra = row;
+    requestAnimationFrame(() => paint(row));
+  }
+  return modal({ title, body, danger, glyph, mod, extra, buttons: [{ label: cancel, value: false }, confirmBtn] }).then((ok) => (ok && permanent ? 'permanent' : ok));
+}
+
+// Chave liga/desliga (role=switch), animada.
+export function toggleSwitch(on, onChange, label) {
+  const b = h('button', { class: 'switch', type: 'button', role: 'switch', 'aria-label': label || '', 'aria-checked': String(!!on) }, h('i'));
+  b.addEventListener('click', (e) => { e.stopPropagation(); const v = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', String(v)); onChange(v); });
+  return b;
 }
 
 export function failuresSheet(failures) {
@@ -82,9 +118,12 @@ export function failuresSheet(failures) {
 // Checkbox tri-state: data-state = on | off | mixed.
 export function checkbox(state, onToggle, label) {
   const b = h('button', { class: 'cb', type: 'button', role: 'checkbox', 'aria-label': label || 'Selecionar' }, icon('check', 14), icon('dash', 14));
-  b.set = (st) => { b.dataset.state = st; b.setAttribute('aria-checked', st === 'mixed' ? 'mixed' : String(st === 'on')); };
+  b.set = (st) => {
+    if (b.dataset.state && b.dataset.state !== st) { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+    b.dataset.state = st; b.setAttribute('aria-checked', st === 'mixed' ? 'mixed' : String(st === 'on'));
+  };
   b.set(state);
-  b.addEventListener('click', (e) => { e.stopPropagation(); onToggle(b.dataset.state); });
+  b.addEventListener('click', (e) => { e.stopPropagation(); onToggle(b.dataset.state, e); });
   return b;
 }
 

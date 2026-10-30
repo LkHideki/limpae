@@ -79,7 +79,7 @@ const below = (el) => { const r = el.getBoundingClientRect(); return { x: r.left
 const isMenuKey = (e) => e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10');
 
 export function createReview({ result, sel, mod, title, subtitle, actionLabel, showAge = false, extra = null, onBack, onAction, emptyText = 'Nada encontrado.' }) {
-  const st = { q: '', sort: 'size', gid: result.groups[0] ? result.groups[0].id : null, limit: CHUNK };
+  const st = { q: '', sort: 'size', gid: result.groups[0] ? result.groups[0].id : null, limit: CHUNK, anchor: null };
   const groupsEl = h('div', { class: 'rv-groups' });
   const itemsEl = h('div', { class: 'rv-items-wrap' });
   const selEl = h('div', { class: 'rv-sel' });
@@ -159,8 +159,21 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
   }
 
   function itemRow(g, it, list) {
-    const cb = checkbox(sel.has(it.id) ? 'on' : 'off', () => toggle(), `Selecionar ${it.name}`);
-    const toggle = () => { sel.has(it.id) ? sel.delete(it.id) : sel.add(it.id); cb.set(sel.has(it.id) ? 'on' : 'off'); renderGroups(); renderFooter(); renderHead(g, list); };
+    const cb = checkbox(sel.has(it.id) ? 'on' : 'off', (_s, e) => toggle(e), `Selecionar ${it.name}`);
+    // Shift+clique aplica o novo estado a todo o intervalo desde o último item clicado (como no Finder).
+    const toggle = (e) => {
+      const on = !sel.has(it.id);
+      const a = e && e.shiftKey && st.anchor != null ? list.findIndex((x) => x.id === st.anchor) : -1;
+      const b = list.findIndex((x) => x.id === it.id);
+      if (a >= 0 && b >= 0) {
+        for (let k = Math.min(a, b); k <= Math.max(a, b); k++) on ? sel.add(list[k].id) : sel.delete(list[k].id);
+        st.anchor = it.id;
+        return refresh();
+      }
+      on ? sel.add(it.id) : sel.delete(it.id);
+      st.anchor = it.id;
+      cb.set(on ? 'on' : 'off'); renderGroups(); renderFooter(); renderHead(g, list);
+    };
     const more = h('button', {
       class: 'icon-btn rv-act', type: 'button', title: 'Mais ações', 'aria-label': `Mais ações para ${it.name}`, 'aria-haspopup': 'menu',
       onClick: (e) => { e.stopPropagation(); rowMenu(g, it, list, row, below(more), more); },
@@ -168,7 +181,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     // Notas curtas viram selo ao lado do nome; as longas (ex.: caminho ausente) ganham uma linha própria.
     const longNote = !!it.note && it.note.length > 30;
     const row = h('div', {
-      class: 'rv-item' + (longNote ? ' has-note' : ''), onClick: toggle,
+      class: 'rv-item' + (longNote ? ' has-note' : ''), onClick: (e) => toggle(e),
       onContextmenu: (e) => { e.preventDefault(); rowMenu(g, it, list, row, { x: e.clientX, y: e.clientY }, null); },
       onKeydown: (e) => { if (isMenuKey(e)) { e.preventDefault(); rowMenu(g, it, list, row, below(more), more); } },
     },
@@ -243,6 +256,16 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     extra ? h('div', { class: 'rv-extra' }, extra) : null,
     h('div', { class: 'rv-body' }, groupsEl, itemsEl),
     h('div', { class: 'rv-foot' }, selEl, h('button', { class: 'btn', type: 'button', onClick: onBack }, 'Voltar'), actionBtn));
+  // ⌘A seleciona todos os itens visíveis do grupo aberto; ⌘⇧A desmarca (fora de campos de texto).
+  el.addEventListener('keydown', (e) => {
+    if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'a' || e.target.tagName === 'INPUT') return;
+    const g = result.groups.find((x) => x.id === st.gid);
+    if (!g) return;
+    e.preventDefault();
+    for (const i of visible(g)) e.shiftKey ? sel.delete(i.id) : sel.add(i.id);
+    refresh();
+  });
+  el.tabIndex = -1;
   refresh();
   return { el };
 }

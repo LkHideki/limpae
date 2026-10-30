@@ -9,7 +9,7 @@ import { api } from '../api.js';
 import { store, bump } from '../store.js';
 import { bytesParts, fmtBytes, fmtNum, plural } from '../format.js';
 import { confirmDialog, failuresSheet, stage, checkbox, segmented, features } from '../ui.js';
-import { outcomesToFailures } from '../actions.js';
+import { outcomesToFailures, stopDock } from '../actions.js';
 
 const REMOVE_BATCH = 100;
 
@@ -545,9 +545,12 @@ export function enter(ctx) {
       body: [`${fmtBytes(bytes)} serão enviados ao Lixo. Você pode restaurá-los de lá `, h('strong', null, 'até esvaziar a Lixeira'), '. Senhas salvas não são tocadas.',
         notes.length ? h('span', { class: 'fl-warn' }, ' ' + notes.join(' ')) : null],
       confirm: 'Remover', glyph: 'trash', mod: 'protect',
+      permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;
-    const prog = busyStage('Movendo para o Lixo…', `0 de ${fmtNum(picked.length)}`);
+    const permanent = ok === 'permanent';
+    const prog = busyStage(permanent ? 'Apagando…' : 'Movendo para o Lixo…', `0 de ${fmtNum(picked.length)}`);
+    const sd = stopDock(ctx, 'protect');
     const byId = new Map(picked.map((i) => [i.id, i]));
     const ids = picked.map((i) => i.id);
     const okIds = new Set();
@@ -555,8 +558,9 @@ export function enter(ctx) {
     let freed = 0, done = 0;
     for (let i = 0; i < ids.length; i += REMOVE_BATCH) {
       const chunk = ids.slice(i, i + REMOVE_BATCH);
+      if (sd.stopped()) { failures.push(...chunk.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: 'cancelado; o item continua no lugar' }))); continue; }
       try {
-        const res = await api.privacyRemove(chunk);
+        const res = await api.privacyRemove(chunk, permanent);
         for (const o of res.outcomes) if (o.ok) { okIds.add(o.id); freed += o.freed || 0; }
         failures.push(...outcomesToFailures(res.outcomes, byId));
       } catch (e) {
@@ -564,6 +568,7 @@ export function enter(ctx) {
       }
       done += chunk.length;
       prog.textContent = `${fmtNum(done)} de ${fmtNum(ids.length)}`;
+      sd.progress(done / ids.length);
     }
     S.priv = {
       ...S.priv,

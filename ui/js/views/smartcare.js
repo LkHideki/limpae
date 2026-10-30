@@ -6,7 +6,7 @@ import { api } from '../api.js';
 import { store, selectedSize, selectedIds, pruneResult, countItems } from '../store.js';
 import { fmtBytes, plural } from '../format.js';
 import { confirmDialog, failuresSheet, stage, features } from '../ui.js';
-import { removeGroups } from '../actions.js';
+import { removeGroups, stopDock } from '../actions.js';
 
 const TILES = [
   { id: 'clean', mod: 'clean', title: 'Limpeza', verb: 'Procurando lixo…', glyph: 'clean', task: 'junk' },
@@ -168,6 +168,7 @@ export function enter(ctx) {
       title: `Limpar ${fmtBytes(bytes)} de lixo?`,
       body,
       confirm: 'Limpar', danger: perm > 0, glyph: 'trash', mod: 'clean',
+      permanentChoice: moved > 0, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;
     S.phase = 'cleaning';
@@ -179,14 +180,14 @@ export function enter(ctx) {
     mount(els.clean.list, [...rowsEl.values()]);
     paint(clean, 'clean');
     setHead('Limpando…');
-    ctx.setDock({ label: 'Limpando', busy: true, progress: 0, mod: 'smart' });
+    const sd = stopDock(ctx, 'smart');
     const res = await removeGroups(store.junk, store.junkSel, (g, status, info) => {
       const row = rowsEl.get(g.id);
       row.dataset.st = status;
       const stEl = row.querySelector('.st');
       if (status === 'run') mount(stEl, h('span', { class: 'spin' }));
-      else { mount(stEl, icon(status === 'done' ? 'check' : 'alert', 16)); row.querySelector('.sz').textContent = fmtBytes(info.freed); ctx.setDock({ label: 'Limpando', busy: true, progress: info.done / info.total, mod: 'smart' }); }
-    });
+      else { mount(stEl, icon(status === 'done' ? 'check' : 'alert', 16)); row.querySelector('.sz').textContent = fmtBytes(info.freed); sd.progress(info.done / info.total); }
+    }, { permanent: ok === 'permanent', stopped: sd.stopped });
     await sleep(500);
     S.freed = res.freed;
     store.junk = pruneResult(store.junk, res.okIds);
