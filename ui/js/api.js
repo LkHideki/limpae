@@ -49,4 +49,5 @@ export const api = {
   ignore: (id) => call('ignore_item', { id }),
   ignored: () => call('list_ignored', undefined, { quiet: true }),
   unignore: (path) => call('unignore', { path }),
+  quickLook: (id) => call('quick_look', { id }),
 };

@@ -19,6 +19,7 @@ use limpa_core::large::scan_large as core_scan_large;
 use limpa_core::remove::{SystemRemover, remove_items, trash_entries};
 use limpa_core::running::{app_icon_png, cache_in_use, running_bundle_ids, running_keys};
 use limpa_core::settings::Settings;
+use limpa_core::trashes::external_trash_entries;
 use limpa_core::{Group, Item, Policy, Progress};
 use tauri::{AppHandle, Emitter, State};
 
@@ -134,21 +135,28 @@ pub async fn scan_junk(app: AppHandle, state: State<'_, Shared>) -> Result<ScanR
 pub async fn scan_trash(app: AppHandle, state: State<'_, Shared>) -> Result<ScanResult, String> {
     run_scan(app, &state, "trash", |st, p| {
         let result = trash_entries(&st.home, p.cancel_flag());
+        let external = external_trash_entries(p.cancel_flag());
         if p.cancelled() {
             return Err(ERR_CANCELLED.into());
         }
+        let no_external = external.is_empty();
+        // The user's own trash first, then one group per external volume.
+        let store = |mut groups: Vec<Group>, needs_fda: bool| {
+            groups.extend(external);
+            let groups = lock(&st.settings).filter(groups);
+            Ok(ScanResult::new(lock(&st.registry).replace(Task::Trash, groups), needs_fda))
+        };
         match result {
-            Ok(group) => {
-                let groups = lock(&st.settings).filter(vec![group]);
-                Ok(ScanResult::new(lock(&st.registry).replace(Task::Trash, groups), false))
-            }
-            Err(e) if e.kind() == ErrorKind::NotFound => {
-                lock(&st.registry).replace(Task::Trash, Vec::new());
-                Ok(ScanResult::new(Vec::new(), false))
-            }
+            Ok(group) => store(vec![group], false),
+            Err(e) if e.kind() == ErrorKind::NotFound => store(Vec::new(), false),
+            // The external bins stay listed; the UI asks for Full Disk Access to also read ~/.Trash.
             Err(e) if e.kind() == ErrorKind::PermissionDenied || !has_full_disk_access(&st.home) => {
-                lock(&st.registry).replace(Task::Trash, Vec::new());
-                Ok(ScanResult::needs_fda())
+                if no_external {
+                    lock(&st.registry).replace(Task::Trash, Vec::new());
+                    Ok(ScanResult::needs_fda())
+                } else {
+                    store(Vec::new(), true)
+                }
             }
             Err(e) => Err(format!("Não foi possível ler a Lixeira: {e}")),
         }

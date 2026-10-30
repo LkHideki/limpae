@@ -1,0 +1,56 @@
+/* Limpeza completa (INC-11): menu de contexto, menu "Selecionar", grupos novos, lixeiras por volume. */
+
+/* ---- Menu (contexto e Selecionar) ---- */
+.ctx-menu { position: fixed; z-index: 120; min-width: 224px; max-width: 320px; padding: 6px; border-radius: 14px; background: linear-gradient(160deg, rgba(30, 58, 104, .97), rgba(14, 32, 66, .98)); border: 1px solid rgba(255, 255, 255, .18); box-shadow: 0 24px 50px -12px rgba(0, 0, 0, .7); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); animation: ctx-in .14s var(--ease) both; transform-origin: top left; }
+@keyframes ctx-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+.ctx-item { display: flex; align-items: center; gap: 10px; width: 100%; height: 34px; padding: 0 12px 0 8px; border-radius: 9px; text-align: left; font-size: 13.5px; color: var(--text); transition: background-color .12s; }
+.ctx-item:hover:not(:disabled), .ctx-item:focus-visible { background: rgba(255, 255, 255, .14); outline: none; }
+.ctx-item:focus-visible { box-shadow: inset 0 0 0 1.5px rgba(46, 230, 197, .7); }
+.ctx-item:disabled { opacity: .4; }
+.ctx-item.danger { color: #ff9c9c; }
+.ctx-ic { width: 18px; flex: none; display: grid; place-items: center; color: var(--text-2); }
+.ctx-item[aria-checked="true"] .ctx-ic { color: var(--m1); }
+.ctx-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-sep { height: 1px; margin: 5px 6px; background: var(--line); }
+
+/* ---- Linhas do gerenciador ---- */
+.rv-item.ctx-open { background: rgba(255, 255, 255, .1); }
+.rv-item:focus-within .rv-act { opacity: 1; }
+/* Os botões de ação só ocupam espaço sob o mouse ou o foco: a coluna do nome fica mais larga. */
+.rv-item .rv-act { width: 0; margin-left: -12px; overflow: hidden; transition: opacity .15s, width .15s var(--ease), margin .15s var(--ease), background-color .2s, color .2s; }
+.rv-item:hover .rv-act, .rv-item:focus-within .rv-act, .rv-item.ctx-open .rv-act { width: 30px; margin-left: 0; }
+.rv-name > span:first-child { min-width: 48px; }
+.rv-name .badge { display: block; line-height: 18px; min-width: 0; max-width: 68%; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+
+.rv-item.has-note { height: auto; min-height: 56px; padding-top: 9px; padding-bottom: 9px; }
+.rv-note { margin-top: 3px; font-size: 12px; color: #ffd08a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-note.info { color: #b7d0ff; }
+
+/* Grupos (painel esquerdo) com ícone */
+.rv-group-main { flex-direction: row; align-items: center; gap: 10px; }
+.rv-group-main .rv-gic { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 9px; background: rgba(255, 255, 255, .09); color: var(--text-2); }
+.rv-group-main .rv-gtxt { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; font-size: inherit; color: inherit; }
+.rv-group[aria-current="true"] .rv-gic { background: rgba(255, 255, 255, .16); color: var(--text); }
+.rv-group-main .rv-gtxt > span { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* Botão "Selecionar: Tudo ▾" */
+.sel-btn { flex: none; gap: 6px; color: var(--text-2); }
+.sel-btn b { display: inline; font-size: inherit; font-weight: 600; color: var(--m1); }
+.sel-btn svg { transition: transform .18s var(--ease); }
+.sel-btn[aria-expanded="true"] svg { transform: rotate(180deg); }
+.sel-btn[aria-expanded="true"] { background: rgba(255, 255, 255, .12); color: var(--text); }
+
+/* ---- Tela final e Lixeira ---- */
+.sub.fine { margin-top: 8px; font-size: 14px; color: var(--text-3); }
+.vol-list { list-style: none; margin: 18px 0 0; padding: 0 4px 0 0; display: flex; flex-direction: column; gap: 4px; max-height: 208px; overflow: auto; }
+.vol-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; height: 42px; padding: 0 12px 0 10px; border-radius: 12px; background: rgba(255, 255, 255, .08); font-size: 14px; }
+.vol-ic { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: rgba(255, 255, 255, .1); color: var(--text-2); }
+.vol-nm { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vol-n { font-size: 12.5px; color: var(--text-3); white-space: nowrap; }
+.vol-sz { min-width: 64px; text-align: right; color: var(--text-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+.fda-hint { margin-top: 14px; font-size: 13px; color: #ffd08a; line-height: 1.45; }
+.fda-hint .link { color: #ffd08a; text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ctx-menu { animation: none; }
+}

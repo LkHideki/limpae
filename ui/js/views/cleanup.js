@@ -3,7 +3,7 @@ import { play } from '../sound.js';
 import { h, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
-import { store, selectedIds, selectedSize, pruneResult, bump } from '../store.js';
+import { store, selectedIds, selectedSize, pruneResult, bump, countItems } from '../store.js';
 import { bytesParts, fmtBytes, plural } from '../format.js';
 import { confirmDialog, failuresSheet, stage, features } from '../ui.js';
 import { removeGroups } from '../actions.js';
@@ -37,7 +37,7 @@ export function enter(ctx) {
   function renderIdle() {
     C.phase = 'idle';
     st.show(h('h1', { class: 'h1' }, 'Limpeza'), h('p', { class: 'sub' }, 'Libere espaço removendo o que o Mac acumulou sem você perceber.'),
-      features('clean', [['box', 'Caches de aplicativos'], ['log', 'Registros e arquivos temporários'], ['code', 'Caches de desenvolvimento e Xcode']]));
+      features('clean', [['box', 'Caches de aplicativos e registros'], ['chip', 'Lixo de ferramentas de IA e modelos locais'], ['code', 'Caches de desenvolvimento e Xcode'], ['phone', 'Backups antigos de iPhone e iPad'], ['mail', 'Anexos do Mail e preferências quebradas']]));
     ctx.setDock({ label: 'Analisar', mod: 'clean', onClick: scan });
   }
 
@@ -89,10 +89,15 @@ export function enter(ctx) {
 
   async function clean() {
     const { bytes, count } = selectedSize(store.junk, store.junkSel);
+    const moved = new Set();
+    for (const g of store.junk.groups) for (const i of g.items) if (store.junkSel.has(i.id) && i.trash) moved.add(i.id);
+    const perm = count - moved.size;
+    const trashNote = [`${plural(moved.size, 'item vai', 'itens vão')} para o `, h('strong', null, 'Lixo'), ' e dá para recuperá-' + (moved.size === 1 ? 'lo' : 'los') + ' de lá; o espaço só é liberado quando você esvaziar a Lixeira.'];
+    const permNote = [`${plural(perm, 'item será', 'itens serão')} `, h('strong', null, perm === 1 ? 'removido definitivamente' : 'removidos definitivamente'), '. Esta ação não pode ser desfeita.'];
     const ok = await confirmDialog({
-      title: `Limpar ${fmtBytes(bytes)}?`,
-      body: [`${plural(count, 'item selecionado será', 'itens selecionados serão')} `, h('strong', null, count === 1 ? 'removido definitivamente' : 'removidos definitivamente'), '. Esta ação não pode ser desfeita.'],
-      confirm: 'Limpar', danger: true, glyph: 'trash', mod: 'clean',
+      title: moved.size === count ? `Mover ${fmtBytes(bytes)} para o Lixo?` : `Limpar ${fmtBytes(bytes)}?`,
+      body: moved.size === 0 ? permNote : perm === 0 ? trashNote : [...permNote, h('br'), ...trashNote],
+      confirm: moved.size === count ? 'Mover para o Lixo' : 'Limpar', danger: perm > 0, glyph: 'trash', mod: 'clean',
     });
     if (!ok) return;
     C.phase = 'cleaning';
@@ -115,6 +120,7 @@ export function enter(ctx) {
     for (const id of res.okIds) store.junkSel.delete(id);
     bump();
     C.freed = res.freed; C.failed = res.failures.length; C.phase = 'done';
+    C.moved = [...moved].filter((id) => res.okIds.has(id)).length;
     play(res.freed ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
@@ -126,10 +132,13 @@ export function enter(ctx) {
   function ensureStageFresh() { if (!st) ensureStage(); }
 
   function renderDone() {
+    const remaining = countItems(store.junk);
     st.show(...bigNum(C.freed, 'liberados'),
       h('p', { class: 'sub' }, C.failed ? `${plural(C.failed, 'item não foi removido', 'itens não foram removidos')}.` : 'Seu Mac agradece. Tudo certo por aqui.'),
+      C.moved ? h('p', { class: 'sub fine' }, `${plural(C.moved, 'item foi', 'itens foram')} para o Lixo: esvazie a Lixeira para liberar esse espaço.`) : null,
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
+        remaining ? h('button', { class: 'btn', type: 'button', onClick: () => { C.phase = 'review'; render(); } }, icon('search', 15), 'Revisar itens restantes') : null,
         h('button', { class: 'btn primary', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, icon('restart', 15), 'Recomeçar')));
     ctx.setDock(null);
   }

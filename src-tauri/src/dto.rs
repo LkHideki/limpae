@@ -23,6 +23,8 @@ pub struct ItemDto {
     pub selected: bool,
     pub note: Option<String>,
     pub modified: Option<i64>,
+    /// Removal moves it to the Trash (recoverable) instead of deleting it; lets the UI word confirmations exactly.
+    pub trash: bool,
 }
 
 impl ItemDto {
@@ -35,6 +37,7 @@ impl ItemDto {
             selected: item.selected,
             note: item.note.clone(),
             modified: item.modified,
+            trash: matches!(item.policy, limpa_core::Policy::MoveToTrash),
         }
     }
 }
@@ -161,7 +164,8 @@ mod tests {
         let g = &v["groups"][0];
         assert_eq!(keys(g), ["description", "id", "items", "title", "total"]);
         let i = &g["items"][0];
-        assert_eq!(keys(i), ["id", "modified", "name", "note", "path", "selected", "size"]);
+        assert_eq!(keys(i), ["id", "modified", "name", "note", "path", "selected", "size", "trash"]);
+        assert_eq!(i["trash"], matches!(item.policy, limpa_core::Policy::MoveToTrash));
         assert_eq!(i["id"], 3);
         assert_eq!(i["name"], "x");
         assert_eq!(i["path"], "/nonexistent/x");
