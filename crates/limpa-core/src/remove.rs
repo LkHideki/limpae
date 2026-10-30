@@ -30,12 +30,38 @@ pub struct Outcome {
     pub error: Option<String>,
 }
 
+fn trash_with(path: &Path, method: DeleteMethod) -> Result<(), String> {
+    let mut ctx = TrashContext::default();
+    ctx.set_delete_method(method);
+    ctx.delete(path).map_err(|e| e.to_string())
+}
+
+/// NSFileManager / Finder errors arrive as English debug strings; keep only what the user can act on.
+fn trash_error(detail: &str) -> io::Error {
+    let d = detail.to_lowercase();
+    if d.contains("-128") || d.contains("user canceled") || d.contains("cancelled") {
+        io::Error::new(io::ErrorKind::Interrupted, "autorização cancelada; o item continua no lugar")
+    } else if d.contains("permission") || d.contains("not permitted") || d.contains("-54") || d.contains("-5000") {
+        io::Error::new(io::ErrorKind::PermissionDenied, "sem permissão: o item pertence ao sistema ou a outro usuário")
+    } else {
+        io::Error::other(format!("não foi possível mover para o Lixo ({detail})"))
+    }
+}
+
+/// Only installed `.app` bundles get the Finder fallback: apps installed by a `.pkg` are owned by root, and Finder
+/// asks for an administrator password itself (keeping "Put Back"), like the Finder's own Move to Trash.
+fn needs_finder(path: &Path, detail: &str) -> bool {
+    path.extension().is_some_and(|e| e == "app") && trash_error(detail).kind() == io::ErrorKind::PermissionDenied
+}
+
 impl Remover for SystemRemover {
-    /// NSFileManager, not Finder: Finder needs Automation permission and plays the trash sound.
+    /// NSFileManager first: no Automation prompt and no sound. Root-owned app bundles fall back to Finder.
     fn trash(&self, path: &Path) -> io::Result<()> {
-        let mut ctx = TrashContext::default();
-        ctx.set_delete_method(DeleteMethod::NsFileManager);
-        ctx.delete(path).map_err(|e| io::Error::other(e.to_string()))
+        match trash_with(path, DeleteMethod::NsFileManager) {
+            Ok(()) => Ok(()),
+            Err(e) if needs_finder(path, &e) => trash_with(path, DeleteMethod::Finder).map_err(|e| trash_error(&e)),
+            Err(e) => Err(trash_error(&e)),
+        }
     }
 
     /// Only a real directory is removed recursively; std's `remove_dir_all` never follows links inside it, and a
@@ -50,6 +76,16 @@ fn same_file(item: &Item, real: PathBuf) -> Result<PathBuf, GuardError> {
     let Some(ident) = item.ident else { return Ok(real) };
     let md = fs::symlink_metadata(&real).map_err(|_| GuardError::Missing)?;
     if (md.dev(), md.ino()) == ident { Ok(real) } else { Err(GuardError::Changed) }
+}
+
+/// User-facing reason for a failed removal. std's messages are English ("Permission denied (os error 13)").
+fn describe(e: &io::Error) -> String {
+    match e.kind() {
+        io::ErrorKind::PermissionDenied if e.get_ref().is_none() => "sem permissão para remover este item".into(),
+        io::ErrorKind::NotFound => "o item não existe mais".into(),
+        io::ErrorKind::DirectoryNotEmpty | io::ErrorKind::ResourceBusy => "o item está em uso; tente de novo".into(),
+        _ => e.to_string(),
+    }
 }
 
 fn is_permanent(item: &Item) -> bool {
@@ -74,9 +110,9 @@ fn remove_one(item: &Item, guard: &Guard, r: &dyn Remover, log: &ActionLog) -> O
         Ok(()) => (item.size, None),
         // A failed permanent delete may have removed part of a directory; a failed trash move removes nothing.
         Err(e) if is_permanent(item) => {
-            (item.size.saturating_sub(alloc_size(&real, &AtomicBool::new(false))), Some(e.to_string()))
+            (item.size.saturating_sub(alloc_size(&real, &AtomicBool::new(false))), Some(describe(&e)))
         }
-        Err(e) => (0, Some(e.to_string())),
+        Err(e) => (0, Some(describe(&e))),
     };
     log.record(action, &real, error.is_none(), freed);
     Outcome { path: item.path.clone(), ok: error.is_none(), freed, error }
@@ -397,5 +433,17 @@ mod tests {
         assert!(!out[0].ok);
         assert_eq!(out[0].error.as_deref(), Some("o item mudou desde a análise; analise de novo"));
         assert!(dir.join("new-and-important").exists());
+    }
+
+    #[test]
+    fn trash_errors_are_translated_and_finder_only_for_apps() {
+        let perm = r#"Unknown { description: "trashItemAtURL failed: couldn’t be moved to the trash because you don’t have permission to access it." }"#;
+        assert_eq!(trash_error(perm).kind(), io::ErrorKind::PermissionDenied);
+        assert!(trash_error(perm).to_string().starts_with("sem permissão"));
+        assert_eq!(trash_error("execution error: User canceled. (-128)").kind(), io::ErrorKind::Interrupted);
+        assert!(needs_finder(Path::new("/Applications/DaVinci Resolve.app"), perm));
+        assert!(!needs_finder(Path::new("/Users/u/Documents/a.mov"), perm), "only app bundles escalate");
+        assert!(!needs_finder(Path::new("/Applications/X.app"), "some other failure"));
+        assert_eq!(describe(&io::Error::from(io::ErrorKind::PermissionDenied)), "sem permissão para remover este item");
     }
 }

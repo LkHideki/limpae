@@ -29,7 +29,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app"],
+    "targets": [
+      "app"
+    ],
     "category": "Utility",
     "shortDescription": "Limpeza de disco para macOS",
     "longDescription": "Encontra e remove lixo do sistema, arquivos grandes, itens da Lixeira e restos de apps desinstalados.",
@@ -43,7 +45,8 @@
     ],
     "macOS": {
       "minimumSystemVersion": "13.0",
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "entitlements": "Entitlements.plist"
     }
   }
 }
