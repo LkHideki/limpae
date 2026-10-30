@@ -22,6 +22,17 @@ Limpae finds what is safe to remove, shows you exactly what it found, and only t
 
 No antivirus and no telemetry. Limpae makes no network requests of its own; everything runs on your Mac.
 
+<div align="center">
+
+<img src="docs/screenshots/smart.jpg" width="49%" alt="Sweep results"> <img src="docs/screenshots/lens.jpg" width="49%" alt="Disk Map bubble map">
+<img src="docs/screenshots/apps.jpg" width="49%" alt="Application manager"> <img src="docs/screenshots/protect.jpg" width="49%" alt="Protection">
+
+<sub>Screenshots use sample data.</sub>
+
+</div>
+
+> **Status: early.** Limpae removes files from your disk. It is built to be careful (see the [safety model](#safety-model)) and the engine has an extensive test suite, but it is young software: review what it selects, keep backups, and use it at your own risk. Releases are not published yet; build it from source.
+
 ## Highlights
 
 - **Sweep.** One scan across six modules, one pre-selected review, one button. Only safe junk is pre-selected; your own files never are.
@@ -81,7 +92,7 @@ cargo install tauri-cli --version '^2' --locked   # once
 scripts/install.sh
 ```
 
-The script builds a release bundle, copies it to `~/Applications/Limpae.app`, registers it with LaunchServices and waits until Spotlight indexes it, so Limpae shows up in Spotlight and Launchpad.
+The script builds a release bundle, copies it to `~/Applications/Limpae.app`, registers it with LaunchServices and waits until Spotlight indexes it, so Limpae shows up in Spotlight and Launchpad. The bundle is signed ad hoc, not with a Developer ID, and is not notarized: build it yourself instead of downloading a binary someone else built.
 
 ### Permissions
 
@@ -110,6 +121,10 @@ node scripts/check-i18n.mjs ui/js/views/apps.js
 
 It reports missing translations, dynamic keys, mismatched `{placeholders}` and Portuguese literals left outside `t()`. Adding a language means adding it to `LANGS` in `ui/js/i18n.js`, a value per key in the dictionaries, and a `.lproj` folder in `src-tauri/locales`.
 
+### Contributing a translation
+
+Copy the shape of an existing entry in `ui/js/i18n/dict/*.js`, run `node scripts/check-i18n.mjs`, and look at the screen in your language: longer words are the usual cause of clipped labels. New languages also need a `.lproj` folder in `src-tauri/locales` and an entry in `LANGS` in `ui/js/i18n.js`.
+
 ## Architecture
 
 ```
@@ -117,6 +132,7 @@ crates/limpa-core/   Rust engine: scanning, Guard, removal, health, security, pe
 src-tauri/           Tauri 2 shell: commands, scan registry, menu bar extra. Uses the system WebKit.
 ui/                  The interface in plain HTML, CSS and ES modules. No framework, no bundler, no npm.
 scripts/             install.sh, check-i18n.mjs
+docs/screenshots/    Images used by this README.
 ```
 
 Design choices that follow from "light and fast":
