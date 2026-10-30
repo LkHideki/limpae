@@ -109,15 +109,6 @@ pub(crate) fn inputs(st: &AppState, effort: Effort) -> Inputs {
     }
 }
 
-pub(crate) fn memory_label(m: Option<MemoryPressure>) -> &'static str {
-    match m {
-        Some(MemoryPressure::Normal) => "pressão normal",
-        Some(MemoryPressure::Warning) => "pressão alta",
-        Some(MemoryPressure::Critical) => "pressão crítica",
-        None => "indisponível",
-    }
-}
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HealthDto {
@@ -240,11 +231,5 @@ mod tests {
         assert!(v["lastSmartCare"].is_null());
         assert_eq!(v["days"].as_array().unwrap().len(), 30);
         std::fs::remove_dir_all(home).unwrap();
-    }
-
-    #[test]
-    fn memory_labels() {
-        assert_eq!(memory_label(Some(MemoryPressure::Normal)), "pressão normal");
-        assert_eq!(memory_label(None), "indisponível");
     }
 }

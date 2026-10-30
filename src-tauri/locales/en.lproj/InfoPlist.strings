@@ -1,0 +1,1 @@
+"NSAppleEventsUsageDescription" = "To move system-installed apps to the Trash, Limpae asks Finder, which prompts for your administrator password. To list and remove login items, it also queries System Events.";
