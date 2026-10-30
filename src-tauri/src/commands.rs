@@ -27,7 +27,7 @@ use crate::dto::{AppDto, DiskOverview, OutcomeDto, ProgressEvent, RemoveResult, 
 use crate::registry::{ERR_UNKNOWN_ITEM, Task};
 use crate::state::{AppState, lock};
 
-type Shared = Arc<AppState>;
+pub(crate) type Shared = Arc<AppState>;
 
 const OWN_BUNDLE_ID: &str = "br.com.limpaemeo";
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
@@ -43,7 +43,7 @@ fn cache_of_running_app(item: &Item, keys: &std::collections::HashSet<String>) -
         && cache_in_use(&item.name, keys)
 }
 
-async fn blocking<T, F>(f: F) -> Result<T, String>
+pub(crate) async fn blocking<T, F>(f: F) -> Result<T, String>
 where
     F: FnOnce() -> Result<T, String> + Send + 'static,
     T: Send + 'static,
@@ -89,7 +89,12 @@ impl Drop for ScanSession {
 }
 
 /// Runs `f` on the blocking pool with a registered cancel flag and a throttled progress emitter.
-async fn run_scan<T, F>(app: AppHandle, state: &State<'_, Shared>, task: &'static str, f: F) -> Result<T, String>
+pub(crate) async fn run_scan<T, F>(
+    app: AppHandle,
+    state: &State<'_, Shared>,
+    task: &'static str,
+    f: F,
+) -> Result<T, String>
 where
     F: FnOnce(&AppState, &Progress) -> Result<T, String> + Send + 'static,
     T: Send + 'static,
@@ -103,7 +108,7 @@ where
     .await
 }
 
-fn store(st: &AppState, task: Task, groups: Vec<Group>, progress: &Progress) -> Result<ScanResult, String> {
+pub(crate) fn store(st: &AppState, task: Task, groups: Vec<Group>, progress: &Progress) -> Result<ScanResult, String> {
     if progress.cancelled() {
         return Err(ERR_CANCELLED.into());
     }

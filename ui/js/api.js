@@ -50,4 +50,10 @@ export const api = {
   ignored: () => call('list_ignored', undefined, { quiet: true }),
   unignore: (path) => call('unignore', { path }),
   quickLook: (id) => call('quick_look', { id }),
+  clutterLocations: () => call('clutter_locations', undefined, { quiet: true }),
+  duplicates: (location) => call('scan_duplicates', { location }),
+  similar: (location) => call('scan_similar', { location }),
+  downloads: () => call('scan_downloads'),
+  largeAt: (location, minMb) => call('scan_large_at', { location, minMb }),
+  thumb: (id) => call('thumb', { id }, { quiet: true }),
 };
