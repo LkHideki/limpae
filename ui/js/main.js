@@ -98,6 +98,13 @@ try {
   Promise.resolve(window.__TAURI__.event.listen('navigate', (e) => navigate(String(e.payload)))).catch(() => {});
 } catch (e) { /* sem eventos do shell (preview no navegador) */ }
 
+// Pausa animações contínuas quando a janela não está em uso (ver body.idle no CSS).
+const syncIdle = () => document.body.classList.toggle('idle', document.hidden || !document.hasFocus());
+window.addEventListener('blur', syncIdle);
+window.addEventListener('focus', syncIdle);
+document.addEventListener('visibilitychange', syncIdle);
+syncIdle();
+
 buildNav();
 refreshDisk();
 api.settings().then((st) => { store.settings = st; setSoundEnabled(st.sounds); }).catch(() => {});
