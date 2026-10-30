@@ -15,7 +15,7 @@ const DICT_DIR = join(UI, 'i18n/dict');
 
 const walk = (dir) => readdirSync(dir).flatMap((n) => {
   const p = join(dir, n);
-  return statSync(p).isDirectory() ? (p.includes('/i18n') ? [] : walk(p)) : p.endsWith('.js') ? [p] : [];
+  return statSync(p).isDirectory() ? (p.includes('/i18n') ? [] : walk(p)) : p.endsWith('.js') && n !== 'i18n.js' ? [p] : [];
 });
 
 // ---- dicionário -------------------------------------------------------------------------------------------

@@ -9,6 +9,8 @@ import lens from './lens.js';
 import protection from './protection.js';
 import performance from './performance.js';
 import backendCore from './backend-core.js';
+import backendCoreB from './backend-core-b.js';
+import backendCoreC from './backend-core-c.js';
 import backendApp from './backend-app.js';
 
-export const DICT = { ...shell, ...smart, ...clean, ...apps, ...files, ...lens, ...protection, ...performance, ...backendCore, ...backendApp };
+export const DICT = { ...shell, ...smart, ...clean, ...apps, ...files, ...lens, ...protection, ...performance, ...backendCore, ...backendCoreB, ...backendCoreC, ...backendApp };
