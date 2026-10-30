@@ -1,5 +1,5 @@
 // Componentes compartilhados: toast, diálogos, checkbox tri-state, botão redondo, stage.
-import { h, s, mount } from './dom.js';
+import { h, s, mount, mid } from './dom.js';
 import { icon, orb } from './art.js';
 import { plural } from './format.js';
 
@@ -15,17 +15,23 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
     const root = document.getElementById('modal-root');
     const prev = document.activeElement;
     const titleId = 'm-' + Math.random().toString(36).slice(2, 8);
+    let done = false;
     const finish = (v) => {
+      if (done) return;
+      done = true;
       back.classList.remove('in');
+      back.classList.add('out');
       document.removeEventListener('keydown', onKey, true);
-      setTimeout(() => back.remove(), 240);
+      setTimeout(() => back.remove(), 260);
       if (prev && prev.focus) prev.focus();
       resolve(v);
     };
     const btns = buttons.map((b) => h('button', { class: 'btn ' + (b.kind || ''), type: 'button', onClick: () => finish(b.value) }, b.label));
     const card = h('div', { class: 'modal' + (danger ? ' danger' : ''), role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': titleId, dataset: { mod: mod || 'smart' } },
-      h('div', { class: 'glyph-chip' }, icon(glyph, 22)),
-      h('h3', { id: titleId }, title), h('div', { class: 'body' }, body), extra, h('div', { class: 'btns' }, btns));
+      h('div', { class: 'modal-glow', 'aria-hidden': 'true' }),
+      h('div', { class: 'modal-icon' }, h('i', { class: 'ring', 'aria-hidden': 'true' }), h('div', { class: 'glyph-chip' }, icon(glyph, 26))),
+      h('h3', { id: titleId }, title), h('div', { class: 'body' }, body), extra,
+      h('div', { class: 'btns' + (btns.length === 1 ? ' single' : '') }, btns));
     const back = h('div', { class: 'modal-back', role: 'presentation', onMouseDown: (e) => { if (e.target === back) finish(buttons[0].value); } }, card);
     function onKey(e) {
       if (e.key === 'Escape') { e.stopPropagation(); finish(buttons[0].value); }
@@ -37,7 +43,8 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
     }
     document.addEventListener('keydown', onKey, true);
     root.append(back);
-    requestAnimationFrame(() => { back.classList.add('in'); btns[btns.length - 1].focus(); });
+    // Destrutivo: foco inicial em Cancelar, para Enter não confirmar sem querer.
+    requestAnimationFrame(() => requestAnimationFrame(() => { back.classList.add('in'); btns[danger ? 0 : btns.length - 1].focus({ preventScroll: true }); }));
   });
 }
 
@@ -47,7 +54,24 @@ export function confirmDialog({ title, body, confirm = 'Confirmar', cancel = 'Ca
 }
 
 export function failuresSheet(failures) {
-  const list = h('div', { class: 'fail-list' }, failures.map((f) => h('div', { class: 'fail-item' }, h('b', { title: f.path || '' }, f.name || f.path || 'Item'), h('span', null, f.error || 'Erro desconhecido'))));
+  // Falhas com o mesmo motivo (ex.: restos mantidos porque o app ficou) viram um cartão só.
+  const byReason = new Map();
+  for (const f of failures) {
+    const k = f.error || 'Erro desconhecido';
+    if (!byReason.has(k)) byReason.set(k, []);
+    byReason.get(k).push(f);
+  }
+  const card = (fs, reason) => {
+    const one = fs.length === 1 ? fs[0] : null;
+    return h('div', { class: 'fail-item' },
+      h('span', { class: 'fail-dot', 'aria-hidden': 'true' }, icon('alert', 13)),
+      h('div', { class: 'fail-txt' },
+        h('b', null, one ? one.name || 'Item' : plural(fs.length, 'item', 'itens')),
+        one && one.path ? h('small', { class: 'fail-path', title: one.path }, mid(one.path, 40)) : null,
+        one ? null : h('small', { class: 'fail-path' }, fs.map((f) => f.name).filter(Boolean).slice(0, 3).join(' · ') + (fs.length > 3 ? ' …' : '')),
+        h('p', { class: 'fail-err' }, reason)));
+  };
+  const list = h('div', { class: 'fail-list' }, [...byReason].map(([reason, fs]) => card(fs, reason)));
   return modal({
     title: 'Alguns itens não foram removidos',
     body: `${plural(failures.length, 'item não pôde', 'itens não puderam')} ser removido${failures.length === 1 ? '' : 's'} e continua${failures.length === 1 ? '' : 'm'} no lugar.`,
