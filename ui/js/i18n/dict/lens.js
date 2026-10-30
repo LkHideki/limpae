@@ -55,6 +55,8 @@ export default {
   'Nada selecionado.': { en: 'Nothing selected.', id: 'Tidak ada yang dipilih.' },
   'Mover 1 item para o Lixo?': { en: 'Move 1 item to the Trash?', id: 'Pindahkan 1 item ke Tempat Sampah?' },
   'Mover {n} itens para o Lixo?': { en: 'Move {n} items to the Trash?', id: 'Pindahkan {n} item ke Tempat Sampah?' },
+  'Apagar 1 item definitivamente?': { en: 'Delete 1 item permanently?', id: 'Hapus 1 item secara permanen?' },
+  'Apagar {n} itens definitivamente?': { en: 'Delete {n} items permanently?', id: 'Hapus {n} item secara permanen?' },
   '{size} serão enviados ao Lixo. Você pode restaurá-los de lá ': { en: '{size} will be sent to the Trash. You can restore them from there ', id: '{size} akan dikirim ke Tempat Sampah. Anda dapat memulihkannya dari sana ' },
   'até esvaziar a Lixeira': { en: 'until you empty the Trash', id: 'hingga Anda mengosongkan Tempat Sampah' },
   'Apagando…': { en: 'Deleting…', id: 'Menghapus…' },

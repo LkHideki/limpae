@@ -58,6 +58,16 @@ function serviceDesc(service) {
   }
 }
 
+// O tr() não traduz o valor capturado em {param}: o "(há 16 dias)" e a lista "desligada para: ..." do detalhe
+// são traduzidos antes, para o padrão do dicionário casar já com os trechos no idioma certo.
+function trDetail(text) {
+  if (typeof text !== 'string') return text;
+  const pre = text
+    .replace(/\((hoje|há [^)]+)\)/, (m, ago) => `(${tr(ago)})`)
+    .replace(/^(Instalação automática desligada para: )(.+)\.$/s, (m, a, items) => `${a}${tr(items)}.`);
+  return tr(pre);
+}
+
 const areas = () => [{ value: 'checks', label: t('Verificação') }, { value: 'perms', label: t('Permissões') }, { value: 'privacy', label: t('Privacidade') }];
 
 // Nomes legíveis das listas de itens recentes do macOS (o arquivo real aparece no tooltip e no caminho).
@@ -303,7 +313,7 @@ export function enter(ctx) {
       pane(t('Verificação de segurança'), t('Estado das proteções do macOS. Somente leitura: o Limpae não altera nenhuma configuração.'));
       mount(listEl, S.checks.map((c) => h('div', { class: 'pr-check', dataset: { id: c.id } },
         h('span', { class: 'pr-st', dataset: { s: c.ok === true ? 'ok' : c.ok === false ? 'bad' : 'unk' }, 'aria-label': c.ok === true ? t('Em ordem') : c.ok === false ? t('Atenção') : t('Não verificado') }, icon(c.ok === true ? 'check' : c.ok === false ? 'alert' : 'dash', 17)),
-        h('div', { class: 'pr-check-t' }, h('b', null, tr(c.title)), h('span', null, tr(c.detail))),
+        h('div', { class: 'pr-check-t' }, h('b', null, tr(c.title)), h('span', null, trDetail(c.detail))),
         c.fix ? h('button', { class: 'btn sm', type: 'button', onClick: () => api.openSecurityFix(c.id).catch(() => {}) }, tr(c.fix.label)) : null)),
         h('p', { class: 'pr-note' }, t('Os botões abrem o painel certo dos Ajustes do Sistema. As configurações ficam sob o seu controle.')));
       const bad = attention();
@@ -412,7 +422,7 @@ export function enter(ctx) {
         const sub = c.running ? t('Aberto: feche para limpar') : items.length ? `${plural(items.length, 'item', 'itens')} · ${fmtBytes(bytes)}` : t('Nada encontrado');
         return h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(c.id === S.pcat), dataset: { cat: c.id }, onClick: () => { if (S.pcat !== c.id) { S.pcat = c.id; paintPrivCats(); paintPrivPane(); } } },
           h('span', { class: 'fm-cat-ic' }, pi(c.ic, 17)),
-          h('span', { class: 'fm-cat-t' }, h('b', null, c.label), h('span', null, sub)),
+          h('span', { class: 'fm-cat-t' }, h('b', null, c.label), h('span', { title: sub }, sub)),
           n ? h('span', { class: 'fm-cat-n', title: plural(n, 'selecionado', 'selecionados') }, fmtNum(n)) : null);
       }));
     }
@@ -574,6 +584,7 @@ export function enter(ctx) {
       title: tn(picked.length, 'Mover {n} item para o Lixo?', 'Mover {n} itens para o Lixo?'),
       body: [t('{size} serão enviados ao Lixo.', { size: fmtBytes(bytes) }) + ' ' + t('Você pode restaurá-los de lá') + ' ', h('strong', null, t('até esvaziar a Lixeira')), '. ' + t('Senhas salvas não são tocadas.'),
         notes.length ? h('span', { class: 'fl-warn' }, ' ' + notes.join(' ')) : null],
+      permanentTitle: tn(picked.length, 'Apagar {n} item definitivamente?', 'Apagar {n} itens definitivamente?'),
       confirm: t('Mover para o Lixo'), glyph: 'trash', mod: 'protect',
       permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });

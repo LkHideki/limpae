@@ -413,7 +413,7 @@ export function enter(ctx) {
       const main = opts.dir
         ? h('div', { class: 'fm-main' },
           h('div', { class: 'fm-name' }, mid(tilde(dirOf(it.path)), 30), it.note ? h('span', { class: 'badge info' }, tr(it.note)) : null),
-          h('div', { class: 'fm-meta' }, h('span', { class: 'fm-fname', title: it.name }, opts.when ? `${it.name} · ${opts.when(it)}` : it.name)))
+          h('div', { class: 'fm-meta fm-meta-dir' }, h('span', { class: 'fm-fname', title: it.name }, it.name), opts.when ? h('span', { class: 'fm-when' }, ' · ' + opts.when(it)) : null))
         : h('div', { class: 'fm-main' },
           h('div', { class: 'fm-name' }, h('span', { title: it.name }, it.name), it.note ? h('span', { class: 'badge info' }, tr(it.note)) : null),
           h('div', { class: 'fm-meta' }, mid(it.path, 26)));
@@ -572,6 +572,7 @@ export function enter(ctx) {
       title: tn(picked.length, 'Mover {n} arquivo para o Lixo?', 'Mover {n} arquivos para o Lixo?'),
       body: [...undoParts,
         allSel ? h('span', { class: 'fl-warn' }, ' ' + t('Atenção: em {groups} de cópias todos os itens estão selecionados, então nenhuma cópia vai sobrar.', { groups: plural(allSel, 'grupo', 'grupos') })) : null],
+      permanentTitle: tn(picked.length, 'Apagar {n} arquivo definitivamente?', 'Apagar {n} arquivos definitivamente?'),
       confirm: t('Mover para o Lixo'), glyph: 'trash', mod: 'files',
       permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });

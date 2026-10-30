@@ -122,6 +122,8 @@ export default {
   'até esvaziar a Lixeira': { en: "until you empty the Trash", id: "hingga Anda mengosongkan Tempat Sampah" },
   'Mover {n} arquivo para o Lixo?': { en: "Move {n} file to the Trash?", id: "Pindahkan {n} file ke Tempat Sampah?" },
   'Mover {n} arquivos para o Lixo?': { en: "Move {n} files to the Trash?", id: "Pindahkan {n} file ke Tempat Sampah?" },
+  'Apagar {n} arquivo definitivamente?': { en: "Permanently delete {n} file?", id: "Hapus {n} file secara permanen?" },
+  'Apagar {n} arquivos definitivamente?': { en: "Permanently delete {n} files?", id: "Hapus {n} file secara permanen?" },
   'Atenção: em {groups} de cópias todos os itens estão selecionados, então nenhuma cópia vai sobrar.': { en: "Warning: in {groups} of copies, all items are selected, so no copy will be left.", id: "Perhatian: di {groups} salinan, semua item dipilih sehingga tidak ada salinan yang tersisa." },
   '{done} de {total}': { en: "{done} of {total}", id: "{done} dari {total}" },
   'Apagando…': { en: "Deleting…", id: "Menghapus…" },
