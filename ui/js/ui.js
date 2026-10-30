@@ -2,12 +2,13 @@
 import { h, s, mount, mid } from './dom.js';
 import { icon, orb } from './art.js';
 import { plural } from './format.js';
+import { t, tn, tr } from './i18n.js';
 
 export function toast(msg, kind = 'err') {
   const root = document.getElementById('toast-root');
-  const t = h('div', { class: 'toast ' + (kind === 'ok' ? 'ok' : ''), role: 'status' }, icon(kind === 'ok' ? 'check' : 'alert', 16), h('span', null, msg));
-  root.append(t);
-  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 320); }, 5200);
+  const el = h('div', { class: 'toast ' + (kind === 'ok' ? 'ok' : ''), role: 'status' }, icon(kind === 'ok' ? 'check' : 'alert', 16), h('span', null, msg));
+  root.append(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 320); }, 5200);
 }
 
 function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, extra }) {
@@ -51,9 +52,11 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
 // Primeiro botão = cancelar (valor false); último = confirmar (true).
 // permanentChoice: mostra a chave "Apagar definitivamente" (itens que iriam para o Lixo). Retorna false, true
 // ou 'permanent' quando a chave está ligada — o chamador repassa `permanent` à remoção.
+// permanentTitle: título do diálogo quando a chave liga (o chamador monta os dois já traduzidos, p.ex. "Mover 2 itens
+// para o Lixo?" e "Apagar 2 itens definitivamente?"); sem ele cai em "Apagar definitivamente?".
 // trashCount: quantos itens do lote iriam para o Lixo (o resto já é apagado direto, como caches); a nota fala
 // só deles, para não contradizer o corpo do diálogo em seleções mistas.
-export function confirmDialog({ title, body, confirm = 'Confirmar', cancel = 'Cancelar', danger = false, glyph = 'alert', mod, permanentChoice = false, permanentDefault = false, trashCount = null }) {
+export function confirmDialog({ title, body, confirm = t('Confirmar'), cancel = t('Cancelar'), danger = false, glyph = 'alert', mod, permanentChoice = false, permanentDefault = false, trashCount = null, permanentTitle = null }) {
   let permanent = permanentChoice && permanentDefault;
   const mixed = trashCount != null && danger;
   const confirmBtn = { label: confirm, value: true, kind: danger ? 'danger' : 'primary' };
@@ -62,26 +65,28 @@ export function confirmDialog({ title, body, confirm = 'Confirmar', cancel = 'Ca
     const note = h('p', { class: 'perm-note' });
     const paint = (row) => {
       const card = row.closest('.modal');
-      const who = trashCount == null ? 'Os itens' : trashCount === 1 ? 'O item recuperável' : `Os ${trashCount} itens recuperáveis`;
-      const verb = trashCount === 1 ? ['será apagado', 'vai', 'pode ser recuperado'] : ['serão apagados', 'vão', 'podem ser recuperados'];
-      note.textContent = permanent ? `${who} ${verb[0]} sem passar pelo Lixo. Não dá para desfazer.` : `${who} ${verb[1]} para o Lixo e ${verb[2]} de lá.`;
+      if (permanent) {
+        note.textContent = trashCount == null ? t('Os itens serão apagados sem passar pelo Lixo. Não dá para desfazer.')
+          : tn(trashCount, 'O item recuperável será apagado sem passar pelo Lixo. Não dá para desfazer.', 'Os {n} itens recuperáveis serão apagados sem passar pelo Lixo. Não dá para desfazer.');
+      } else {
+        note.textContent = trashCount == null ? t('Os itens vão para o Lixo e podem ser recuperados de lá.')
+          : tn(trashCount, 'O item recuperável vai para o Lixo e pode ser recuperado de lá.', 'Os {n} itens recuperáveis vão para o Lixo e podem ser recuperados de lá.');
+      }
       if (!card) return;
       card.classList.toggle('danger', permanent || danger);
       // O texto sobre o Lixo deixa de valer: título reescrito e corpo escondido (a nota acima explica).
       const h3 = card.querySelector('h3'), bodyEl = card.querySelector('.body');
       if (h3) {
-        if (!h3.dataset.orig) h3.dataset.orig = h3.textContent;
-        const m = /^Mover (.+) para o Lixo\?$/.exec(h3.dataset.orig);
-        h3.textContent = permanent ? (m ? `Apagar ${m[1]} definitivamente?` : 'Apagar definitivamente?') : h3.dataset.orig;
+        h3.textContent = permanent ? (permanentTitle || t('Apagar definitivamente?')) : title;
       }
       // Corpo escondido só quando ele fala apenas do Lixo; em lotes mistos ele descreve os itens já definitivos.
       if (bodyEl) bodyEl.hidden = permanent && !mixed;
       const btn = card.querySelector('.btns .btn:last-child');
-      if (btn) { btn.textContent = permanent ? 'Apagar definitivamente' : confirm; btn.className = 'btn ' + (permanent || danger ? 'danger' : 'primary'); }
+      if (btn) { btn.textContent = permanent ? t('Apagar definitivamente') : confirm; btn.className = 'btn ' + (permanent || danger ? 'danger' : 'primary'); }
     };
     const row = h('div', { class: 'perm-row' },
-      h('div', { class: 'perm-txt' }, h('b', null, 'Apagar definitivamente'), note),
-      toggleSwitch(permanent, (on) => { permanent = on; paint(row); }, 'Apagar definitivamente'));
+      h('div', { class: 'perm-txt' }, h('b', null, t('Apagar definitivamente')), note),
+      toggleSwitch(permanent, (on) => { permanent = on; paint(row); }, t('Apagar definitivamente')));
     extra = row;
     requestAnimationFrame(() => paint(row));
   }
@@ -91,8 +96,8 @@ export function confirmDialog({ title, body, confirm = 'Confirmar', cancel = 'Ca
 // "Recomeçar" descarta resultados e marcações: sempre com confirmação (nada foi removido até ali).
 export function confirmRestart(mod) {
   return confirmDialog({
-    title: 'Recomeçar a análise?', body: 'Os resultados e as marcações atuais serão descartados. Nada foi removido até agora.',
-    confirm: 'Recomeçar', glyph: 'restart', mod: mod || 'smart',
+    title: t('Recomeçar a análise?'), body: t('Os resultados e as marcações atuais serão descartados. Nada foi removido até agora.'),
+    confirm: t('Recomeçar'), glyph: 'restart', mod: mod || 'smart',
   });
 }
 
@@ -101,7 +106,7 @@ export function confirmRestart(mod) {
 // `into`: barra já existente para repintar no lugar (a busca mantém o foco entre repinturas só se não for refeita).
 export function managerBar({ title, subtitle, onBack, controls = [], into = null }) {
   const kids = [
-    h('button', { class: 'btn sm ghost mgr-back', type: 'button', title: 'Voltar (Esc)', onClick: onBack }, icon('back', 14), 'Voltar'),
+    h('button', { class: 'btn sm ghost mgr-back', type: 'button', title: t('Voltar (Esc)'), onClick: onBack }, icon('back', 14), t('Voltar')),
     h('div', { class: 'rv-title' }, h('h2', null, title), subtitle ? h('p', null, subtitle) : null),
     controls,
   ];
@@ -119,7 +124,7 @@ export function failuresSheet(failures) {
   // Falhas com o mesmo motivo (ex.: restos mantidos porque o app ficou) viram um cartão só.
   const byReason = new Map();
   for (const f of failures) {
-    const k = f.error || 'Erro desconhecido';
+    const k = f.error || '';
     if (!byReason.has(k)) byReason.set(k, []);
     byReason.get(k).push(f);
   }
@@ -128,22 +133,22 @@ export function failuresSheet(failures) {
     return h('div', { class: 'fail-item' },
       h('span', { class: 'fail-dot', 'aria-hidden': 'true' }, icon('alert', 13)),
       h('div', { class: 'fail-txt' },
-        h('b', null, one ? one.name || 'Item' : plural(fs.length, 'item', 'itens')),
+        h('b', null, one ? one.name || t('Item') : plural(fs.length, 'item', 'itens')),
         one && one.path ? h('small', { class: 'fail-path', title: one.path }, mid(one.path, 40)) : null,
         one ? null : h('small', { class: 'fail-path' }, fs.map((f) => f.name).filter(Boolean).slice(0, 3).join(' · ') + (fs.length > 3 ? ' …' : '')),
-        h('p', { class: 'fail-err' }, reason)));
+        h('p', { class: 'fail-err' }, reason ? tr(reason) : t('Erro desconhecido'))));
   };
   const list = h('div', { class: 'fail-list' }, [...byReason].map(([reason, fs]) => card(fs, reason)));
   return modal({
-    title: 'Alguns itens não foram removidos',
-    body: `${plural(failures.length, 'item não pôde', 'itens não puderam')} ser removido${failures.length === 1 ? '' : 's'} e continua${failures.length === 1 ? '' : 'm'} no lugar.`,
-    glyph: 'alert', extra: list, buttons: [{ label: 'Entendi', value: true, kind: 'primary' }],
+    title: t('Alguns itens não foram removidos'),
+    body: tn(failures.length, '{n} item não pôde ser removido e continua no lugar.', '{n} itens não puderam ser removidos e continuam no lugar.'),
+    glyph: 'alert', extra: list, buttons: [{ label: t('Entendi'), value: true, kind: 'primary' }],
   });
 }
 
 // Checkbox tri-state: data-state = on | off | mixed.
 export function checkbox(state, onToggle, label) {
-  const b = h('button', { class: 'cb', type: 'button', role: 'checkbox', 'aria-label': label || 'Selecionar' }, icon('check', 14), icon('dash', 14));
+  const b = h('button', { class: 'cb', type: 'button', role: 'checkbox', 'aria-label': label || t('Selecionar') }, icon('check', 14), icon('dash', 14));
   b.set = (st) => {
     if (b.dataset.state && b.dataset.state !== st) { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
     b.dataset.state = st; b.setAttribute('aria-checked', st === 'mixed' ? 'mixed' : String(st === 'on'));
@@ -161,7 +166,7 @@ export function segmented(options, value, onChange, label) {
 }
 
 export function chipRow(options, value, onChange) {
-  const wrap = h('div', { class: 'chips', role: 'group', 'aria-label': 'Tamanho mínimo' });
+  const wrap = h('div', { class: 'chips', role: 'group', 'aria-label': t('Tamanho mínimo') });
   const btns = options.map((o) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(o.value === value), onClick: () => { btns.forEach((b, i) => b.setAttribute('aria-pressed', String(options[i].value === o.value))); onChange(o.value); } }, o.label));
   wrap.append(...btns);
   return wrap;

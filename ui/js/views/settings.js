@@ -7,9 +7,10 @@ import { checkbox, toast, segmented } from '../ui.js';
 import { setSoundEnabled, play } from '../sound.js';
 import { t, applyLangSetting, LANGS } from '../i18n.js';
 
-const SCOPE = [
-  ['junk', 'Limpeza'], ['trash', 'Lixeira'], ['protection', 'Proteção'],
-  ['performance', 'Desempenho'], ['apps', 'Aplicativos'], ['files', 'Meus Arquivos'],
+// Função: o idioma só é conhecido depois de carregar o módulo.
+const scopeList = () => [
+  ['junk', t('Limpeza')], ['trash', t('Lixeira')], ['protection', t('Proteção')],
+  ['performance', t('Desempenho')], ['apps', t('Aplicativos')], ['files', t('Meus Arquivos')],
 ];
 
 export function enter(ctx) {
@@ -35,26 +36,26 @@ export function enter(ctx) {
     if (!s) return mount(root, h('div', { class: 'set-loading' }, h('span', { class: 'spin' })));
     const scope = s.smartCare || {};
     mount(root,
-      h('header', { class: 'set-head' }, h('h1', { class: 'h2' }, 'Ajustes')),
-      h('section', { class: 'set-card' }, h('h3', null, 'Geral'),
+      h('header', { class: 'set-head' }, h('h1', { class: 'h2' }, t('Ajustes'))),
+      h('section', { class: 'set-card' }, h('h3', null, t('Geral')),
         h('div', { class: 'set-row' },
           h('div', null, h('div', { class: 'set-label' }, t('Idioma')), h('div', { class: 'set-hint' }, t('Escolha o idioma da interface.'))),
           segmented(LANGS.map((l) => ({ value: l.id, label: l.label })), s.language || 'en',
             (v) => { save({ ...s, language: v }); applyLangSetting(v); }, t('Idioma'))),
-        toggle('Reproduzir sons nas ações principais', 'Ao iniciar e concluir análises e limpezas.', s.sounds, (v) => { save({ ...s, sounds: v }); if (v) play('found'); }),
-        toggle('Mostrar na barra de menus', 'Saúde, espaço livre, memória e Lixeira num relance. Com o ícone ligado, fechar a janela mantém o app aberto na barra de menus.', !!s.menuBar, (v) => save({ ...s, menuBar: v }))),
-      h('section', { class: 'set-card' }, h('h3', null, 'Remoção'),
-        toggle('Apagar definitivamente por padrão', 'Arquivos, apps e restos são apagados sem passar pelo Lixo. Cada confirmação ainda deixa você escolher. Caches e registros regeneráveis sempre são apagados direto.', !!s.permanentDelete, (v) => save({ ...s, permanentDelete: v }))),
-      h('section', { class: 'set-card' }, h('h3', null, 'Faxina'),
-        h('p', { class: 'set-hint' }, 'Módulos incluídos na análise.'),
-        SCOPE.map(([k, label]) => toggle(label, null, scope[k] !== false, (v) => save({ ...s, smartCare: { ...scope, [k]: v } })))),
-      h('section', { class: 'set-card' }, h('h3', null, 'Lista de ignorados'),
-        h('p', { class: 'set-hint' }, 'Itens ignorados não aparecem em nenhuma análise. As mudanças valem na próxima análise.'),
+        toggle(t('Reproduzir sons nas ações principais'), t('Ao iniciar e concluir análises e limpezas.'), s.sounds, (v) => { save({ ...s, sounds: v }); if (v) play('found'); }),
+        toggle(t('Mostrar na barra de menus'), t('Saúde, espaço livre, memória e Lixeira num relance. Com o ícone ligado, fechar a janela mantém o app aberto na barra de menus.'), !!s.menuBar, (v) => save({ ...s, menuBar: v }))),
+      h('section', { class: 'set-card' }, h('h3', null, t('Remoção')),
+        toggle(t('Apagar definitivamente por padrão'), t('Arquivos, apps e restos são apagados sem passar pelo Lixo. Cada confirmação ainda deixa você escolher. Caches e registros regeneráveis sempre são apagados direto.'), !!s.permanentDelete, (v) => save({ ...s, permanentDelete: v }))),
+      h('section', { class: 'set-card' }, h('h3', null, t('Faxina')),
+        h('p', { class: 'set-hint' }, t('Módulos incluídos na análise.')),
+        scopeList().map(([k, label]) => toggle(label, null, scope[k] !== false, (v) => save({ ...s, smartCare: { ...scope, [k]: v } })))),
+      h('section', { class: 'set-card' }, h('h3', null, t('Lista de ignorados')),
+        h('p', { class: 'set-hint' }, t('Itens ignorados não aparecem em nenhuma análise. As mudanças valem na próxima análise.')),
         ignored.length
           ? h('div', { class: 'ign-list' }, ignored.map((p) => h('div', { class: 'ign-row' },
             h('span', { class: 'ign-path', title: p }, mid(p, 48)),
-            h('button', { class: 'btn sm ghost', type: 'button', 'aria-label': `Parar de ignorar ${p}`, onClick: () => unignore(p) }, icon('x', 14), 'Remover'))))
-          : h('div', { class: 'set-empty' }, 'Nenhum item ignorado. Clique com o botão direito em um item da revisão para ignorá-lo.')),
+            h('button', { class: 'btn sm ghost', type: 'button', 'aria-label': t('Parar de ignorar {path}', { path: p }), onClick: () => unignore(p) }, icon('x', 14), t('Remover')))))
+          : h('div', { class: 'set-empty' }, t('Nenhum item ignorado. Clique com o botão direito em um item da revisão para ignorá-lo.'))),
     );
   }
 
@@ -66,7 +67,7 @@ export function enter(ctx) {
     try {
       const [st, ig] = await Promise.all([s ? Promise.resolve(s) : api.settings(), api.ignored()]);
       s = store.settings = st; ignored = ig;
-    } catch (e) { toast('Não foi possível ler os ajustes.'); }
+    } catch (e) { toast(t('Não foi possível ler os ajustes.')); }
     if (ctx.alive) render();
   }
 
