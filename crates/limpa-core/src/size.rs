@@ -23,24 +23,56 @@ pub fn own_bytes(md: &Metadata) -> u64 {
     md.blocks() * 512
 }
 
+/// Sandboxed app containers: every lookup inside them is checked by the sandbox, and concurrent lookups
+/// serialize badly (measured: a 16k-file WhatsApp container took 6 s in parallel vs 1.3 s sequentially).
+pub(crate) fn in_app_container(path: &Path) -> bool {
+    let s = path.as_os_str().as_encoded_bytes();
+    let has = |needle: &[u8]| s.windows(needle.len()).any(|w| w == needle);
+    has(b"/Library/Containers/") || has(b"/Library/Group Containers/")
+}
+
+/// Entries of a directory with their lstat metadata, stat'ed sequentially: parallel lstat calls in one
+/// directory contend on its lock, so walkers parallelize across subdirectories only.
+pub(crate) fn stat_entries(rd: fs::ReadDir) -> Vec<(fs::DirEntry, Metadata)> {
+    rd.filter_map(Result::ok)
+        .filter_map(|e| {
+            // DirEntry::metadata does not traverse symlinks on unix.
+            let m = e.metadata().ok()?;
+            Some((e, m))
+        })
+        .collect()
+}
+
+fn file_bytes(md: &Metadata, seen: &Seen) -> u64 {
+    if md.nlink() > 1 && !seen.lock().unwrap().insert((md.dev(), md.ino())) {
+        return 0;
+    }
+    own_bytes(md)
+}
+
+/// Files of one directory are stat'ed sequentially (parallel lstat in the same directory contends on its
+/// lock); subdirectories are walked in parallel, except inside app containers.
 fn walk(path: &Path, md: &Metadata, dev: u64, seen: &Seen, cancel: &AtomicBool) -> u64 {
     if cancel.load(Ordering::Relaxed) || md.dev() != dev {
         return 0;
     }
     if !md.is_dir() {
-        if md.nlink() > 1 && !seen.lock().unwrap().insert((md.dev(), md.ino())) {
-            return 0;
-        }
-        return own_bytes(md);
+        return file_bytes(md, seen);
     }
     let Ok(rd) = fs::read_dir(path) else { return own_bytes(md) };
-    let entries: Vec<_> = rd.filter_map(Result::ok).collect();
-    own_bytes(md)
-        + entries
-            .par_iter()
-            // DirEntry::metadata does not traverse symlinks on unix.
-            .map(|e| e.metadata().map_or(0, |m| walk(&e.path(), &m, dev, seen, cancel)))
-            .sum::<u64>()
+    let mut total = own_bytes(md);
+    let mut dirs = Vec::new();
+    for e in rd.filter_map(Result::ok) {
+        // DirEntry::metadata does not traverse symlinks on unix.
+        let Ok(m) = e.metadata() else { continue };
+        if m.is_dir() {
+            dirs.push((e.path(), m));
+        } else if m.dev() == dev {
+            total += file_bytes(&m, seen);
+        }
+    }
+    let sub = |(p, m): &(std::path::PathBuf, Metadata)| walk(p, m, dev, seen, cancel);
+    total + if in_app_container(path) { dirs.iter().map(sub).sum::<u64>() } else { dirs.par_iter().map(sub).sum() }
 }
 
 #[cfg(test)]

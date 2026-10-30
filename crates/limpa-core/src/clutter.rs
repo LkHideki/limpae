@@ -174,12 +174,10 @@ fn walk_dir(
     }
     p.report(dir, found.load(Ordering::Relaxed));
     let Ok(rd) = fs::read_dir(dir) else { return Vec::new() };
-    let entries: Vec<_> = rd.filter_map(Result::ok).collect();
+    let entries = crate::size::stat_entries(rd);
     entries
         .par_iter()
-        .flat_map_iter(|e| {
-            // DirEntry::metadata does not traverse symlinks on unix.
-            let Ok(md) = e.metadata() else { return Vec::new() };
+        .flat_map_iter(|(e, md)| {
             let name = e.file_name();
             let name = name.to_string_lossy();
             if md.dev() != dev || name.starts_with('.') || (top && skip_top_level(&name, volume)) {
@@ -192,10 +190,10 @@ fn walk_dir(
                 }
                 return walk_dir(&path, false, volume, dev, accept, found, p);
             }
-            if !md.is_file() || is_dataless(&md) || !accept(&path, &md) {
+            if !md.is_file() || is_dataless(md) || !accept(&path, md) {
                 return Vec::new();
             }
-            let alloc = own_bytes(&md);
+            let alloc = own_bytes(md);
             found.fetch_add(alloc, Ordering::Relaxed);
             vec![Cand { path, alloc, len: md.len(), dev: md.dev(), ino: md.ino(), mtime: md.mtime() }]
         })

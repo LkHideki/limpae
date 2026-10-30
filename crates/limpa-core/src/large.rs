@@ -100,12 +100,10 @@ fn walk(dir: &Path, is_home: bool, dev: u64, min: u64, found: &AtomicU64, p: &Pr
     }
     p.report(dir, found.load(Ordering::Relaxed));
     let Ok(rd) = fs::read_dir(dir) else { return Vec::new() };
-    let entries: Vec<_> = rd.filter_map(Result::ok).collect();
+    let entries = crate::size::stat_entries(rd);
     entries
         .par_iter()
-        .flat_map_iter(|e| {
-            // DirEntry::metadata does not traverse symlinks on unix.
-            let Ok(md) = e.metadata() else { return Vec::new() };
+        .flat_map_iter(|(e, md)| {
             let name = e.file_name();
             let name = name.to_string_lossy();
             if md.dev() != dev || name.starts_with('.') || (is_home && name == "Library") {
@@ -119,7 +117,7 @@ fn walk(dir: &Path, is_home: bool, dev: u64, min: u64, found: &AtomicU64, p: &Pr
                 return walk(&path, false, dev, min, found, p);
             }
             // Allocated, not logical, size: evicted iCloud placeholders weigh nothing.
-            let bytes = own_bytes(&md);
+            let bytes = own_bytes(md);
             if md.is_file() && bytes >= min {
                 found.fetch_add(bytes, Ordering::Relaxed);
                 return vec![(path, bytes)];
