@@ -107,3 +107,11 @@
   .am-res:not([hidden]) { padding-left: 24px; }
   .am-row .badge:not(.info) { display: none; }
 }
+
+/* Restos: verificados x a revisar */
+.ap-sec.ok, .ap-sec.warn { display: flex; align-items: center; gap: 6px; }
+.ap-sec.ok { color: #7fe3b4; }
+.ap-sec.warn { color: #ffcf86; margin-top: 10px; }
+.lo-row.maybe .rv-name span { color: var(--text-2); }
+.lo-why { display: flex; align-items: center; gap: 5px; margin-top: 3px; font-size: 11.5px; color: #ffcf86; line-height: 1.3; }
+.lo-why span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

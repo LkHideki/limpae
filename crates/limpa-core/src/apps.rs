@@ -123,34 +123,225 @@ fn is_plain_component(s: &str) -> bool {
     !s.is_empty() && s != "." && s != ".." && !s.contains('/')
 }
 
-/// Candidate paths derived from the bundle id, relative to `~/Library`.
-fn bundle_candidates(lib: &Path, b: &str) -> Vec<PathBuf> {
-    let mut out: Vec<PathBuf> = [
-        format!("Application Support/{b}"),
-        format!("Caches/{b}"),
-        format!("Preferences/{b}.plist"),
-        format!("Containers/{b}"),
-        format!("Application Scripts/{b}"),
-        format!("Saved Application State/{b}.savedState"),
-        format!("HTTPStorages/{b}"),
-        format!("HTTPStorages/{b}.binarycookies"),
-        format!("WebKit/{b}"),
-        format!("Logs/{b}"),
-        format!("Cookies/{b}.binarycookies"),
-        format!("LaunchAgents/{b}.plist"),
-    ]
-    .iter()
-    .map(|rel| lib.join(rel))
-    .collect();
+/// Evidence taken from the installed bundle itself, independent of folder names in `~/Library`: which
+/// sub-identifiers and app groups really belong to the app.
+#[derive(Debug, Default, Clone)]
+pub struct Ownership {
+    /// Bundle ids of helpers, XPC services, login items and extensions shipped inside the app.
+    pub embedded_ids: HashSet<String>,
+    /// App groups declared in the app's signed entitlements.
+    pub app_groups: HashSet<String>,
+}
 
-    let dotted = format!("{b}.");
-    let plist_of_bundle = |n: &str| n.starts_with(&dotted) && n.ends_with(".plist");
-    for dir in ["Preferences", "Preferences/ByHost", "LaunchAgents"] {
-        out.extend(entries(&lib.join(dir), plist_of_bundle));
+/// Reads the app's embedded bundles and signed entitlements (one `codesign` call, a few ms). Only components
+/// whose id extends the app's own (`<app id>.helper`) count: bundles shipped inside frameworks or under a
+/// foreign id (Sparkle's Autoupdate, Google's updater, Squirrel's ShipIt) are shared by many apps.
+pub fn ownership(app: &AppInfo) -> Ownership {
+    let prefix = format!("{}.", app.bundle_id);
+    let embedded_ids = embedded_bundle_ids(&app.path).into_iter().filter(|id| id.starts_with(&prefix)).collect();
+    Ownership { embedded_ids, app_groups: entitlement_groups(&app.path) }
+}
+
+const EMBEDDED_EXTS: &[&str] = &["app", "appex", "xpc", "systemextension"];
+
+/// Identifiers of nested bundles under `Contents/` (depth-limited, symlinks not followed).
+fn embedded_bundle_ids(app: &Path) -> HashSet<String> {
+    fn walk(dir: &Path, depth: u8, out: &mut HashSet<String>) {
+        if depth == 0 {
+            return;
+        }
+        let Ok(rd) = fs::read_dir(dir) else { return };
+        for e in rd.filter_map(Result::ok) {
+            if !e.file_type().is_ok_and(|t| t.is_dir()) {
+                continue;
+            }
+            let path = e.path();
+            let name = e.file_name();
+            let name = name.to_string_lossy();
+            // Frameworks are shared code; resources and localizations hold no bundles but thousands of files.
+            if name == "Resources"
+                || name == "_CodeSignature"
+                || name.ends_with(".framework")
+                || name.ends_with(".lproj")
+            {
+                continue;
+            }
+            if path.extension().is_some_and(|x| EMBEDDED_EXTS.iter().any(|k| x == *k)) {
+                let info = plist::Value::from_file(path.join("Contents/Info.plist")).ok();
+                if let Some(id) = info.as_ref().and_then(|v| v.as_dictionary()?.get("CFBundleIdentifier")?.as_string())
+                {
+                    out.insert(id.to_string());
+                }
+            }
+            walk(&path, depth - 1, out);
+        }
     }
-    let team_suffix = format!(".{b}");
-    out.extend(entries(&lib.join("Group Containers"), |n| n.ends_with(&team_suffix)));
+    let mut out = HashSet::new();
+    walk(&app.join("Contents"), 7, &mut out);
     out
+}
+
+/// `com.apple.security.application-groups` from the code signature; empty when unsigned or unreadable.
+fn entitlement_groups(app: &Path) -> HashSet<String> {
+    let Ok(out) = std::process::Command::new("/usr/bin/codesign")
+        .args(["-d", "--entitlements", "-", "--xml"])
+        .arg(app)
+        .stderr(std::process::Stdio::null())
+        .output()
+    else {
+        return HashSet::new();
+    };
+    plist::Value::from_reader_xml(out.stdout.as_slice())
+        .ok()
+        .and_then(|v| v.into_dictionary())
+        .and_then(|mut d| d.remove("com.apple.security.application-groups"))
+        .and_then(|v| v.into_array())
+        .map(|a| a.into_iter().filter_map(|v| v.into_string()).collect())
+        .unwrap_or_default()
+}
+
+/// Locations macOS frameworks key by bundle id: (folder in ~/Library, suffix, label shown to the user).
+const BY_ID: &[(&str, &str, &str)] = &[
+    ("Application Support", "", "Suporte do app"),
+    ("Caches", "", "Caches"),
+    ("Preferences", ".plist", "Preferências"),
+    ("Containers", "", "Contêiner do app"),
+    ("Application Scripts", "", "Scripts do app"),
+    ("Saved Application State", ".savedState", "Estado das janelas"),
+    ("HTTPStorages", "", "Armazenamento web"),
+    ("HTTPStorages", ".binarycookies", "Cookies"),
+    ("WebKit", "", "Dados do WebKit"),
+    ("Logs", "", "Registros"),
+    ("Cookies", ".binarycookies", "Cookies"),
+    ("LaunchAgents", ".plist", "Agente de inicialização"),
+];
+
+/// Locations that hold the app's documents/state rather than caches.
+const DATA_LABELS: &[&str] = &["Suporte do app", "Contêiner do app", "Contêiner compartilhado"];
+const BIG_DATA_BYTES: u64 = 1_000_000_000;
+
+const NOTE_PREFIX: &str = "Mesmo prefixo do app, sem confirmação";
+const NOTE_AGENT_OUTSIDE: &str = "O agente executa um programa fora do app";
+const NOTE_AGENT_UNREADABLE: &str = "Não foi possível ler o agente";
+const NOTE_GROUP_UNDECLARED: &str = "Grupo não declarado pelo app";
+const NOTE_GROUP_SHARED: &str = "Grupo do fornecedor, pode ser compartilhado";
+
+/// How sure we are that a path belongs to the app being uninstalled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Evidence {
+    /// Named after the app's (or an embedded component's) bundle id, or proven by the bundle itself.
+    Confirmed,
+    /// Plausible but unproven: listed unselected with the reason.
+    Weak(&'static str),
+}
+
+struct Candidate {
+    path: PathBuf,
+    label: &'static str,
+    evidence: Evidence,
+}
+
+/// `Program` / `ProgramArguments[0]` of a launch agent plist.
+fn agent_program(plist_path: &Path) -> Option<Option<PathBuf>> {
+    let v = plist::Value::from_file(plist_path).ok()?;
+    let d = v.as_dictionary()?;
+    let first = || d.get("ProgramArguments")?.as_array()?.first()?.as_string();
+    Some(d.get("Program").and_then(|p| p.as_string()).or_else(first).map(PathBuf::from))
+}
+
+/// A launch agent is the app's when its executable lives inside the bundle, or no longer exists at all.
+fn agent_evidence(plist_path: &Path, app: &Path) -> Evidence {
+    match agent_program(plist_path) {
+        None => Evidence::Weak(NOTE_AGENT_UNREADABLE),
+        Some(Some(prog)) if prog.starts_with(app) || fs::symlink_metadata(&prog).is_err() => Evidence::Confirmed,
+        Some(Some(_)) => Evidence::Weak(NOTE_AGENT_OUTSIDE),
+        Some(None) => Evidence::Weak(NOTE_AGENT_UNREADABLE),
+    }
+}
+
+/// `com.foo.app.0123ABCD-...` (Preferences/ByHost) → `com.foo.app`.
+fn strip_host_uuid(stem: &str) -> &str {
+    match stem.rsplit_once('.') {
+        Some((head, tail)) if tail.len() >= 12 && tail.chars().all(|c| c.is_ascii_hexdigit() || c == '-') => head,
+        _ => stem,
+    }
+}
+
+fn candidates(lib: &Path, app: &AppInfo, own: &Ownership, other_app: &dyn Fn(&str) -> bool) -> Vec<Candidate> {
+    let b = app.bundle_id.as_str();
+    let mut ids: Vec<&str> = vec![b];
+    // Components shipped inside this bundle keep their own data under their own ids.
+    ids.extend(own.embedded_ids.iter().map(String::as_str).filter(|id| is_plain_component(id) && *id != b));
+    let mine = |id: &str| id == b || own.embedded_ids.contains(id);
+    let mut out = Vec::new();
+
+    for id in &ids {
+        for (dir, suffix, label) in BY_ID {
+            let path = lib.join(dir).join(format!("{id}{suffix}"));
+            if fs::symlink_metadata(&path).is_err() {
+                continue;
+            }
+            let evidence = if *dir == "LaunchAgents" { agent_evidence(&path, &app.path) } else { Evidence::Confirmed };
+            out.push(Candidate { path, label, evidence });
+        }
+    }
+
+    // Other `b.*` plists: helpers we could not prove, unless another installed app owns that id.
+    let dotted = format!("{b}.");
+    for (dir, label) in [
+        ("Preferences", "Preferências"),
+        ("Preferences/ByHost", "Preferências deste Mac"),
+        ("LaunchAgents", "Agente de inicialização"),
+    ] {
+        for path in entries(&lib.join(dir), |n| n.starts_with(&dotted) && n.ends_with(".plist")) {
+            let name = file_name_str(&path);
+            let stem = name.trim_end_matches(".plist");
+            let id = if dir == "Preferences/ByHost" { strip_host_uuid(stem) } else { stem };
+            if dir != "Preferences/ByHost" && mine(id) {
+                continue; // already listed as a by-id location above
+            }
+            let evidence = if dir == "LaunchAgents" {
+                agent_evidence(&path, &app.path)
+            } else if mine(id) {
+                Evidence::Confirmed
+            } else if other_app(id) {
+                continue; // belongs to a different installed app
+            } else {
+                Evidence::Weak(NOTE_PREFIX)
+            };
+            out.push(Candidate { path, label, evidence });
+        }
+    }
+
+    // App groups: confirmed only when the signed entitlements declare them.
+    let team_suffix = format!(".{b}");
+    let group_exact = format!("group.{b}");
+    for path in entries(&lib.join("Group Containers"), |_| true) {
+        let name = file_name_str(&path);
+        let named_after_app = name.ends_with(&team_suffix) || name == group_exact;
+        let declared = own.app_groups.contains(&name);
+        let evidence = match (named_after_app, declared) {
+            (true, true) => Evidence::Confirmed,
+            (true, false) => Evidence::Weak(NOTE_GROUP_UNDECLARED),
+            (false, true) => Evidence::Weak(NOTE_GROUP_SHARED),
+            (false, false) => continue,
+        };
+        out.push(Candidate { path, label: "Contêiner compartilhado", evidence });
+    }
+
+    if name_is_matchable(&app.name) {
+        for (dir, label) in [("Application Support", "Suporte do app"), ("Caches", "Caches"), ("Logs", "Registros")] {
+            let path = lib.join(dir).join(&app.name);
+            if fs::symlink_metadata(&path).is_ok() {
+                out.push(Candidate { path, label, evidence: Evidence::Weak(NAME_MATCH_NOTE) });
+            }
+        }
+    }
+    out
+}
+
+fn file_name_str(path: &Path) -> String {
+    path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
 }
 
 fn entries(dir: &Path, keep: impl Fn(&str) -> bool) -> Vec<PathBuf> {
@@ -162,34 +353,51 @@ fn name_is_matchable(name: &str) -> bool {
     name.chars().count() >= 4 && is_plain_component(name) && !GENERIC_NAMES.contains(&name.to_lowercase().as_str())
 }
 
-/// Leftover files of `app` under `home`, biggest first. Bundle-id hits are pre-selected; name hits are not,
-/// because a name can collide with unrelated data. Everything goes to the Trash so a wrong match is recoverable.
+/// Leftover files of `app` under `home`, biggest first. Each one needs proof of ownership to be pre-selected:
+/// a folder named after the app's bundle id (or an id embedded in the bundle), a launch agent that runs code
+/// from inside the app, or an app group declared in its signed entitlements. Anything only plausible is listed
+/// unselected with the reason; ids owned by another installed app are never listed. Everything goes to the
+/// Trash, so even a wrong manual pick is recoverable.
 pub fn find_leftovers(home: &Path, app: &AppInfo, cancel: &AtomicBool) -> Vec<Item> {
-    let lib = home.join("Library");
-    let mut candidates: Vec<(PathBuf, bool)> = Vec::new();
-    if is_plain_component(&app.bundle_id) {
-        candidates.extend(bundle_candidates(&lib, &app.bundle_id).into_iter().map(|p| (p, true)));
-    }
-    if name_is_matchable(&app.name) {
-        let n = &app.name;
-        candidates.extend(["Application Support", "Caches", "Logs"].iter().map(|d| (lib.join(d).join(n), false)));
-    }
+    find_leftovers_with(home, app, &ownership(app), &crate::apps_extra::launch_services_knows, cancel)
+}
 
-    // APFS is usually case-insensitive, so `Foo` and `foo` are the same directory.
+pub fn find_leftovers_with(
+    home: &Path,
+    app: &AppInfo,
+    own: &Ownership,
+    other_app: &dyn Fn(&str) -> bool,
+    cancel: &AtomicBool,
+) -> Vec<Item> {
+    if !is_plain_component(&app.bundle_id) {
+        return Vec::new();
+    }
+    let lib = home.join("Library");
+    // APFS is usually case-insensitive, so `Foo` and `foo` are the same directory; the first (strongest) wins.
     let mut seen: HashSet<String> = HashSet::new();
     seen.insert(app.path.to_string_lossy().to_lowercase());
     let mut items = Vec::new();
-    for (path, by_id) in candidates {
+    for c in candidates(&lib, app, own, other_app) {
         if cancel.load(Ordering::Relaxed) {
             return Vec::new();
         }
-        if fs::symlink_metadata(&path).is_err() || !seen.insert(path.to_string_lossy().to_lowercase()) {
+        if !seen.insert(c.path.to_string_lossy().to_lowercase()) {
             continue;
         }
-        let item = Item::new(path.clone(), alloc_size(&path, cancel), Policy::MoveToTrash);
-        items.push(if by_id { item } else { item.unselected(NAME_MATCH_NOTE) });
+        let mut item = Item::new(c.path.clone(), alloc_size(&c.path, cancel), Policy::MoveToTrash);
+        item.name = c.label.to_string();
+        let big_data = DATA_LABELS.contains(&c.label) && item.size > BIG_DATA_BYTES;
+        items.push(match c.evidence {
+            // The app's own, but large stores (VM disks, chat media, databases) deserve a deliberate click.
+            Evidence::Confirmed if big_data => {
+                let gb = format!("{:.1}", item.size as f64 / 1e9).replace('.', ",");
+                item.unselected(format!("Dados do app com {gb} GB; revise antes de remover"))
+            }
+            Evidence::Confirmed => item,
+            Evidence::Weak(why) => item.unselected(why),
+        });
     }
-    items.sort_by(|a, b| b.size.cmp(&a.size).then_with(|| a.path.cmp(&b.path)));
+    items.sort_by(|a, b| b.selected.cmp(&a.selected).then(b.size.cmp(&a.size)).then_with(|| a.path.cmp(&b.path)));
     items
 }
 
@@ -342,7 +550,27 @@ mod tests {
     }
 
     fn leftovers(home: &Path, app: &AppInfo) -> Vec<Item> {
-        find_leftovers(home, app, &AtomicBool::new(false))
+        leftovers_with(home, app, &Ownership::default(), &|_| false)
+    }
+
+    fn leftovers_with(home: &Path, app: &AppInfo, own: &Ownership, other: &dyn Fn(&str) -> bool) -> Vec<Item> {
+        find_leftovers_with(home, app, own, other, &AtomicBool::new(false))
+    }
+
+    fn agent(path: &Path, program: &str) {
+        let mut d = plist::Dictionary::new();
+        d.insert("Label".into(), plist::Value::String("x".into()));
+        d.insert("ProgramArguments".into(), plist::Value::Array(vec![plist::Value::String(program.into())]));
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        plist::Value::Dictionary(d).to_file_xml(path).unwrap();
+    }
+
+    fn selected(home: &Path, items: &[Item]) -> Vec<String> {
+        rel(home, &items.iter().filter(|i| i.selected).cloned().collect::<Vec<_>>())
+    }
+
+    fn by_path<'a>(home: &Path, items: &'a [Item], rel_path: &str) -> &'a Item {
+        items.iter().find(|i| i.path == home.join(rel_path)).unwrap_or_else(|| panic!("{rel_path} not listed"))
     }
 
     fn rel(home: &Path, items: &[Item]) -> Vec<String> {
@@ -353,16 +581,13 @@ mod tests {
     }
 
     #[test]
-    fn leftovers_by_bundle_id_are_selected() {
+    fn exact_bundle_id_locations_are_confirmed_and_labeled() {
         let (_t, home) = fake_home();
         let l = home.join("Library");
         let id = "com.acme.foo";
         touch(&l.join(format!("Application Support/{id}/data")), 10_000);
         touch(&l.join(format!("Caches/{id}/c")), 10);
         touch(&l.join(format!("Preferences/{id}.plist")), 10);
-        touch(&l.join(format!("Preferences/{id}.helper.plist")), 10);
-        touch(&l.join(format!("Preferences/{id}x.plist")), 10);
-        touch(&l.join(format!("Preferences/ByHost/{id}.ABC123.plist")), 10);
         touch(&l.join(format!("Containers/{id}/c")), 10);
         touch(&l.join(format!("Application Scripts/{id}/s")), 10);
         touch(&l.join(format!("Saved Application State/{id}.savedState/w")), 10);
@@ -371,33 +596,113 @@ mod tests {
         touch(&l.join(format!("WebKit/{id}/w")), 10);
         touch(&l.join(format!("Logs/{id}/l")), 10);
         touch(&l.join(format!("Cookies/{id}.binarycookies")), 10);
-        touch(&l.join(format!("LaunchAgents/{id}.plist")), 10);
-        touch(&l.join(format!("LaunchAgents/{id}.agent.plist")), 10);
-        touch(&l.join("LaunchAgents/com.other.plist"), 10);
+        touch(&l.join(format!("Preferences/{id}x.plist")), 10);
         touch(&l.join("Caches/com.acme.foobar/c"), 10);
-
         let items = leftovers(&home, &app_info("Foo", id));
-        let got = rel(&home, &items);
-        assert_eq!(got.len(), 15, "{got:#?}");
-        assert!(!got.iter().any(|p| p.contains("foobar") || p.contains("other") || p.ends_with("x.plist")));
-        assert!(items.iter().all(|i| i.selected && i.note.is_none() && i.policy == Policy::MoveToTrash));
-        assert!(items.windows(2).all(|w| w[0].size >= w[1].size));
-        assert!(items[0].path.ends_with(format!("Application Support/{id}")));
+        assert_eq!(selected(&home, &items).len(), 11, "{:#?}", rel(&home, &items));
+        assert_eq!(items.len(), 11, "lookalikes (foobar, idx.plist) are never listed");
+        assert!(items.iter().all(|i| i.note.is_none() && i.policy == Policy::MoveToTrash));
+        assert_eq!(by_path(&home, &items, &format!("Library/Caches/{id}")).name, "Caches");
+        assert_eq!(
+            by_path(&home, &items, &format!("Library/Saved Application State/{id}.savedState")).name,
+            "Estado das janelas"
+        );
+        assert!(items[0].path.ends_with(format!("Application Support/{id}")), "biggest selected first");
     }
 
     #[test]
-    fn group_container_matches_team_prefix_suffix() {
+    fn sub_ids_need_proof_from_the_bundle() {
+        let (_t, home) = fake_home();
+        let l = home.join("Library");
+        let id = "com.acme.foo";
+        touch(&l.join(format!("Preferences/{id}.helper.plist")), 10); // embedded helper -> confirmed
+        touch(&l.join(format!("Caches/{id}.helper/c")), 10); // helper's own cache -> confirmed
+        touch(&l.join(format!("Preferences/{id}.installer.plist")), 10); // unknown -> weak
+        touch(&l.join(format!("Preferences/{id}.pro.plist")), 10); // another installed app -> never listed
+        touch(&l.join(format!("Preferences/ByHost/{id}.0123ABCD-4567-89EF-0123-456789ABCDEF.plist")), 10);
+        let own = Ownership { embedded_ids: [format!("{id}.helper")].into(), ..Default::default() };
+        let other = |x: &str| x == "com.acme.foo.pro";
+        let items = leftovers_with(&home, &app_info("Foo", id), &own, &other);
+        assert_eq!(
+            selected(&home, &items),
+            [
+                format!("Library/Caches/{id}.helper"),
+                format!("Library/Preferences/ByHost/{id}.0123ABCD-4567-89EF-0123-456789ABCDEF.plist"),
+                format!("Library/Preferences/{id}.helper.plist"),
+            ]
+        );
+        let weak = by_path(&home, &items, &format!("Library/Preferences/{id}.installer.plist"));
+        assert!(!weak.selected);
+        assert_eq!(weak.note.as_deref(), Some("Mesmo prefixo do app, sem confirmação"));
+        assert!(!items.iter().any(|i| i.path.ends_with(format!("{id}.pro.plist"))));
+    }
+
+    #[test]
+    fn launch_agents_confirmed_only_when_running_code_from_the_app() {
+        let (_t, home) = fake_home();
+        let a = home.join("Library/LaunchAgents");
+        let id = "com.acme.foo";
+        let app = app_info("Foo", id);
+        agent(&a.join(format!("{id}.plist")), &format!("{}/Contents/MacOS/foo", app.path.display()));
+        agent(&a.join(format!("{id}.updater.plist")), "/usr/bin/true"); // exists outside the app
+        agent(&a.join(format!("{id}.gone.plist")), "/nonexistent/limpae/helper"); // dangling: the app's own
+        touch(&a.join(format!("{id}.junk.plist")), 10); // unreadable plist
+        let items = leftovers(&home, &app);
+        assert_eq!(
+            selected(&home, &items),
+            [format!("Library/LaunchAgents/{id}.gone.plist"), format!("Library/LaunchAgents/{id}.plist")]
+        );
+        let outside = by_path(&home, &items, &format!("Library/LaunchAgents/{id}.updater.plist"));
+        assert_eq!(outside.note.as_deref(), Some("O agente executa um programa fora do app"));
+        let junk = by_path(&home, &items, &format!("Library/LaunchAgents/{id}.junk.plist"));
+        assert_eq!(junk.note.as_deref(), Some("Não foi possível ler o agente"));
+    }
+
+    #[test]
+    fn group_containers_need_signed_entitlements() {
         let (_t, home) = fake_home();
         let g = home.join("Library/Group Containers");
-        touch(&g.join("TEAM123.com.acme.foo/x"), 10);
-        touch(&g.join("group.com.acme.foo/x"), 10);
-        touch(&g.join("TEAM123.com.acme.foobar/x"), 10);
-        touch(&g.join("com.acme.foo/x"), 10);
-        let got = rel(&home, &leftovers(&home, &app_info("Q", "com.acme.foo")));
+        let id = "com.acme.foo";
+        for n in
+            ["TEAM123.com.acme.foo", "group.com.acme.foo", "TEAM123.com.acme.foobar", "TEAM123.shared", "TEAM123.other"]
+        {
+            touch(&g.join(n).join("x"), 10);
+        }
+        let own = Ownership {
+            app_groups: ["TEAM123.com.acme.foo".into(), "TEAM123.shared".into()].into(),
+            ..Default::default()
+        };
+        let items = leftovers_with(&home, &app_info("Q", id), &own, &|_| false);
+        assert_eq!(selected(&home, &items), ["Library/Group Containers/TEAM123.com.acme.foo"]);
         assert_eq!(
-            got,
-            ["Library/Group Containers/TEAM123.com.acme.foo", "Library/Group Containers/group.com.acme.foo"]
+            by_path(&home, &items, "Library/Group Containers/group.com.acme.foo").note.as_deref(),
+            Some("Grupo não declarado pelo app")
         );
+        assert_eq!(
+            by_path(&home, &items, "Library/Group Containers/TEAM123.shared").note.as_deref(),
+            Some("Grupo do fornecedor, pode ser compartilhado")
+        );
+        assert_eq!(items.len(), 3, "undeclared, unrelated groups are never listed");
+    }
+
+    #[test]
+    fn embedded_ids_and_entitlements_are_read_from_a_real_bundle() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path(), "Host.app", Some(&[("CFBundleIdentifier", "com.acme.host")]));
+        make_app(
+            &app.join("Contents/Library/LoginItems"),
+            "Helper.app",
+            Some(&[("CFBundleIdentifier", "com.acme.host.helper")]),
+        );
+        make_app(&app.join("Contents/PlugIns"), "Ext.appex", Some(&[("CFBundleIdentifier", "com.acme.host.ext")]));
+        let own = ownership(&AppInfo { path: app, ..app_info("Host", "com.acme.host") });
+        assert_eq!(own.embedded_ids, ["com.acme.host.helper".to_string(), "com.acme.host.ext".to_string()].into());
+        assert!(own.app_groups.is_empty(), "unsigned bundle declares no groups");
+        let calc = ownership(&AppInfo {
+            path: "/System/Applications/Calculator.app".into(),
+            ..app_info("Calculator", "com.apple.calculator")
+        });
+        assert!(calc.app_groups.iter().all(|g| !g.is_empty()));
     }
 
     #[test]
@@ -410,6 +715,9 @@ mod tests {
         let items = leftovers(&home, &app_info("Fancy App", "com.acme.fancy"));
         assert_eq!(items.len(), 3);
         assert!(items.iter().all(|i| !i.selected && i.note.as_deref() == Some("Correspondência pelo nome")));
+        let mut labels: Vec<_> = items.iter().map(|i| i.name.as_str()).collect();
+        labels.sort();
+        assert_eq!(labels, ["Caches", "Registros", "Suporte do app"]);
     }
 
     #[test]
@@ -469,5 +777,52 @@ mod tests {
         for i in &items {
             assert!(guard.check(&i.path, &i.policy).is_ok(), "{:?}", i.path);
         }
+    }
+
+    #[test]
+    fn shared_framework_components_and_foreign_ids_do_not_count() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = make_app(dir.path(), "Host.app", Some(&[("CFBundleIdentifier", "com.acme.host")]));
+        let fw = app.join("Contents/Frameworks/Sparkle.framework/Versions/B");
+        make_app(&fw, "Autoupdate.app", Some(&[("CFBundleIdentifier", "org.sparkle-project.Sparkle.Autoupdate")]));
+        make_app(
+            &app.join("Contents/Library/LoginItems"),
+            "Updater.app",
+            Some(&[("CFBundleIdentifier", "com.google.GoogleUpdater")]),
+        );
+        make_app(
+            &app.join("Contents/Resources"),
+            "Hidden.app",
+            Some(&[("CFBundleIdentifier", "com.acme.host.hidden")]),
+        );
+        let own = ownership(&AppInfo { path: app, ..app_info("Host", "com.acme.host") });
+        assert!(own.embedded_ids.is_empty(), "{:?}", own.embedded_ids);
+    }
+
+    #[test]
+    fn large_app_data_is_listed_unselected_with_size() {
+        let (_t, home) = fake_home();
+        let big = home.join("Library/Containers/com.acme.vm/disk.img");
+        fs::create_dir_all(big.parent().unwrap()).unwrap();
+        let f = fs::File::create(&big).unwrap();
+        // Allocate real blocks (a sparse file would report ~0 allocated bytes).
+        let chunk = vec![1u8; 8 << 20];
+        let mut w = std::io::BufWriter::new(f);
+        for _ in 0..130 {
+            std::io::Write::write_all(&mut w, &chunk).unwrap();
+        }
+        drop(w);
+        touch(&home.join("Library/Caches/com.acme.vm/c"), 10);
+        let items = leftovers(&home, &app_info("VM", "com.acme.vm"));
+        let c = by_path(&home, &items, "Library/Containers/com.acme.vm");
+        assert!(!c.selected);
+        assert!(
+            c.note
+                .as_deref()
+                .is_some_and(|n| n.starts_with("Dados do app com 1,") && n.ends_with("GB; revise antes de remover")),
+            "{:?}",
+            c.note
+        );
+        assert!(by_path(&home, &items, "Library/Caches/com.acme.vm").selected, "small caches stay selected");
     }
 }

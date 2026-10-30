@@ -5,13 +5,13 @@ use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use limpa_core::apps::{find_leftovers, list_apps as core_list_apps};
+use limpa_core::apps::{find_leftovers, list_apps as core_list_apps, ownership};
 use limpa_core::disk::disk_info;
 use limpa_core::fda::has_full_disk_access;
 use limpa_core::junk::scan_junk as core_scan_junk;
@@ -34,6 +34,7 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 const ERR_CANCELLED: &str = "Varredura cancelada.";
 const ERR_APP_GONE: &str = "App não encontrado. Atualize a lista de apps.";
 const ERR_APP_KEPT: &str = "mantido porque o app não pôde ser removido";
+const ERR_NOT_RECONFIRMED: &str = "não foi confirmado como parte do app na verificação final";
 const ERR_APP_OPEN: &str = "o app dono deste cache está aberto; feche-o e tente de novo";
 const NOTE_OTHER_COPY: &str = "Outra cópia deste app está instalada";
 
@@ -297,10 +298,24 @@ pub async fn uninstall(state: State<'_, Shared>, app_id: u64, leftover_ids: Vec<
     let st = Arc::clone(state.inner());
     blocking(move || {
         let info = lock(&st.apps).get(&app_id).cloned().ok_or(ERR_APP_GONE)?;
-        if running_bundle_ids().contains(&info.bundle_id) {
+        let running = running_bundle_ids();
+        if running.contains(&info.bundle_id) {
             return Err("Feche o app antes de desinstalar.".into());
         }
-        let resolved = lock(&st.registry).resolve_leftovers(app_id, &leftover_ids);
+        if ownership(&info).embedded_ids.iter().any(|id| running.contains(id)) {
+            return Err(
+                "Um componente deste app (ajudante ou extensão) está em execução. Feche o app e tente de novo.".into(),
+            );
+        }
+        let mut resolved = lock(&st.registry).resolve_leftovers(app_id, &leftover_ids);
+        // Second, independent check: recompute the app's leftovers now and keep only items that still qualify,
+        // so nothing the scan listed earlier is removed if its evidence changed in between.
+        let fresh: std::collections::HashSet<std::path::PathBuf> =
+            find_leftovers(&st.home, &info, &AtomicBool::new(false)).into_iter().map(|i| i.path).collect();
+        let (confirmed, stale): (Vec<_>, Vec<_>) =
+            resolved.items.into_iter().partition(|(_, it)| fresh.contains(&it.path));
+        resolved.items = confirmed;
+        resolved.rejected.extend(stale.into_iter().map(|(id, _)| (id, ERR_NOT_RECONFIRMED)));
         // The bundle goes first and alone: if it can't be moved (e.g. root-owned), its data must stay with it.
         let bundle = [(app_id, Item::new(info.path.clone(), info.size, Policy::MoveToTrash))];
         let mut by_id = run_removal(&st, &bundle);
