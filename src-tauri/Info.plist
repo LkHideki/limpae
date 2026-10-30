@@ -2,7 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>pt-BR</string>
+    <string>id</string>
+  </array>
   <key>NSAppleEventsUsageDescription</key>
-  <string>Para mover para o Lixo apps instalados pelo sistema, o Limpae pede ao Finder, que solicita sua senha de administrador. Para listar e remover itens de login, ele também consulta o System Events.</string>
+  <string>To move system-installed apps to the Trash, Limpae asks Finder, which prompts for your administrator password. To list and remove login items, it also queries System Events.</string>
 </dict>
 </plist>
