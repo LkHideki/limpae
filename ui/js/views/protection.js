@@ -11,6 +11,7 @@ import { bytesParts, fmtBytes, fmtNum, plural } from '../format.js';
 import { confirmDialog, confirmRestart, failuresSheet, stage, checkbox, segmented, features, managerBar } from '../ui.js';
 import { outcomesToFailures, stopDock } from '../actions.js';
 import { attachMenu, selectMenuButton } from '../menus.js';
+import { t, tn, tr, lazyIntl } from '../i18n.js';
 
 const REMOVE_BATCH = 100;
 
@@ -36,38 +37,45 @@ function pi(name, size = 18) {
     ...PATHS[name].map((d) => s('path', { d })));
 }
 
-const SERVICE_UI = {
-  Camera: ['camera', 'Apps com permissão para usar a câmera.'],
-  Microphone: ['mic', 'Apps com permissão para gravar áudio pelo microfone.'],
-  ScreenCapture: ['screen', 'Apps que podem gravar o conteúdo da tela.'],
-  Accessibility: ['access', 'Apps que podem controlar o Mac por meio da Acessibilidade.'],
-  ListenEvent: ['keyboard', 'Apps que podem observar o teclado e o mouse (Monitoramento de entrada).'],
-  SystemPolicyAllFiles: ['drive', 'Apps com Acesso Total ao Disco: leem arquivos de qualquer pasta.'],
-  AddressBook: ['person', 'Apps que podem ler e alterar seus contatos.'],
-  Calendar: ['calendar', 'Apps que podem ler e alterar seus calendários.'],
-  Reminders: ['reminders', 'Apps que podem ler e alterar seus lembretes.'],
-  Photos: ['image', 'Apps com acesso à sua biblioteca de Fotos.'],
-  Location: ['pin', 'Apps com acesso à sua localização.'],
+const SERVICE_ICON = {
+  Camera: 'camera', Microphone: 'mic', ScreenCapture: 'screen', Accessibility: 'access', ListenEvent: 'keyboard',
+  SystemPolicyAllFiles: 'drive', AddressBook: 'person', Calendar: 'calendar', Reminders: 'reminders', Photos: 'image', Location: 'pin',
 };
-
-const AREAS = [{ value: 'checks', label: 'Verificação' }, { value: 'perms', label: 'Permissões' }, { value: 'privacy', label: 'Privacidade' }];
-
-// Nomes legíveis das listas de itens recentes do macOS (o arquivo real aparece no tooltip e no caminho).
-const RECENT_NAMES = {
-  'com.apple.LSSharedFileList.RecentApplications.sfl3': 'Apps abertos recentemente',
-  'com.apple.LSSharedFileList.RecentDocuments.sfl3': 'Documentos abertos recentemente',
-  'com.apple.LSSharedFileList.RecentServers.sfl3': 'Servidores acessados recentemente',
-  'com.apple.LSSharedFileList.RecentHosts.sfl3': 'Servidores acessados recentemente',
-};
-function recentLabel(name) {
-  if (RECENT_NAMES[name]) return RECENT_NAMES[name];
-  const generic = /^com\.apple\.LSSharedFileList\.Recent(\w+)\.sfl\d?$/.exec(name);
-  if (generic) return `Recentes: ${generic[1]}`;
-  const app = /^(?:[\w-]+\.)+([\w-]+)\.sfl\d?$/.exec(name); // com.apple.preview.sfl3 -> Preview
-  return app ? `Documentos recentes do ${app[1].charAt(0).toUpperCase()}${app[1].slice(1)}` : name;
+function serviceDesc(service) {
+  switch (service) {
+    case 'Camera': return t('Apps com permissão para usar a câmera.');
+    case 'Microphone': return t('Apps com permissão para gravar áudio pelo microfone.');
+    case 'ScreenCapture': return t('Apps que podem gravar o conteúdo da tela.');
+    case 'Accessibility': return t('Apps que podem controlar o Mac por meio da Acessibilidade.');
+    case 'ListenEvent': return t('Apps que podem observar o teclado e o mouse (Monitoramento de entrada).');
+    case 'SystemPolicyAllFiles': return t('Apps com Acesso Total ao Disco: leem arquivos de qualquer pasta.');
+    case 'AddressBook': return t('Apps que podem ler e alterar seus contatos.');
+    case 'Calendar': return t('Apps que podem ler e alterar seus calendários.');
+    case 'Reminders': return t('Apps que podem ler e alterar seus lembretes.');
+    case 'Photos': return t('Apps com acesso à sua biblioteca de Fotos.');
+    case 'Location': return t('Apps com acesso à sua localização.');
+    default: return '';
+  }
 }
 
-const dtf = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const areas = () => [{ value: 'checks', label: t('Verificação') }, { value: 'perms', label: t('Permissões') }, { value: 'privacy', label: t('Privacidade') }];
+
+// Nomes legíveis das listas de itens recentes do macOS (o arquivo real aparece no tooltip e no caminho).
+function recentLabel(name) {
+  switch (name) {
+    case 'com.apple.LSSharedFileList.RecentApplications.sfl3': return t('Apps abertos recentemente');
+    case 'com.apple.LSSharedFileList.RecentDocuments.sfl3': return t('Documentos abertos recentemente');
+    case 'com.apple.LSSharedFileList.RecentServers.sfl3':
+    case 'com.apple.LSSharedFileList.RecentHosts.sfl3': return t('Servidores acessados recentemente');
+    default: break;
+  }
+  const generic = /^com\.apple\.LSSharedFileList\.Recent(\w+)\.sfl\d?$/.exec(name);
+  if (generic) return t('Recentes: {name}', { name: generic[1] });
+  const app = /^(?:[\w-]+\.)+([\w-]+)\.sfl\d?$/.exec(name); // com.apple.preview.sfl3 -> Preview
+  return app ? t('Documentos recentes do {app}', { app: app[1].charAt(0).toUpperCase() + app[1].slice(1) }) : name;
+}
+
+const dtf = lazyIntl('DateTimeFormat', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const fmtDate = (sec) => (sec ? dtf.format(new Date(sec * 1000)) : '');
 
 const EMPTY_TCC = { needsFda: false, groups: [], cameraMicApps: 0, apps: 0 };
@@ -89,7 +97,7 @@ const privItems = () => S.priv.groups.flatMap((g) => g.items);
 
 function privCats() {
   const groups = S.priv.groups;
-  const cats = [{ id: 'recent', label: 'Itens recentes', ic: 'clock', running: false, groups: groups.filter((g) => g.id === 'recent') }];
+  const cats = [{ id: 'recent', label: t('Itens recentes'), ic: 'clock', running: false, groups: groups.filter((g) => g.id === 'recent') }];
   for (const b of S.priv.browsers) {
     if (b.present) cats.push({ id: b.id, label: b.name, ic: 'globe', running: b.running, groups: groups.filter((g) => g.id.startsWith(b.id + ':')) });
   }
@@ -144,19 +152,19 @@ export function enter(ctx) {
   // ---------- Início ----------
   function renderIdle() {
     S.phase = 'idle';
-    st.show(h('h1', { class: 'h1' }, 'Proteção'),
-      h('p', { class: 'sub' }, 'Confira a segurança do seu Mac, o que cada app pode acessar e o que fica registrado sobre o seu uso.'),
-      features('protect', [['shield', 'Verificação de segurança'], ['lock', 'Permissões de apps'], ['eye', 'Privacidade']]),
-      S.checks ? h('div', { class: 'row-actions', style: 'margin-top:18px' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.phase = 'results'; render(); } }, 'Voltar aos resultados')) : null);
-    ctx.setDock({ label: 'Analisar', mod: 'protect', onClick: scan });
+    st.show(h('h1', { class: 'h1' }, t('Proteção')),
+      h('p', { class: 'sub' }, t('Confira a segurança do seu Mac, o que cada app pode acessar e o que fica registrado sobre o seu uso.')),
+      features('protect', [['shield', t('Verificação de segurança')], ['lock', t('Permissões de apps')], ['eye', t('Privacidade')]]),
+      S.checks ? h('div', { class: 'row-actions', style: 'margin-top:18px' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.phase = 'results'; render(); } }, t('Voltar aos resultados'))) : null);
+    ctx.setDock({ label: t('Analisar'), mod: 'protect', onClick: scan });
   }
 
   // ---------- Análise ----------
   async function scan() {
     const steps = [
-      { k: 'checks', task: null, label: 'Verificação de segurança', run: () => api.securityChecks(), sum: (r) => (r.filter((c) => c.ok === false).length ? plural(r.filter((c) => c.ok === false).length, 'ponto de atenção', 'pontos de atenção') : 'tudo certo') },
-      { k: 'tcc', task: null, label: 'Permissões de apps', run: () => api.tccPermissions(), sum: (r) => (r.needsFda ? 'requer acesso' : plural(r.apps, 'app', 'apps')) },
-      { k: 'priv', task: 'privacy', label: 'Privacidade', run: () => api.privacyScan(), sum: (r) => plural(r.groups.reduce((a, g) => a + g.items.length, 0), 'item', 'itens') },
+      { k: 'checks', task: null, label: t('Verificação de segurança'), run: () => api.securityChecks(), sum: (r) => (r.filter((c) => c.ok === false).length ? plural(r.filter((c) => c.ok === false).length, 'ponto de atenção', 'pontos de atenção') : t('tudo certo')) },
+      { k: 'tcc', task: null, label: t('Permissões de apps'), run: () => api.tccPermissions(), sum: (r) => (r.needsFda ? t('requer acesso') : plural(r.apps, 'app', 'apps')) },
+      { k: 'priv', task: 'privacy', label: t('Privacidade'), run: () => api.privacyScan(), sum: (r) => plural(r.groups.reduce((a, g) => a + g.items.length, 0), 'item', 'itens') },
     ];
     cancelled = false;
     S.phase = 'scanning';
@@ -172,10 +180,10 @@ export function enter(ctx) {
       mount(li.firstChild, state === 'run' ? h('i', { class: 'spin' }) : state === 'done' ? icon('check', 14) : state === 'skip' ? icon('dash', 14) : null);
       li.lastChild.textContent = text;
     };
-    st.show(h('h1', { class: 'h1' }, 'Analisando…'), h('p', { class: 'sub' }, 'Somente leitura: nada é alterado nesta etapa.'), h('ul', { class: 'fl-steps' }, [...rows.values()]), ticker);
+    st.show(h('h1', { class: 'h1' }, t('Analisando…')), h('p', { class: 'sub' }, t('Somente leitura: nada é alterado nesta etapa.')), h('ul', { class: 'fl-steps' }, [...rows.values()]), ticker);
     let current = '';
     ctx.onProgress((p) => { if (current && p.task === current) ticker.textContent = p.path || ''; });
-    ctx.setDock({ label: 'Parar', busy: true, mod: 'protect', onClick: () => { cancelled = true; ctx.setDock({ label: 'Parando', busy: true, disabled: true, mod: 'protect' }); api.cancel().catch(() => {}); } });
+    ctx.setDock({ label: t('Parar'), busy: true, mod: 'protect', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'protect' }); api.cancel().catch(() => {}); } });
     const out = {};
     for (const step of steps) {
       if (cancelled) break;
@@ -189,7 +197,7 @@ export function enter(ctx) {
         mark(step.k, 'done', step.sum(r));
       } catch (e) {
         if (cancelled) break;
-        mark(step.k, 'skip', 'não concluído');
+        mark(step.k, 'skip', t('não concluído'));
       }
     }
     ctx.setBusy(false);
@@ -220,43 +228,43 @@ export function enter(ctx) {
     const dotOf = (c) => (c.ok === true ? '' : c.ok === false ? ' bad' : ' unk');
     const mainTile = h('div', { class: 'pr-tile main' + (protectedMac ? '' : ' warn'), dataset: { area: 'checks' } },
       h('span', { class: 'pr-tile-ic' }, icon(protectedMac ? 'shield' : 'alert', 26)),
-      h('div', { class: 'pr-tile-t' }, protectedMac ? (unk ? 'Nenhum problema encontrado' : 'Seu Mac está protegido') : plural(bad, 'ponto de atenção', 'pontos de atenção')),
+      h('div', { class: 'pr-tile-t' }, protectedMac ? (unk ? t('Nenhum problema encontrado') : t('Seu Mac está protegido')) : plural(bad, 'ponto de atenção', 'pontos de atenção')),
       h('div', { class: 'pr-tile-s' }, protectedMac
-        ? (unk ? `${plural(unk, 'verificação não pôde', 'verificações não puderam')} ser concluída${unk === 1 ? '' : 's'}.` : 'As proteções do macOS que conferimos estão em ordem.')
-        : 'Algumas proteções do macOS estão desligadas ou desatualizadas.'),
-      h('ul', { class: 'pr-mini' }, S.checks.map((c) => h('li', null, h('i', { class: 'dot' + dotOf(c) }), h('span', { class: 't', title: c.title }, c.title)))),
-      h('button', { class: 'btn sm', type: 'button', onClick: () => open('checks') }, 'Revisar'));
+        ? (unk ? tn(unk, '{n} verificação não pôde ser concluída.', '{n} verificações não puderam ser concluídas.') : t('As proteções do macOS que conferimos estão em ordem.'))
+        : t('Algumas proteções do macOS estão desligadas ou desatualizadas.')),
+      h('ul', { class: 'pr-mini' }, S.checks.map((c) => h('li', null, h('i', { class: 'dot' + dotOf(c) }), h('span', { class: 't', title: tr(c.title) }, tr(c.title))))),
+      h('button', { class: 'btn sm', type: 'button', onClick: () => open('checks') }, t('Revisar')));
 
     let permTile;
     if (S.tcc.needsFda) {
       permTile = h('div', { class: 'pr-tile none', dataset: { area: 'perms' } },
         h('span', { class: 'pr-tile-ic' }, icon('lock', 24)),
-        h('div', { class: 'pr-tile-t' }, 'Permissões de apps'),
-        h('div', { class: 'pr-tile-s' }, 'Para listar o que cada app pode acessar, conceda o Acesso Total ao Disco ao Limpae.'),
-        h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes'));
+        h('div', { class: 'pr-tile-t' }, t('Permissões de apps')),
+        h('div', { class: 'pr-tile-s' }, t('Para listar o que cada app pode acessar, conceda o Acesso Total ao Disco ao Limpae.')),
+        h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes')));
     } else {
       permTile = h('div', { class: 'pr-tile' + (S.tcc.apps ? '' : ' none'), dataset: { area: 'perms' } },
         h('span', { class: 'pr-tile-ic' }, pi('camera', 24)),
-        h('div', { class: 'pr-tile-t' }, cams ? `${plural(cams, 'app', 'apps')} com acesso à câmera e ao microfone` : 'Nenhum app com acesso à câmera ou ao microfone'),
-        h('div', { class: 'pr-tile-s' }, S.tcc.apps ? `${plural(S.tcc.apps, 'app tem', 'apps têm')} alguma permissão liberada. Revogue o que não precisa.` : 'Nenhuma permissão liberada foi encontrada.'),
-        S.tcc.apps ? h('button', { class: 'btn sm', type: 'button', onClick: () => open('perms') }, 'Revisar') : null);
+        h('div', { class: 'pr-tile-t' }, cams ? tn(cams, '{n} app com acesso à câmera e ao microfone', '{n} apps com acesso à câmera e ao microfone') : t('Nenhum app com acesso à câmera ou ao microfone')),
+        h('div', { class: 'pr-tile-s' }, S.tcc.apps ? tn(S.tcc.apps, '{n} app tem alguma permissão liberada. Revogue o que não precisa.', '{n} apps têm alguma permissão liberada. Revogue o que não precisa.') : t('Nenhuma permissão liberada foi encontrada.')),
+        S.tcc.apps ? h('button', { class: 'btn sm', type: 'button', onClick: () => open('perms') }, t('Revisar')) : null);
     }
 
     const privTile = h('div', { class: 'pr-tile' + (items.length || running.length ? '' : ' none'), dataset: { area: 'privacy' } },
       h('span', { class: 'pr-tile-ic' }, icon('eye', 24)),
-      h('div', { class: 'pr-tile-t' }, items.length ? `${plural(items.length, 'item de privacidade', 'itens de privacidade')}` : 'Nenhum item de privacidade'),
+      h('div', { class: 'pr-tile-t' }, items.length ? tn(items.length, '{n} item de privacidade', '{n} itens de privacidade') : t('Nenhum item de privacidade')),
       h('div', { class: 'pr-tile-s' }, items.length
-        ? `${fmtBytes(itemBytes)} em itens recentes e dados de navegação.${running.length ? ` Feche ${running.map((b) => b.name).join(', ')} para incluir.` : ''}`
-        : (running.length ? `Feche ${running.map((b) => b.name).join(', ')} para limpar os dados de navegação.` : (S.priv.needsFda ? 'Conceda o Acesso Total ao Disco para ver os itens recentes.' : 'Nada para limpar por aqui.'))),
+        ? t('{size} em itens recentes e dados de navegação.', { size: fmtBytes(itemBytes) }) + (running.length ? ' ' + t('Feche {names} para incluir.', { names: running.map((b) => b.name).join(', ') }) : '')
+        : (running.length ? t('Feche {names} para limpar os dados de navegação.', { names: running.map((b) => b.name).join(', ') }) : (S.priv.needsFda ? t('Conceda o Acesso Total ao Disco para ver os itens recentes.') : t('Nada para limpar por aqui.')))),
       items.length || running.length ? h('div', { class: 'pr-tile-act' },
-        h('button', { class: 'btn sm', type: 'button', onClick: () => open('privacy') }, 'Revisar'),
-        S.psel.size ? h('button', { class: 'btn sm primary', type: 'button', onClick: removePrivacy }, 'Remover') : null) : null);
+        h('button', { class: 'btn sm', type: 'button', onClick: () => open('privacy') }, t('Revisar')),
+        S.psel.size ? h('button', { class: 'btn sm primary', type: 'button', onClick: removePrivacy }, t('Remover')) : null) : null);
 
-    mount(ctx.root, h('section', { class: 'pr-results enter', dataset: { mod: 'protect' }, 'aria-label': 'Resultados da Proteção' },
-      h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('protect')) { S.phase = 'idle'; render(); } } }, icon('back', 15), 'Recomeçar'), h('span', { class: 'fl-where-tag' }, 'Proteção')),
-      h('h2', { class: 'fl-title' }, protectedMac && !unk ? 'Seu Mac está protegido.' : bad ? `${plural(bad, 'ponto precisa', 'pontos precisam')} da sua atenção.` : 'Análise concluída.'),
-      h('p', { class: 'sub fl-sub' }, 'Revise cada área. Nada é alterado nem removido sem a sua confirmação.'),
-      h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => open('checks') }, 'Revisar tudo'),
+    mount(ctx.root, h('section', { class: 'pr-results enter', dataset: { mod: 'protect' }, 'aria-label': t('Resultados da Proteção') },
+      h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('protect')) { S.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar')), h('span', { class: 'fl-where-tag' }, t('Proteção'))),
+      h('h2', { class: 'fl-title' }, protectedMac && !unk ? t('Seu Mac está protegido.') : bad ? tn(bad, '{n} ponto precisa da sua atenção.', '{n} pontos precisam da sua atenção.') : t('Análise concluída.')),
+      h('p', { class: 'sub fl-sub' }, t('Revise cada área. Nada é alterado nem removido sem a sua confirmação.')),
+      h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => open('checks') }, t('Revisar tudo')),
       h('div', { class: 'pr-tiles' }, mainTile, permTile, privTile)));
   }
 
@@ -268,7 +276,7 @@ export function enter(ctx) {
     ctx.reserveDock(false);
     ctx.setDock(null);
 
-    const catsEl = h('nav', { class: 'fm-cats', 'aria-label': 'Categorias' });
+    const catsEl = h('nav', { class: 'fm-cats', 'aria-label': t('Categorias') });
     const headEl = h('div', { class: 'fm-pane-head' });
     const listEl = h('div', { class: 'fm-list' });
     const selEl = h('div', { class: 'rv-sel' });
@@ -277,7 +285,7 @@ export function enter(ctx) {
     const areaSeg = h('div', { class: 'rv-extra' });
 
     function paintAreas() {
-      mount(areaSeg, segmented(AREAS, S.area, (v) => { S.area = v; renderReview(); }, 'Área de proteção'));
+      mount(areaSeg, segmented(areas(), S.area, (v) => { S.area = v; renderReview(); }, t('Área de proteção')));
     }
 
     function pane(title, desc, tools) {
@@ -292,22 +300,22 @@ export function enter(ctx) {
     function viewChecks() {
       bodyEl.className = 'fm-body pr-single';
       mount(bodyEl, h('div', { class: 'fm-pane' }, headEl, listEl));
-      pane('Verificação de segurança', 'Estado das proteções do macOS. Somente leitura: o Limpae não altera nenhuma configuração.');
+      pane(t('Verificação de segurança'), t('Estado das proteções do macOS. Somente leitura: o Limpae não altera nenhuma configuração.'));
       mount(listEl, S.checks.map((c) => h('div', { class: 'pr-check', dataset: { id: c.id } },
-        h('span', { class: 'pr-st', dataset: { s: c.ok === true ? 'ok' : c.ok === false ? 'bad' : 'unk' }, 'aria-label': c.ok === true ? 'Em ordem' : c.ok === false ? 'Atenção' : 'Não verificado' }, icon(c.ok === true ? 'check' : c.ok === false ? 'alert' : 'dash', 17)),
-        h('div', { class: 'pr-check-t' }, h('b', null, c.title), h('span', null, c.detail)),
-        c.fix ? h('button', { class: 'btn sm', type: 'button', onClick: () => api.openSecurityFix(c.id).catch(() => {}) }, c.fix.label) : null)),
-        h('p', { class: 'pr-note' }, 'Os botões abrem o painel certo dos Ajustes do Sistema. As configurações ficam sob o seu controle.'));
+        h('span', { class: 'pr-st', dataset: { s: c.ok === true ? 'ok' : c.ok === false ? 'bad' : 'unk' }, 'aria-label': c.ok === true ? t('Em ordem') : c.ok === false ? t('Atenção') : t('Não verificado') }, icon(c.ok === true ? 'check' : c.ok === false ? 'alert' : 'dash', 17)),
+        h('div', { class: 'pr-check-t' }, h('b', null, tr(c.title)), h('span', null, tr(c.detail))),
+        c.fix ? h('button', { class: 'btn sm', type: 'button', onClick: () => api.openSecurityFix(c.id).catch(() => {}) }, tr(c.fix.label)) : null)),
+        h('p', { class: 'pr-note' }, t('Os botões abrem o painel certo dos Ajustes do Sistema. As configurações ficam sob o seu controle.')));
       const bad = attention();
-      mount(selEl, bad ? [h('b', null, plural(bad, 'ponto de atenção', 'pontos de atenção'))] : ['Tudo em ordem']);
-      actionBtn.textContent = 'Verificar de novo';
+      mount(selEl, bad ? [h('b', null, plural(bad, 'ponto de atenção', 'pontos de atenção'))] : [t('Tudo em ordem')]);
+      actionBtn.textContent = t('Verificar de novo');
       actionBtn.disabled = false;
       actionBtn.onclick = recheck;
     }
 
     async function recheck() {
       actionBtn.disabled = true;
-      actionBtn.textContent = 'Verificando…';
+      actionBtn.textContent = t('Verificando…');
       try { S.checks = await api.securityChecks(); } catch (e) { /* o erro já foi mostrado */ }
       if (ctx.alive && S.phase === 'review') renderReview();
     }
@@ -329,30 +337,30 @@ export function enter(ctx) {
 
     function paintPermCats() {
       mount(catsEl, S.tcc.groups.map((g) => {
-        const [ic] = SERVICE_UI[g.service] || ['lock'];
+        const ic = SERVICE_ICON[g.service] || 'lock';
         const n = g.rows.filter((r) => S.rsel.has(r.id)).length;
         return h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(g.service === S.svc), onClick: () => { if (S.svc !== g.service) { S.svc = g.service; paintPermCats(); paintPermPane(); } } },
           h('span', { class: 'fm-cat-ic' }, pi(ic, 17)),
-          h('span', { class: 'fm-cat-t' }, h('b', null, g.title), h('span', null, plural(grantedOf(g).length, 'app liberado', 'apps liberados'))),
+          h('span', { class: 'fm-cat-t' }, h('b', null, tr(g.title)), h('span', null, plural(grantedOf(g).length, 'app liberado', 'apps liberados'))),
           n ? h('span', { class: 'fm-cat-n', title: plural(n, 'selecionado', 'selecionados') }, fmtNum(n)) : null);
       }));
     }
 
     function paintPermPane() {
       if (S.tcc.needsFda || !S.tcc.groups.length) {
-        mount(headEl, h('div', { class: 'fm-pane-t' }, h('h3', null, 'Permissões de apps'), h('p', null, 'O que cada app pode acessar no seu Mac.')));
+        mount(headEl, h('div', { class: 'fm-pane-t' }, h('h3', null, t('Permissões de apps')), h('p', null, t('O que cada app pode acessar no seu Mac.'))));
         mount(listEl, S.tcc.needsFda
-          ? h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('lock', 26)), h('b', null, 'É preciso o Acesso Total ao Disco'),
-            h('p', null, 'O macOS guarda as permissões num banco protegido. Conceda o Acesso Total ao Disco ao Limpae em Ajustes do Sistema e analise de novo.'),
-            h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes'))
-          : h('div', { class: 'rv-empty' }, 'Nenhuma permissão encontrada.'));
+          ? h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('lock', 26)), h('b', null, t('É preciso o Acesso Total ao Disco')),
+            h('p', null, t('O macOS guarda as permissões num banco protegido. Conceda o Acesso Total ao Disco ao Limpae em Ajustes do Sistema e analise de novo.')),
+            h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes')))
+          : h('div', { class: 'rv-empty' }, t('Nenhuma permissão encontrada.')));
         return;
       }
       const g = S.tcc.groups.find((x) => x.service === S.svc);
-      const [, desc] = SERVICE_UI[g.service] || ['lock', ''];
+      const desc = serviceDesc(g.service);
       const granted = grantedOf(g), nPicked = granted.filter((r) => S.rsel.has(r.id)).length;
-      pane(g.title, desc, granted.length ? selectMenuButton({
-        modes: [['all', 'Tudo'], ['none', 'Nada']], mode: nPicked === granted.length ? 'all' : nPicked === 0 ? 'none' : 'part',
+      pane(tr(g.title), desc, granted.length ? selectMenuButton({
+        modes: [['all', t('Tudo')], ['none', t('Nada')]], mode: nPicked === granted.length ? 'all' : nPicked === 0 ? 'none' : 'part',
         onPick: (mode) => {
           for (const r of grantedOf(g)) mode === 'all' ? S.rsel.add(r.id) : S.rsel.delete(r.id);
           paintPermCats(); paintPermPane(); paintPermFoot();
@@ -364,23 +372,23 @@ export function enter(ctx) {
 
     function permRow(r) {
       const toggle = () => { S.rsel.has(r.id) ? S.rsel.delete(r.id) : S.rsel.add(r.id); paintPermCats(); paintPermPane(); paintPermFoot(); };
-      const sub = [r.bundleId, !r.installed ? 'app não encontrado' : null].filter(Boolean).join(' · ');
+      const sub = [r.bundleId, !r.installed ? t('app não encontrado') : null].filter(Boolean).join(' · ');
       const kids = [
-        r.granted ? checkbox(S.rsel.has(r.id) ? 'on' : 'off', toggle, `Selecionar ${r.name}`) : h('span', { class: 'pr-nocb', 'aria-hidden': 'true' }),
+        r.granted ? checkbox(S.rsel.has(r.id) ? 'on' : 'off', toggle, t('Selecionar {name}', { name: r.name })) : h('span', { class: 'pr-nocb', 'aria-hidden': 'true' }),
         appIcon(r),
         h('div', { class: 'fm-main' },
-          h('div', { class: 'fm-name' }, h('span', { title: r.name }, r.name), r.limited ? h('span', { class: 'badge info' }, 'Acesso limitado') : null, !r.granted ? h('span', { class: 'badge' }, 'Negado') : null),
+          h('div', { class: 'fm-name' }, h('span', { title: r.name }, r.name), r.limited ? h('span', { class: 'badge info' }, t('Acesso limitado')) : null, !r.granted ? h('span', { class: 'badge' }, t('Negado')) : null),
           h('div', { class: 'fm-meta' }, h('span', { class: 'mid', title: sub }, sub))),
-        r.modified ? h('span', { class: 'pr-when' }, `desde ${fmtDate(r.modified)}`) : null,
+        r.modified ? h('span', { class: 'pr-when' }, t('desde {date}', { date: fmtDate(r.modified) })) : null,
       ];
       return h('div', { class: 'pr-row' + (r.granted ? ' pick' : ' denied'), onClick: r.granted ? toggle : null }, kids);
     }
 
     function paintPermFoot() {
       const n = selCount();
-      if (!n) mount(selEl, 'Nenhuma permissão selecionada');
-      else mount(selEl, 'Selecionadas: ', h('b', null, fmtNum(n)), h('small', null, n === 1 ? 'permissão' : 'permissões'));
-      actionBtn.textContent = 'Revogar';
+      if (!n) mount(selEl, t('Nenhuma permissão selecionada'));
+      else mount(selEl, t('Selecionadas:') + ' ', h('b', null, fmtNum(n)), h('small', null, n === 1 ? t('permissão') : t('permissões')));
+      actionBtn.textContent = t('Revogar');
       actionBtn.disabled = n === 0;
       actionBtn.onclick = revoke;
     }
@@ -401,7 +409,7 @@ export function enter(ctx) {
         const items = catItems(c);
         const n = items.filter((i) => S.psel.has(i.id)).length;
         const bytes = items.reduce((a, i) => a + i.size, 0);
-        const sub = c.running ? 'Aberto: feche para limpar' : items.length ? `${plural(items.length, 'item', 'itens')} · ${fmtBytes(bytes)}` : 'Nada encontrado';
+        const sub = c.running ? t('Aberto: feche para limpar') : items.length ? `${plural(items.length, 'item', 'itens')} · ${fmtBytes(bytes)}` : t('Nada encontrado');
         return h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(c.id === S.pcat), dataset: { cat: c.id }, onClick: () => { if (S.pcat !== c.id) { S.pcat = c.id; paintPrivCats(); paintPrivPane(); } } },
           h('span', { class: 'fm-cat-ic' }, pi(c.ic, 17)),
           h('span', { class: 'fm-cat-t' }, h('b', null, c.label), h('span', null, sub)),
@@ -421,10 +429,10 @@ export function enter(ctx) {
       const c = privCats().find((x) => x.id === S.pcat);
       const isRecent = c.id === 'recent';
       pane(c.label, isRecent
-        ? 'Listas de documentos, apps e servidores abertos recentemente. Vão para o Lixo e o macOS recria as listas conforme você usa o Mac.'
-        : 'Dados de navegação que vão para o Lixo. Senhas salvas e favoritos do Chrome, Brave e Edge nunca são tocados.',
+        ? t('Listas de documentos, apps e servidores abertos recentemente. Vão para o Lixo e o macOS recria as listas conforme você usa o Mac.')
+        : t('Dados de navegação que vão para o Lixo. Senhas salvas e favoritos do Chrome, Brave e Edge nunca são tocados.'),
       !c.running && catItems(c).length ? selectMenuButton({
-        modes: [['smart', 'Inteligente'], ['all', 'Tudo'], ['none', 'Nada']], mode: privMode(catItems(c)),
+        modes: [['smart', t('Inteligente')], ['all', t('Tudo')], ['none', t('Nada')]], mode: privMode(catItems(c)),
         onPick: (mode) => {
           for (const i of catItems(c)) (mode === 'all' || (mode === 'smart' && i.selected)) ? S.psel.add(i.id) : S.psel.delete(i.id);
           paintPrivCats(); paintPrivPane(); paintPrivFoot();
@@ -433,38 +441,38 @@ export function enter(ctx) {
       listEl.scrollTop = 0;
       const items = catItems(c);
       if (c.running) {
-        mount(listEl, h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, pi('globe', 26)), h('b', null, `Feche o ${c.label} para limpar`),
-          h('p', null, 'Os dados só podem ser limpos com o navegador fechado, para não corromper o que ele está usando.'),
-          h('button', { class: 'btn sm', type: 'button', onClick: rescanPrivacy }, 'Analisar de novo')));
+        mount(listEl, h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, pi('globe', 26)), h('b', null, t('Feche o {browser} para limpar', { browser: c.label })),
+          h('p', null, t('Os dados só podem ser limpos com o navegador fechado, para não corromper o que ele está usando.')),
+          h('button', { class: 'btn sm', type: 'button', onClick: rescanPrivacy }, t('Analisar de novo'))));
         return;
       }
       if (!items.length) {
         mount(listEl, isRecent && S.priv.needsFda
-          ? h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('lock', 26)), h('b', null, 'É preciso o Acesso Total ao Disco'),
-            h('p', null, 'O macOS protege a pasta das listas de itens recentes. Conceda o acesso ao Limpae e analise de novo.'),
-            h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes'))
-          : h('div', { class: 'rv-empty' }, 'Nada encontrado nesta categoria.'));
+          ? h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('lock', 26)), h('b', null, t('É preciso o Acesso Total ao Disco')),
+            h('p', null, t('O macOS protege a pasta das listas de itens recentes. Conceda o acesso ao Limpae e analise de novo.')),
+            h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes')))
+          : h('div', { class: 'rv-empty' }, t('Nada encontrado nesta categoria.')));
         return;
       }
       mount(listEl, c.groups.filter((g) => g.items.length).map((g) => privSection(g)));
     }
 
     function privSection(g) {
-      const cb = checkbox(groupState(g.items, S.psel), (cur) => { for (const i of g.items) cur === 'on' ? S.psel.delete(i.id) : S.psel.add(i.id); paintPrivCats(); paintPrivPane(); paintPrivFoot(); }, `Selecionar ${g.title}`);
+      const cb = checkbox(groupState(g.items, S.psel), (cur) => { for (const i of g.items) cur === 'on' ? S.psel.delete(i.id) : S.psel.add(i.id); paintPrivCats(); paintPrivPane(); paintPrivFoot(); }, t('Selecionar {name}', { name: tr(g.title) }));
       const total = g.items.reduce((a, i) => a + i.size, 0);
       return h('section', { class: 'fm-sec', dataset: { group: g.id } },
-        h('div', { class: 'fm-sec-head' }, cb, h('b', { title: g.title }, g.title), h('span', null, `${plural(g.items.length, 'item', 'itens')} · ${fmtBytes(total)}`)),
+        h('div', { class: 'fm-sec-head' }, cb, h('b', { title: tr(g.title) }, tr(g.title)), h('span', null, `${plural(g.items.length, 'item', 'itens')} · ${fmtBytes(total)}`)),
         g.items.map((it) => {
           const toggle = () => { S.psel.has(it.id) ? S.psel.delete(it.id) : S.psel.add(it.id); paintPrivCats(); paintPrivPane(); paintPrivFoot(); };
           const label = g.id === 'recent' ? recentLabel(it.name) : it.name;
           const row = h('div', { class: 'fm-row', onClick: toggle },
-            checkbox(S.psel.has(it.id) ? 'on' : 'off', toggle, `Selecionar ${label}`),
+            checkbox(S.psel.has(it.id) ? 'on' : 'off', toggle, t('Selecionar {name}', { name: label })),
             h('div', { class: 'fm-ic' }, icon('file', 16)),
             h('div', { class: 'fm-main' },
-              h('div', { class: 'fm-name' }, h('span', { title: it.name }, label), it.note ? h('span', { class: 'badge info', title: it.note }, it.note) : null),
+              h('div', { class: 'fm-name' }, h('span', { title: it.name }, label), it.note ? h('span', { class: 'badge info', title: tr(it.note) }, tr(it.note)) : null),
               h('div', { class: 'fm-meta' }, mid(it.path, 26))),
             h('span', { class: 'fm-size' }, fmtBytes(it.size)),
-            h('button', { class: 'icon-btn fm-act', type: 'button', title: 'Mostrar no Finder', 'aria-label': `Mostrar ${label} no Finder`, onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)));
+            h('button', { class: 'icon-btn fm-act', type: 'button', title: t('Mostrar no Finder'), 'aria-label': t('Mostrar {name} no Finder', { name: label }), onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)));
           // Arquivos internos (bancos de dados, listas): só Mostrar no Finder; nada de Visualização Rápida nem Ignorar.
           attachMenu(row, () => ({ id: it.id, name: label, quickLook: false, ignore: false, select: { on: S.psel.has(it.id), toggle } }));
           return row;
@@ -474,9 +482,9 @@ export function enter(ctx) {
     function paintPrivFoot() {
       const picked = privItems().filter((i) => S.psel.has(i.id));
       const bytes = picked.reduce((a, i) => a + i.size, 0);
-      if (!picked.length) mount(selEl, 'Nenhum item selecionado');
-      else mount(selEl, 'Selecionado: ', h('b', null, fmtBytes(bytes)), h('small', null, plural(picked.length, 'item', 'itens')));
-      actionBtn.textContent = 'Remover';
+      if (!picked.length) mount(selEl, t('Nenhum item selecionado'));
+      else mount(selEl, t('Selecionado:') + ' ', h('b', null, fmtBytes(bytes)), h('small', null, plural(picked.length, 'item', 'itens')));
+      actionBtn.textContent = t('Remover');
       actionBtn.disabled = picked.length === 0;
       actionBtn.onclick = removePrivacy;
     }
@@ -495,9 +503,9 @@ export function enter(ctx) {
     if (S.area === 'checks') viewChecks();
     else if (S.area === 'perms') viewPerms();
     else viewPrivacy();
-    const subtitle = { checks: 'Verificação de segurança', perms: 'Permissões de apps', privacy: 'Privacidade' }[S.area];
-    mount(ctx.root, h('section', { class: 'review fm pr-manager enter', dataset: { mod: 'protect' }, 'aria-label': 'Gerenciador de proteção' },
-      managerBar({ title: 'Proteção', subtitle, onBack: back, controls: [areaSeg] }),
+    const subtitle = { checks: t('Verificação de segurança'), perms: t('Permissões de apps'), privacy: t('Privacidade') }[S.area];
+    mount(ctx.root, h('section', { class: 'review fm pr-manager enter', dataset: { mod: 'protect' }, 'aria-label': t('Gerenciador de proteção') },
+      managerBar({ title: t('Proteção'), subtitle, onBack: back, controls: [areaSeg] }),
       bodyEl,
       h('div', { class: 'rv-foot' }, selEl, actionBtn)));
     ctx.onBack(back);
@@ -516,17 +524,17 @@ export function enter(ctx) {
 
   async function revoke() {
     const picked = [];
-    for (const g of S.tcc.groups) for (const r of g.rows) if (S.rsel.has(r.id)) picked.push({ ...r, service: g.title });
+    for (const g of S.tcc.groups) for (const r of g.rows) if (S.rsel.has(r.id)) picked.push({ ...r, service: tr(g.title) });
     if (!picked.length) return;
     const names = picked.slice(0, 5).map((r) => `${r.name} (${r.service})`);
     const ok = await confirmDialog({
-      title: `Revogar ${plural(picked.length, 'permissão', 'permissões')}?`,
-      body: [`Os apps perderão o acesso e o macOS vai perguntar de novo quando eles precisarem. Nenhum arquivo é apagado. `,
-        h('strong', null, names.join('; ') + (picked.length > names.length ? `; e mais ${picked.length - names.length}.` : '.'))],
-      confirm: 'Revogar', glyph: 'lock', mod: 'protect',
+      title: tn(picked.length, 'Revogar {n} permissão?', 'Revogar {n} permissões?'),
+      body: [t('Os apps perderão o acesso e o macOS vai perguntar de novo quando eles precisarem. Nenhum arquivo é apagado.') + ' ',
+        h('strong', null, names.join('; ') + (picked.length > names.length ? '; ' + t('e mais {n}.', { n: fmtNum(picked.length - names.length) }) : '.'))],
+      confirm: t('Revogar'), glyph: 'lock', mod: 'protect',
     });
     if (!ok) return;
-    const prog = busyStage('Revogando…', `0 de ${fmtNum(picked.length)}`);
+    const prog = busyStage(t('Revogando…'), t('{done} de {total}', { done: fmtNum(0), total: fmtNum(picked.length) }));
     const byId = new Map(picked.map((r) => [r.id, { name: `${r.name} (${r.service})`, path: r.bundleId }]));
     const ids = picked.map((r) => r.id);
     let good = 0;
@@ -536,9 +544,9 @@ export function enter(ctx) {
       for (const o of res.outcomes) if (o.ok) good++;
       failures.push(...outcomesToFailures(res.outcomes, byId));
     } catch (e) {
-      failures.push(...ids.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: e.message })));
+      failures.push(...ids.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: tr(e.message) })));
     }
-    prog.textContent = `${fmtNum(ids.length)} de ${fmtNum(ids.length)}`;
+    prog.textContent = t('{done} de {total}', { done: fmtNum(ids.length), total: fmtNum(ids.length) });
     // Ids são novos a cada leitura: busca a lista de novo para refletir o que o macOS realmente guarda.
     try { S.tcc = await api.tccPermissions(); } catch (e) { /* mantém a lista antiga */ }
     S.rsel = new Set();
@@ -559,19 +567,19 @@ export function enter(ctx) {
     for (const g of S.priv.groups) for (const i of g.items) if (S.psel.has(i.id)) kinds.add(g.id.split(':')[1]);
     const has = (k) => kinds.has(k);
     const notes = [];
-    if (has('cookies')) notes.push('Ao remover cookies, você será desconectado dos sites onde está logado.');
-    if (has('forms')) notes.push('Dados de preenchimento automático (como endereços e cartões salvos) também serão removidos.');
-    if (picked.some((i) => i.note && i.note.includes('favoritos'))) notes.push('No Firefox, este arquivo também guarda os favoritos.');
+    if (has('cookies')) notes.push(t('Ao remover cookies, você será desconectado dos sites onde está logado.'));
+    if (has('forms')) notes.push(t('Dados de preenchimento automático (como endereços e cartões salvos) também serão removidos.'));
+    if (picked.some((i) => i.note && i.note.includes('favoritos'))) notes.push(t('No Firefox, este arquivo também guarda os favoritos.'));
     const ok = await confirmDialog({
-      title: `Mover ${plural(picked.length, 'item', 'itens')} para o Lixo?`,
-      body: [`${fmtBytes(bytes)} serão enviados ao Lixo. Você pode restaurá-los de lá `, h('strong', null, 'até esvaziar a Lixeira'), '. Senhas salvas não são tocadas.',
+      title: tn(picked.length, 'Mover {n} item para o Lixo?', 'Mover {n} itens para o Lixo?'),
+      body: [t('{size} serão enviados ao Lixo.', { size: fmtBytes(bytes) }) + ' ' + t('Você pode restaurá-los de lá') + ' ', h('strong', null, t('até esvaziar a Lixeira')), '. ' + t('Senhas salvas não são tocadas.'),
         notes.length ? h('span', { class: 'fl-warn' }, ' ' + notes.join(' ')) : null],
-      confirm: 'Mover para o Lixo', glyph: 'trash', mod: 'protect',
+      confirm: t('Mover para o Lixo'), glyph: 'trash', mod: 'protect',
       permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;
     const permanent = ok === 'permanent';
-    const prog = busyStage(permanent ? 'Apagando…' : 'Movendo para o Lixo…', `0 de ${fmtNum(picked.length)}`);
+    const prog = busyStage(permanent ? t('Apagando…') : t('Movendo para o Lixo…'), t('{done} de {total}', { done: fmtNum(0), total: fmtNum(picked.length) }));
     const sd = stopDock(ctx, 'protect');
     const byId = new Map(picked.map((i) => [i.id, i]));
     const ids = picked.map((i) => i.id);
@@ -580,16 +588,16 @@ export function enter(ctx) {
     let freed = 0, done = 0;
     for (let i = 0; i < ids.length; i += REMOVE_BATCH) {
       const chunk = ids.slice(i, i + REMOVE_BATCH);
-      if (sd.stopped()) { failures.push(...chunk.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: 'cancelado; o item continua no lugar' }))); continue; }
+      if (sd.stopped()) { failures.push(...chunk.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: t('cancelado; o item continua no lugar') }))); continue; }
       try {
         const res = await api.privacyRemove(chunk, permanent);
         for (const o of res.outcomes) if (o.ok) { okIds.add(o.id); freed += o.freed || 0; }
         failures.push(...outcomesToFailures(res.outcomes, byId));
       } catch (e) {
-        failures.push(...chunk.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: e.message })));
+        failures.push(...chunk.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: tr(e.message) })));
       }
       done += chunk.length;
-      prog.textContent = `${fmtNum(done)} de ${fmtNum(ids.length)}`;
+      prog.textContent = t('{done} de {total}', { done: fmtNum(done), total: fmtNum(ids.length) });
       sd.progress(done / ids.length);
     }
     S.priv = {
@@ -612,15 +620,15 @@ export function enter(ctx) {
     const d = S.done || { kind: 'privacy', n: 0, bytes: 0, failed: 0 };
     const more = (S.priv && privItems().length) || (S.tcc && S.tcc.apps);
     const head = d.kind === 'perms'
-      ? [h('div', { class: 'big' }, fmtNum(d.n)), h('div', { class: 'big-cap' }, d.n === 1 ? 'permissão revogada' : 'permissões revogadas'),
-        h('p', { class: 'sub' }, 'Os apps vão pedir acesso de novo na próxima vez que precisarem.')]
-      : [h('div', { class: 'big' }, bytesParts(d.bytes).value, h('small', null, bytesParts(d.bytes).unit)), h('div', { class: 'big-cap' }, d.permanent ? 'apagados definitivamente' : 'movidos para o Lixo'),
-        h('p', { class: 'sub' }, (d.permanent ? '' : 'Esvazie a Lixeira para liberar o espaço no disco. ') + 'Pode ser preciso entrar de novo em alguns sites.')];
+      ? [h('div', { class: 'big' }, fmtNum(d.n)), h('div', { class: 'big-cap' }, d.n === 1 ? t('permissão revogada') : t('permissões revogadas')),
+        h('p', { class: 'sub' }, t('Os apps vão pedir acesso de novo na próxima vez que precisarem.'))]
+      : [h('div', { class: 'big' }, bytesParts(d.bytes).value, h('small', null, bytesParts(d.bytes).unit)), h('div', { class: 'big-cap' }, d.permanent ? t('apagados definitivamente') : t('movidos para o Lixo')),
+        h('p', { class: 'sub' }, (d.permanent ? '' : t('Esvazie a Lixeira para liberar o espaço no disco.') + ' ') + t('Pode ser preciso entrar de novo em alguns sites.'))];
     st.show(...head,
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
-        more ? h('button', { class: 'btn', type: 'button', onClick: () => { S.phase = 'review'; render(); } }, 'Revisar mais itens') : null,
-        h('button', { class: 'btn primary', type: 'button', onClick: () => { S.phase = 'results'; render(); } }, 'Concluir')));
+        h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
+        more ? h('button', { class: 'btn', type: 'button', onClick: () => { S.phase = 'review'; render(); } }, t('Revisar mais itens')) : null,
+        h('button', { class: 'btn primary', type: 'button', onClick: () => { S.phase = 'results'; render(); } }, t('Concluir'))));
     ctx.setDock(null);
   }
 
