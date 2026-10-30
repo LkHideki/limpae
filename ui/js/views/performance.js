@@ -18,7 +18,7 @@ const HIST = 60;
 const SYS_STEP = 30;
 const TICK_MS = 2000;
 const PRESSURE = { normal: 'normal', warning: 'elevada', critical: 'crítica', unknown: 'indisponível' };
-const WHY = 'Limpar o cache de DNS, reindexar o Spotlight, reparar permissões, liberar espaço purgável e liberar RAM exigem senha de administrador ou já são feitos pelo macOS sozinho. O Limpaemeo só oferece o que funciona sem root e tem efeito real.';
+const WHY = 'Limpar o cache de DNS, reindexar o Spotlight, reparar permissões, liberar espaço purgável e liberar RAM exigem senha de administrador ou já são feitos pelo macOS sozinho. O Limpae só oferece o que funciona sem root e tem efeito real.';
 const SIGNATURE_PILL = { unsigned: 'Sem assinatura válida', invalid: 'Sem assinatura válida', missing: 'Programa ausente' };
 const SIGNATURE_HINT = {
   unsigned: 'O programa deste agente não tem assinatura de código.',
@@ -169,7 +169,7 @@ export function enter(ctx) {
         warn: flagged ? `${plural(flagged, 'pede', 'pedem')} atenção` : null, action: 'Revisar',
       },
       login.needsAutomation
-        ? { tab: 'login', ic: 'lock', title: 'Itens de login', sub: 'O macOS precisa liberar o Limpaemeo para ler a lista de itens de login.', action: 'Ver como liberar' }
+        ? { tab: 'login', ic: 'lock', title: 'Itens de login', sub: 'O macOS precisa liberar o Limpae para ler a lista de itens de login.', action: 'Ver como liberar' }
         : login.error
           ? { tab: 'login', ic: 'restart', title: 'Itens de login', sub: login.error, action: 'Ver detalhes' }
           : { tab: 'login', ic: 'restart', title: `${plural(loginCount(), 'item', 'itens')} de login`, sub: loginCount() ? 'Apps que abrem sozinhos quando você entra no Mac.' : 'Nenhum app abre sozinho quando você entra.', action: loginCount() ? 'Revisar' : null },
@@ -332,7 +332,7 @@ export function enter(ctx) {
         return mount(bodyEl, h('div', { class: 'pf-card pf-need' },
           h('span', { class: 'pf-card-ic' }, icon('lock', 22)),
           h('div', null, h('b', null, 'O macOS precisa liberar o acesso'),
-            h('p', null, 'Para listar os itens de login, o Limpaemeo conversa com o System Events. Abra Ajustes do Sistema › Privacidade e Segurança › Automação, ative o System Events para o Limpaemeo e tente de novo.'),
+            h('p', null, 'Para listar os itens de login, o Limpae conversa com o System Events. Abra Ajustes do Sistema › Privacidade e Segurança › Automação, ative o System Events para o Limpae e tente de novo.'),
             h('div', { class: 'row-actions', style: 'margin-top:14px' }, h('button', { class: 'btn primary', type: 'button', onClick: (e) => refreshAll(e.currentTarget) }, 'Tentar de novo')))));
       }
       if (L.error) {

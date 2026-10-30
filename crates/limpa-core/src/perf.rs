@@ -173,7 +173,7 @@ impl Agent {
 
 pub const NOTE_SYSTEM: &str = "Do sistema · requer administrador";
 const NOTE_APPLE: &str = "Item da Apple";
-const NOTE_OWN: &str = "Pertence ao Limpaemeo";
+const NOTE_OWN: &str = "Pertence ao Limpae";
 const NOTE_UNREADABLE: &str = "Arquivo vazio, sem rótulo ou ilegível";
 
 /// Rótulo aceito para `launchctl`: o mesmo conjunto que os testes e o filtro da interface esperam.
@@ -456,7 +456,7 @@ pub fn scan_agents(dirs: &AgentDirs, uid: u32, own_bundle_id: &str, r: &dyn Runn
     agents
 }
 
-/// Revalida, no momento da ação, que `plist` é um agente do usuário que o Limpaemeo pode alterar, e devolve o
+/// Revalida, no momento da ação, que `plist` é um agente do usuário que o Limpae pode alterar, e devolve o
 /// rótulo lido do arquivo (nunca o que a interface viu). Recusa itens da Apple, do próprio app, links simbólicos
 /// e qualquer arquivo fora de `dirs.user`.
 pub fn user_agent_label(user_dir: &Path, plist: &Path, own_bundle_id: &str) -> Result<String, &'static str> {
@@ -1215,7 +1215,7 @@ mod tests {
             system_daemons: dir.path().join("none2"),
         };
         let r = Fake::new(|_, _| fail(""));
-        let agents = scan_agents(&dirs, 501, "br.com.limpaemeo", &r, &AtomicBool::new(false));
+        let agents = scan_agents(&dirs, 501, "br.com.limpae", &r, &AtomicBool::new(false));
         assert_eq!(agents.len(), 1);
         assert!(!agents[0].manageable);
         assert_eq!(agents[0].note.as_deref(), Some(NOTE_UNREADABLE));
@@ -1241,7 +1241,7 @@ mod tests {
         );
         write_agent(&user, "gone.plist", "com.gone.agent", "/nonexistent/prog", "");
         write_agent(&user, "apple.plist", "com.apple.thing", "/usr/bin/true", "");
-        write_agent(&user, "own.plist", "br.com.limpaemeo.helper", "/usr/bin/true", "");
+        write_agent(&user, "own.plist", "br.com.limpae.helper", "/usr/bin/true", "");
         write_agent(&user, "off.plist", "com.off.agent", "/usr/bin/true", "");
         write_agent(&sysa, "com.sys.agent.plist", "com.sys.agent", "/usr/bin/true", "");
         write_agent(&sysd, "com.sys.daemon.plist", "com.sys.daemon", "/usr/bin/true", "");
@@ -1258,7 +1258,7 @@ mod tests {
             (CODESIGN, "--verify") => ok(""),
             _ => fail(""),
         });
-        let agents = scan_agents(&dirs, 501, "br.com.limpaemeo", &r, &AtomicBool::new(false));
+        let agents = scan_agents(&dirs, 501, "br.com.limpae", &r, &AtomicBool::new(false));
         let by = |l: &str| agents.iter().find(|a| a.label == l).unwrap();
         let foo = by("com.foo.agent");
         assert!(foo.manageable && foo.run_at_load);
@@ -1271,7 +1271,7 @@ mod tests {
         assert_eq!(gone.state, Some(AgentState::Inactive));
         assert_eq!(by("com.off.agent").state, Some(AgentState::Disabled));
         assert!(!by("com.apple.thing").manageable);
-        assert_eq!(by("br.com.limpaemeo.helper").note.as_deref(), Some(NOTE_OWN));
+        assert_eq!(by("br.com.limpae.helper").note.as_deref(), Some(NOTE_OWN));
         for l in ["com.sys.agent", "com.sys.daemon"] {
             let s = by(l);
             assert!(!s.manageable && s.state.is_none());
@@ -1291,21 +1291,21 @@ mod tests {
         let user = dir.path().join("LaunchAgents");
         fs::create_dir_all(&user).unwrap();
         let good = write_agent(&user, "a.plist", "com.ok.agent", "/usr/bin/true", "");
-        assert_eq!(user_agent_label(&user, &good, "br.com.limpaemeo").as_deref(), Ok("com.ok.agent"));
+        assert_eq!(user_agent_label(&user, &good, "br.com.limpae").as_deref(), Ok("com.ok.agent"));
         let apple = write_agent(&user, "b.plist", "com.apple.x", "/usr/bin/true", "");
-        assert!(user_agent_label(&user, &apple, "br.com.limpaemeo").is_err());
+        assert!(user_agent_label(&user, &apple, "br.com.limpae").is_err());
         let bad = write_agent(&user, "c.plist", "bad label;rm", "/usr/bin/true", "");
-        assert!(user_agent_label(&user, &bad, "br.com.limpaemeo").is_err());
-        let own = write_agent(&user, "d.plist", "br.com.limpaemeo.x", "/usr/bin/true", "");
-        assert!(user_agent_label(&user, &own, "br.com.limpaemeo").is_err());
+        assert!(user_agent_label(&user, &bad, "br.com.limpae").is_err());
+        let own = write_agent(&user, "d.plist", "br.com.limpae.x", "/usr/bin/true", "");
+        assert!(user_agent_label(&user, &own, "br.com.limpae").is_err());
         // Fora da pasta de agentes do usuário.
         let outside = write_agent(dir.path(), "e.plist", "com.out.agent", "/usr/bin/true", "");
-        assert!(user_agent_label(&user, &outside, "br.com.limpaemeo").is_err());
+        assert!(user_agent_label(&user, &outside, "br.com.limpae").is_err());
         // Link simbólico para um plist válido: recusado.
         let link = user.join("link.plist");
         std::os::unix::fs::symlink(&outside, &link).unwrap();
-        assert!(user_agent_label(&user, &link, "br.com.limpaemeo").is_err());
-        assert!(user_agent_label(&user, &user.join("gone.plist"), "br.com.limpaemeo").is_err());
+        assert!(user_agent_label(&user, &link, "br.com.limpae").is_err());
+        assert!(user_agent_label(&user, &user.join("gone.plist"), "br.com.limpae").is_err());
     }
 
     #[test]
@@ -1577,7 +1577,7 @@ mod tests {
         let home = std::env::home_dir().unwrap();
         let dirs = AgentDirs::for_home(&home);
         let t = Instant::now();
-        let agents = scan_agents(&dirs, current_uid(), "br.com.limpaemeo", &SystemRunner, &AtomicBool::new(false));
+        let agents = scan_agents(&dirs, current_uid(), "br.com.limpae", &SystemRunner, &AtomicBool::new(false));
         println!("agentes: {} em {:?}", agents.len(), t.elapsed());
         for g in &agents {
             println!(

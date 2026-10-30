@@ -215,7 +215,7 @@ export function enter(ctx) {
       permTile = h('div', { class: 'pr-tile none', dataset: { area: 'perms' } },
         h('span', { class: 'pr-tile-ic' }, icon('lock', 24)),
         h('div', { class: 'pr-tile-t' }, 'Permissões de apps'),
-        h('div', { class: 'pr-tile-s' }, 'Para listar o que cada app pode acessar, conceda o Acesso Total ao Disco ao Limpaemeo.'),
+        h('div', { class: 'pr-tile-s' }, 'Para listar o que cada app pode acessar, conceda o Acesso Total ao Disco ao Limpae.'),
         h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes'));
     } else {
       permTile = h('div', { class: 'pr-tile' + (S.tcc.apps ? '' : ' none'), dataset: { area: 'perms' } },
@@ -292,7 +292,7 @@ export function enter(ctx) {
     function viewChecks() {
       bodyEl.className = 'fm-body pr-single';
       mount(bodyEl, h('div', { class: 'fm-pane' }, headEl, listEl));
-      pane('Verificação de segurança', 'Estado das proteções do macOS. Somente leitura: o Limpaemeo não altera nenhuma configuração.');
+      pane('Verificação de segurança', 'Estado das proteções do macOS. Somente leitura: o Limpae não altera nenhuma configuração.');
       mount(listEl, S.checks.map((c) => h('div', { class: 'pr-check', dataset: { id: c.id } },
         h('span', { class: 'pr-st', dataset: { s: c.ok === true ? 'ok' : c.ok === false ? 'bad' : 'unk' }, 'aria-label': c.ok === true ? 'Em ordem' : c.ok === false ? 'Atenção' : 'Não verificado' }, icon(c.ok === true ? 'check' : c.ok === false ? 'alert' : 'dash', 17)),
         h('div', { class: 'pr-check-t' }, h('b', null, c.title), h('span', null, c.detail)),
@@ -343,7 +343,7 @@ export function enter(ctx) {
         mount(headEl, h('div', { class: 'fm-pane-t' }, h('h3', null, 'Permissões de apps'), h('p', null, 'O que cada app pode acessar no seu Mac.')));
         mount(listEl, S.tcc.needsFda
           ? h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('lock', 26)), h('b', null, 'É preciso o Acesso Total ao Disco'),
-            h('p', null, 'O macOS guarda as permissões num banco protegido. Conceda o Acesso Total ao Disco ao Limpaemeo em Ajustes do Sistema e analise de novo.'),
+            h('p', null, 'O macOS guarda as permissões num banco protegido. Conceda o Acesso Total ao Disco ao Limpae em Ajustes do Sistema e analise de novo.'),
             h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes'))
           : h('div', { class: 'rv-empty' }, 'Nenhuma permissão encontrada.'));
         return;
@@ -425,7 +425,7 @@ export function enter(ctx) {
       if (!items.length) {
         mount(listEl, isRecent && S.priv.needsFda
           ? h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('lock', 26)), h('b', null, 'É preciso o Acesso Total ao Disco'),
-            h('p', null, 'O macOS protege a pasta das listas de itens recentes. Conceda o acesso ao Limpaemeo e analise de novo.'),
+            h('p', null, 'O macOS protege a pasta das listas de itens recentes. Conceda o acesso ao Limpae e analise de novo.'),
             h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes'))
           : h('div', { class: 'rv-empty' }, 'Nada encontrado nesta categoria.'));
         return;

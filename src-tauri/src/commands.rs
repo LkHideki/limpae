@@ -29,7 +29,7 @@ use crate::state::{AppState, lock};
 
 pub(crate) type Shared = Arc<AppState>;
 
-pub(crate) const OWN_BUNDLE_ID: &str = "br.com.limpaemeo";
+pub(crate) const OWN_BUNDLE_ID: &str = "br.com.limpae";
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 pub(crate) const ERR_CANCELLED: &str = "Varredura cancelada.";
 const ERR_APP_GONE: &str = "App não encontrado. Atualize a lista de apps.";

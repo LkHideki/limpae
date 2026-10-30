@@ -1,4 +1,4 @@
-//! Scanning and removal engine for Limpaemeo.
+//! Scanning and removal engine for Limpae.
 //!
 //! Safety model: scans only produce [`Item`]s; nothing is removed unless an
 //! item passes [`Guard::check`] again at removal time, against the [`Policy`]

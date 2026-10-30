@@ -1,4 +1,4 @@
-// Minha Atividade: saúde do Mac, recomendações e o que o Limpaemeo já liberou (lido do registro de ações).
+// Minha Atividade: saúde do Mac, recomendações e o que o Limpae já liberou (lido do registro de ações).
 import { h, s, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { api, call } from '../api.js';

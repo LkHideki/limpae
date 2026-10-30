@@ -63,9 +63,25 @@ impl Default for Settings {
 }
 
 impl Settings {
-    /// ~/Library/Application Support/br.com.limpaemeo/settings.json
+    /// ~/Library/Application Support/br.com.limpae/settings.json
     pub fn path_in(home: &Path) -> PathBuf {
-        home.join("Library/Application Support/br.com.limpaemeo/settings.json")
+        home.join("Library/Application Support/br.com.limpae/settings.json")
+    }
+
+    /// Loads from `path_in(home)`; on first run after the rebrand from Limpaemeo, carries the old preferences
+    /// (ignore list included) over to the new location.
+    pub fn load_migrating(home: &Path) -> Self {
+        let path = Self::path_in(home);
+        if fs::symlink_metadata(&path).is_err() {
+            let old = home.join("Library/Application Support/br.com.limpaemeo/settings.json");
+            if fs::symlink_metadata(&old).is_ok() {
+                let s = Self::load(&old);
+                if s.save(&path).is_ok() {
+                    return s;
+                }
+            }
+        }
+        Self::load(&path)
     }
 
     /// Missing or unreadable settings are not an error: the app starts with defaults.
@@ -181,5 +197,22 @@ mod tests {
         let out = s.filter(groups);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].id, "g2");
+    }
+
+    #[test]
+    fn migrates_preferences_from_the_old_name_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("Library/Application Support/br.com.limpaemeo/settings.json");
+        let mut s = Settings::default();
+        s.ignore(PathBuf::from("/x"));
+        s.save(&old).unwrap();
+        let got = Settings::load_migrating(dir.path());
+        assert_eq!(got.ignored, vec![PathBuf::from("/x")]);
+        assert!(Settings::path_in(dir.path()).exists());
+        // The new file wins from now on.
+        let mut newer = got.clone();
+        newer.sounds = false;
+        newer.save(&Settings::path_in(dir.path())).unwrap();
+        assert!(!Settings::load_migrating(dir.path()).sounds);
     }
 }

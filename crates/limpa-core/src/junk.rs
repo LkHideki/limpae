@@ -86,11 +86,13 @@ const CACHES_DENYLIST: &[&str] = &[
     "com.apple.softwareupdated",
     "com.apple.iCloudHelper",
     "com.apple.cloudd",
-    "br.com.limpaemeo",
+    "br.com.limpae",
+    "br.com.limpaemeo", // name before the rebrand
 ];
 
 /// Our own action log.
-const OWN_LOGS: &str = "Limpaemeo";
+/// Our own action log folder, current and pre-rebrand names.
+const OWN_LOGS: [&str; 2] = ["Limpae", "Limpaemeo"];
 
 const XCODE_ROOTS: &[&str] = &[
     "Library/Developer/Xcode/DerivedData",
@@ -228,7 +230,7 @@ fn candidates(home: &Path, running: &HashSet<String>) -> Vec<Candidate> {
     let logs = home.join("Library/Logs");
     for path in children(&logs) {
         let name = file_name(&path);
-        if name == OWN_LOGS {
+        if OWN_LOGS.contains(&name.as_str()) {
             continue;
         }
         let ai = AI_LOGS.iter().any(|a| a.eq_ignore_ascii_case(&name));
@@ -475,7 +477,7 @@ mod tests {
     fn denylist_skipped_case_insensitive() {
         let (_t, home) = fake_home();
         let caches = home.join("Library/Caches");
-        for n in ["CloudKit", "com.apple.bird", "COM.APPLE.HOMED", "br.com.limpaemeo", "com.foo.app"] {
+        for n in ["CloudKit", "com.apple.bird", "COM.APPLE.HOMED", "br.com.limpae", "com.foo.app"] {
             write(&caches.join(n).join("data"), KB64);
         }
         let groups = scan(&home, &[]);
@@ -533,7 +535,7 @@ mod tests {
     #[test]
     fn own_logs_dir_skipped() {
         let (_t, home) = fake_home();
-        write(&home.join("Library/Logs/Limpaemeo/action.log"), KB64);
+        write(&home.join("Library/Logs/Limpae/action.log"), KB64);
         write(&home.join("Library/Logs/DiagnosticReports/a.ips"), KB64);
         let groups = scan(&home, &[]);
         assert_eq!(groups.len(), 1);

@@ -509,7 +509,7 @@ mod tests {
         fn new() -> Self {
             static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
             let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            let p = std::env::temp_dir().join(format!("limpaemeo-perf-test-{}-{n}", std::process::id()));
+            let p = std::env::temp_dir().join(format!("limpae-perf-test-{}-{n}", std::process::id()));
             fs::create_dir_all(&p).unwrap();
             Self(p)
         }

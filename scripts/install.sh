@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Builds Limpaemeo and installs it into ~/Applications, registering it with
+# Builds Limpae and installs it into ~/Applications, registering it with
 # LaunchServices and Spotlight so it shows up in Spotlight and Launchpad.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-APP_NAME="Limpaemeo"
-BUNDLE_ID="br.com.limpaemeo"
+APP_NAME="Limpae"
+BUNDLE_ID="br.com.limpae"
 DEST_DIR="$HOME/Applications"
 DEST="$DEST_DIR/$APP_NAME.app"
 SRC="target/release/bundle/macos/$APP_NAME.app"
@@ -20,7 +20,7 @@ fi
 cargo tauri build --bundles app
 
 # A running copy keeps the old binary mapped; ask it to quit before replacing.
-pkill -x limpaemeo 2>/dev/null && sleep 1 || true
+pkill -x limpae 2>/dev/null && sleep 1 || true
 
 mkdir -p "$DEST_DIR"
 rm -rf "$DEST"

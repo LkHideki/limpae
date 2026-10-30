@@ -186,7 +186,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn temp_home(tag: &str) -> PathBuf {
-        let p = std::env::temp_dir().join(format!("limpaemeo-health-{tag}-{}", std::process::id()));
+        let p = std::env::temp_dir().join(format!("limpae-health-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&p);
         std::fs::create_dir_all(p.join(".Trash")).unwrap();
         p

@@ -1,9 +1,9 @@
 [package]
-name = "limpaemeo"
+name = "limpae"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
-description = "Limpaemeo: limpeza de disco para macOS"
+description = "Limpae: limpeza de disco para macOS"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

@@ -14,7 +14,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::cmd_health::{Effort, inputs, memory_label};
 use crate::state::{AppState, lock};
 
-const TRAY_ID: &str = "limpaemeo-tray";
+const TRAY_ID: &str = "limpae-tray";
 /// 36 px (18 pt @2x) template image as raw RGBA (black + alpha, generated with `tray@2x.png` from `tray.svg`);
 /// macOS tints it for light, dark and highlighted menu bars. Raw because decoding the PNG would need tauri's
 /// `image-png` feature, which pulls in the `image` crate and three more.
@@ -75,12 +75,12 @@ pub fn apply(app: &AppHandle) {
 }
 
 fn build(app: &AppHandle) -> tauri::Result<Rows> {
-    let header = MenuItem::with_id(app, "header", "Limpaemeo", false, None::<&str>)?;
+    let header = MenuItem::with_id(app, "header", "Limpae", false, None::<&str>)?;
     let disk = MenuItem::with_id(app, "disk", "Livre: …", false, None::<&str>)?;
     let memory = MenuItem::with_id(app, "memory", "Memória: …", false, None::<&str>)?;
     let trash = MenuItem::with_id(app, "trash-size", "Lixeira: …", false, None::<&str>)?;
     let item = |id: &str, text: &str| MenuItem::with_id(app, id, text, true, None::<&str>);
-    let open = item("open", "Abrir Limpaemeo")?;
+    let open = item("open", "Abrir Limpae")?;
     let smart = item("smart", "Faxina…")?;
     let empty = item("trash", "Esvaziar Lixeira…")?;
     let prefs = item("settings", "Ajustes…")?;
@@ -93,7 +93,7 @@ fn build(app: &AppHandle) -> tauri::Result<Rows> {
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(Image::new(ICON, ICON_SIDE, ICON_SIDE))
         .icon_as_template(true)
-        .tooltip("Limpaemeo")
+        .tooltip("Limpae")
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(on_menu)
@@ -153,7 +153,7 @@ pub fn refresh(app: &AppHandle, effort: Effort) {
     let Some(r) = rows else { return };
     let i = inputs(&state_of(app), effort);
     let h = health::score(&i);
-    let _ = r.header.set_text(format!("Limpaemeo · Saúde: {}", h.level.label()));
+    let _ = r.header.set_text(format!("Limpae · Saúde: {}", h.level.label()));
     let _ = r.disk.set_text(if i.disk_total > 0 {
         format!("Livre: {} de {}", health::fmt_bytes(i.disk_free), health::fmt_bytes(i.disk_total))
     } else {

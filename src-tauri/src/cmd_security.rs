@@ -354,7 +354,7 @@ mod tests {
     fn state() -> (Tmp, AppState) {
         static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
         let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let root = std::env::temp_dir().join(format!("limpaemeo-sec-{}-{n}", std::process::id()));
+        let root = std::env::temp_dir().join(format!("limpae-sec-{}-{n}", std::process::id()));
         let home = root.join("home");
         std::fs::create_dir_all(&home).unwrap();
         let home = std::fs::canonicalize(&home).unwrap();

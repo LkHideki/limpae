@@ -72,8 +72,8 @@ export function enter(ctx) {
     st.show(h('div', { class: 'panel' },
       h('div', { class: 'glyph-chip' }, icon('lock', 22)),
       h('h3', null, 'Acesso Total ao Disco necessário'),
-      h('p', null, 'O macOS protege a Lixeira. Para o Limpaemeo ver e esvaziar o que está nela, conceda acesso:'),
-      h('ol', null, h('li', null, 'Abra Ajustes do Sistema › Privacidade e Segurança.'), h('li', null, 'Entre em Acesso Total ao Disco e ative o Limpaemeo.'), h('li', null, 'Volte aqui e toque em Verificar de novo.')),
+      h('p', null, 'O macOS protege a Lixeira. Para o Limpae ver e esvaziar o que está nela, conceda acesso:'),
+      h('ol', null, h('li', null, 'Abra Ajustes do Sistema › Privacidade e Segurança.'), h('li', null, 'Entre em Acesso Total ao Disco e ative o Limpae.'), h('li', null, 'Volte aqui e toque em Verificar de novo.')),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn primary', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes'),
         h('button', { class: 'btn', type: 'button', onClick: async () => { await load(); ctx.refreshDisk(); } }, 'Verificar de novo'))));

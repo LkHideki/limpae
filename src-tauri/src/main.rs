@@ -101,7 +101,7 @@ fn main() {
             cmd_perf::tm_thin,
         ])
         .build(tauri::generate_context!())
-        .expect("erro ao iniciar o Limpaemeo");
+        .expect("erro ao iniciar o Limpae");
 
     app.run(|app, event| {
         // Clicking the Dock icon while the window is hidden brings it back.

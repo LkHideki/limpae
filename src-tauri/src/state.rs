@@ -42,10 +42,10 @@ impl AppState {
     pub fn with_home(home: PathBuf) -> Self {
         let settings_path = Settings::path_in(&home);
         Self {
-            settings: Mutex::new(Settings::load(&settings_path)),
+            settings: Mutex::new(Settings::load_migrating(&home)),
             settings_path,
             guard: Guard::new(&home),
-            log: ActionLog::in_home(&home),
+            log: ActionLog::in_home_migrating(&home),
             home,
             registry: Mutex::default(),
             apps: Mutex::default(),

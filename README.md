@@ -1,4 +1,4 @@
-# Limpaemeo
+# Limpae
 
 Limpeza de disco para macOS, com identidade visual própria. Engine em Rust (`crates/limpa-core`), shell Tauri 2 usando o WebKit do sistema (`src-tauri`) e interface em HTML/CSS/JS sem dependências (`ui`). O `.app` de release tem cerca de 5 MB.
 
@@ -20,7 +20,7 @@ Limpeza de disco para macOS, com identidade visual própria. Engine em Rust (`cr
 - Caches de downloads em andamento (sessões de URL em segundo plano, App Store, atualizações do macOS) e de serviços do iCloud, HomeKit e Buscar nunca entram na lista.
 - Se houver outra cópia do mesmo app instalada, os restos vêm desmarcados.
 - Caches caros de baixar de novo vêm desmarcados. Arquivos do usuário nunca vêm pré-selecionados.
-- Cada ação fica registrada em `~/Library/Logs/Limpaemeo/actions.log` ("Ver log" na interface).
+- Cada ação fica registrada em `~/Library/Logs/Limpae/actions.log` ("Ver log" na interface).
 - Fica de fora de propósito:
   - remoção de idiomas e de binários universais, porque quebra assinaturas de código;
   - caches de sistema, porque exigem root;
@@ -36,7 +36,7 @@ Sem Acesso Total ao Disco o app funciona, mas não lê a Lixeira e parte de `~/L
 ```sh
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p limpaemeo            # abre o app servindo ./ui embutido
+cargo run -p limpae            # abre o app servindo ./ui embutido
 ```
 
 Requer Rust estável e `tauri-cli` 2.x (`cargo install tauri-cli --version '^2' --locked`).
@@ -47,4 +47,4 @@ Requer Rust estável e `tauri-cli` 2.x (`cargo install tauri-cli --version '^2' 
 scripts/install.sh
 ```
 
-O script compila o bundle de release, copia para `~/Applications/Limpaemeo.app`, registra no LaunchServices e indexa no Spotlight. Ele termina com sucesso só quando o `mdfind` encontra o app.
+O script compila o bundle de release, copia para `~/Applications/Limpae.app`, registra no LaunchServices e indexa no Spotlight. Ele termina com sucesso só quando o `mdfind` encontra o app.
