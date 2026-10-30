@@ -107,7 +107,11 @@ function nodeIcon(n, px, root) {
 const plainIcon = (kind, px) => h('span', { class: 'fi', style: `width:${px}px;height:${px}px` }, svgIcon(kind));
 
 // O nó sintético de arquivos pequenos vem do backend com texto em português; os demais nomes são do disco.
-const nodeName = (n) => (n.kind === 'small' ? tr(n.name) : n.name);
+const nodeName = (n) => {
+  if (n.kind !== 'small') return n.name;
+  const m = /^([\d.]+) arquivos pequenos$/.exec(n.name); // número vem formatado em pt-BR pelo Rust
+  return m ? tn(Number(m[1].replace(/\./g, '')), '1 arquivo pequeno', '{n} arquivos pequenos') : tr(n.name);
+};
 
 // Nome com reticências no meio, preservando a extensão: "CMPurgeableSpaceEntityPa…ntifier".
 function midCut(name, cap) {
@@ -635,6 +639,7 @@ export function enter(ctx) {
     if (!count) return;
     const ok = await confirmDialog({
       title: tn(count, 'Mover 1 item para o Lixo?', 'Mover {n} itens para o Lixo?'),
+      permanentTitle: tn(count, 'Apagar 1 item definitivamente?', 'Apagar {n} itens definitivamente?'),
       body: [t('{size} serão enviados ao Lixo. Você pode restaurá-los de lá ', { size: fmtBytes(bytes) }), h('strong', null, t('até esvaziar a Lixeira')), '.'],
       confirm: t('Mover para o Lixo'), glyph: 'trash', mod: 'lens',
       permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),

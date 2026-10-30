@@ -130,3 +130,8 @@
 @media (prefers-reduced-motion: reduce) {
   .fl-tile, .fm-img, .fm-chev { transition: none; }
 }
+
+/* en/id: textos de acesso/modificação mais longos */
+.fm .fm-size small { white-space: nowrap; max-width: none; }
+.fm-meta-dir .fm-fname { flex: 0 1 auto; }
+.fm-meta-dir .fm-when { flex: none; white-space: pre; }

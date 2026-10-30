@@ -159,7 +159,7 @@ export default {
   'Uso de memória': { en: 'Memory usage', id: 'Penggunaan memori' },
   'Memória': { en: 'Memory', id: 'Memori' },
   'App': { en: 'App', id: 'App' },
-  'Dedicada': { en: 'Wired', id: 'Wired' },
+  'Dedicada': { en: 'Wired', id: 'Terkunci' },
   'Comprimida': { en: 'Compressed', id: 'Terkompresi' },
   'Memória de troca': { en: 'Swap memory', id: 'Memori swap' },
   'Processador': { en: 'Processor', id: 'Prosesor' },
