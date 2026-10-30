@@ -158,10 +158,16 @@ export function enter(ctx) {
   // ---------- execute ----------
   async function execute() {
     const { bytes, count } = selectedSize(store.junk, store.junkSel);
+    let moved = 0;
+    for (const g of store.junk.groups) for (const i of g.items) if (store.junkSel.has(i.id) && i.trash) moved++;
+    const perm = count - moved;
+    const body = [];
+    if (perm) body.push(`${plural(perm, 'item regenerável será', 'itens regeneráveis serão')} `, h('strong', null, perm === 1 ? 'removido definitivamente' : 'removidos definitivamente'), '. ');
+    if (moved) body.push(`${plural(moved, 'item vai', 'itens vão')} para o `, h('strong', null, 'Lixo'), ' e podem ser recuperados de lá.');
     const ok = await confirmDialog({
       title: `Limpar ${fmtBytes(bytes)} de lixo?`,
-      body: [`${plural(count, 'item selecionado', 'itens selecionados')} em `, h('strong', null, 'Limpeza'), count === 1 ? ' será ' : ' serão ', h('strong', null, count === 1 ? 'removido definitivamente' : 'removidos definitivamente'), '. Esta ação não pode ser desfeita.'],
-      confirm: 'Limpar', danger: true, glyph: 'trash', mod: 'clean',
+      body,
+      confirm: 'Limpar', danger: perm > 0, glyph: 'trash', mod: 'clean',
     });
     if (!ok) return;
     S.phase = 'cleaning';

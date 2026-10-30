@@ -32,6 +32,16 @@ const P = {
   gear: ['M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M6 18l1.6-1.6M16.4 7.6L18 6'],
   lens: ['M8 8a4 4 0 1 0 0 .01', 'M16.5 6.5a3 3 0 1 0 0 .01', 'M15 15.5a4.5 4.5 0 1 0 0 .01'],
   pulse: ['M3.5 12h4l2-5 4 10 2-5h5'],
+  chip: ['M8 8h8v8H8z', 'M10.8 10.8h2.4v2.4h-2.4z', 'M10 4v2.5M14 4v2.5M10 17.5V20M14 17.5V20M4 10h2.5M4 14h2.5M17.5 10H20M17.5 14H20'],
+  prefs: ['M5 8h8M17 8h2M15 6v4', 'M5 16h2M11 16h8M9 14v4', 'M5 12h3M12 12h7M10 10v4'],
+  unlink: ['M10.5 13.5a3.5 3.5 0 0 1 0-5l1.8-1.8a3.5 3.5 0 0 1 5 5l-.9.9', 'M13.5 10.5a3.5 3.5 0 0 1 0 5l-1.8 1.8a3.5 3.5 0 0 1-5-5l.9-.9', 'M4.5 4.5l2 2M19.5 19.5l-2-2'],
+  phone: ['M8 3.5h8A1.5 1.5 0 0 1 17.5 5v14a1.5 1.5 0 0 1-1.5 1.5H8A1.5 1.5 0 0 1 6.5 19V5A1.5 1.5 0 0 1 8 3.5z', 'M11 17.5h2'],
+  mail: ['M4 6.5h16v11H4z', 'M4.5 7.2l7.5 5.8 7.5-5.8'],
+  more: ['M6 12h.01', 'M12 12h.01', 'M18 12h.01'],
+  eye: ['M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z', 'M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z'],
+  ban: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M6.3 6.3l11.4 11.4'],
+  select: ['M5 5h14v14H5z', 'M8.5 12l2.5 2.5 4.5-5'],
+  chevron: ['M7 10l5 5 5-5'],
 };
 
 export function icon(name, size = 18, cls = '') {
@@ -39,9 +49,16 @@ export function icon(name, size = 18, cls = '') {
     ...P[name].map((d) => s('path', { d })));
 }
 
-// Ícone por id de grupo (junk/large); cai em "file".
-const GROUP_ICON = { user_caches: 'box', user_logs: 'log', xcode: 'hammer', dev_caches: 'code', video: 'video', archive: 'archive', disk_image: 'disk', audio: 'audio', other: 'file', trash: 'trash', apps: 'apps', leftovers: 'folder' };
-export const groupIcon = (id) => (P[GROUP_ICON[id]] ? GROUP_ICON[id] : 'folder');
+// Ícone por id de grupo (junk/large/lixeira); cai em "folder". Lixeiras de volumes externos têm id "trash:<volume>".
+const GROUP_ICON = {
+  user_caches: 'box', user_logs: 'log', xcode: 'hammer', dev_caches: 'code', ai_clutter: 'chip', broken_prefs: 'prefs',
+  broken_login_items: 'unlink', ios_backups: 'phone', mail_attachments: 'mail', video: 'video', archive: 'archive',
+  disk_image: 'disk', audio: 'audio', other: 'file', trash: 'trash', volume_trash: 'disk', apps: 'apps', leftovers: 'folder',
+};
+export const groupIcon = (id) => {
+  const key = String(id).startsWith('trash:') ? 'volume_trash' : id;
+  return P[GROUP_ICON[key]] ? GROUP_ICON[key] : 'folder';
+};
 
 // Orb: bolha glossy em camadas de gradiente radial + glifo; `mod` escolhe paleta/forma via CSS.
 export function orb(mod, size = 200, glyph) {

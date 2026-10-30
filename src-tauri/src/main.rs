@@ -1,3 +1,4 @@
+mod cmd_cleanup;
 mod commands;
 mod dto;
 mod registry;
@@ -37,6 +38,7 @@ fn main() {
             commands::ignore_item,
             commands::list_ignored,
             commands::unignore,
+            cmd_cleanup::quick_look,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Limpaemeo");

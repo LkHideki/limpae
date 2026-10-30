@@ -1,10 +1,10 @@
 // Lixeira: tamanho/itens, esvaziar com confirmação permanente, e painel de Acesso Total ao Disco.
 import { play } from '../sound.js';
 import { h, mount } from '../dom.js';
-import { icon } from '../art.js';
+import { icon, groupIcon } from '../art.js';
 import { api } from '../api.js';
 import { store, countItems, bump } from '../store.js';
-import { bytesParts, plural } from '../format.js';
+import { bytesParts, fmtBytes, plural } from '../format.js';
 import { confirmDialog, failuresSheet, stage } from '../ui.js';
 import { removeGroups } from '../actions.js';
 
@@ -43,17 +43,29 @@ export function enter(ctx) {
         h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: load }, 'Tentar de novo')));
       return ctx.setDock(null);
     }
-    if (r.needsFda) return renderFda();
+    if (r.needsFda && !r.groups.length) return renderFda();
     const n = countItems(r);
     if (!n || r.total === 0) {
       st.show(h('h1', { class: 'h1' }, 'Lixeira vazia'), h('p', { class: 'sub' }, 'Não há nada para esvaziar.'),
         h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: load }, icon('refresh', 15), 'Atualizar')));
       return ctx.setDock(null);
     }
-    st.show(...big(r.total, `em ${plural(n, 'item', 'itens')} na Lixeira`),
+    const multi = r.groups.length > 1 || r.groups.some((g) => g.id !== 'trash');
+    st.show(...big(r.total, multi ? `em ${plural(n, 'item', 'itens')} de ${plural(r.groups.length, 'lixeira', 'lixeiras')}` : `em ${plural(n, 'item', 'itens')} na Lixeira`),
       h('p', { class: 'sub' }, 'Esvaziar remove tudo de forma permanente: depois disso não há como recuperar.'),
+      multi ? volumeList(r.groups) : null,
+      r.needsFda ? h('p', { class: 'fda-hint' }, 'A Lixeira do Mac não foi lida: ela exige Acesso Total ao Disco. ', h('button', { class: 'link', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes')) : null,
       h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: load }, icon('refresh', 15), 'Atualizar')));
     ctx.setDock({ label: 'Esvaziar', mod: 'trash', onClick: empty });
+  }
+
+  // Uma linha por lixeira: a do Mac e uma por volume externo, com tamanho e quantidade.
+  function volumeList(groups) {
+    return h('ul', { class: 'vol-list', 'aria-label': 'Lixeiras encontradas' }, groups.map((g) => h('li', { class: 'vol-row' },
+      h('span', { class: 'vol-ic' }, icon(groupIcon(g.id), 16)),
+      h('span', { class: 'vol-nm', title: g.title }, g.id === 'trash' ? 'Lixeira do Mac' : g.title),
+      h('span', { class: 'vol-n' }, plural(g.items.length, 'item', 'itens')),
+      h('span', { class: 'vol-sz' }, fmtBytes(g.total)))));
   }
 
   function renderFda() {
@@ -72,9 +84,9 @@ export function enter(ctx) {
     const r = store.trash;
     const n = countItems(r);
     const ok = await confirmDialog({
-      title: 'Esvaziar a Lixeira?',
-      body: [`${plural(n, 'item', 'itens')} (${bytesParts(r.total).value} ${bytesParts(r.total).unit}) serão `, h('strong', null, 'excluídos permanentemente'), '. Não é possível desfazer.'],
-      confirm: 'Esvaziar Lixeira', danger: true, glyph: 'trash', mod: 'trash',
+      title: r.groups.length > 1 ? 'Esvaziar as lixeiras?' : 'Esvaziar a Lixeira?',
+      body: [`${plural(n, 'item', 'itens')} (${bytesParts(r.total).value} ${bytesParts(r.total).unit}${r.groups.length > 1 ? `, em ${plural(r.groups.length, 'lixeira', 'lixeiras')}` : ''}) serão `, h('strong', null, 'excluídos permanentemente'), '. Não é possível desfazer.'],
+      confirm: r.groups.length > 1 ? 'Esvaziar lixeiras' : 'Esvaziar Lixeira', danger: true, glyph: 'trash', mod: 'trash',
     });
     if (!ok) return;
     ctx.setBusy(true);
