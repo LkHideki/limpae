@@ -16,7 +16,7 @@ use limpa_core::disk::disk_info;
 use limpa_core::fda::has_full_disk_access;
 use limpa_core::junk::scan_junk as core_scan_junk;
 use limpa_core::large::scan_large as core_scan_large;
-use limpa_core::remove::{SystemRemover, remove_items, trash_entries};
+use limpa_core::remove::{RemoveOptions, SystemRemover, remove_items_with, trash_entries};
 use limpa_core::running::{app_icon_png, cache_in_use, running_bundle_ids, running_keys};
 use limpa_core::settings::Settings;
 use limpa_core::trashes::external_trash_entries;
@@ -248,9 +248,10 @@ pub async fn app_leftovers(app: AppHandle, state: State<'_, Shared>, app_id: u64
 }
 
 /// Removes `items` (id, item) through the guarded engine and forgets the ids that succeeded.
-fn run_removal(st: &AppState, items: &[(u64, Item)]) -> HashMap<u64, OutcomeDto> {
+/// Honors "Apagar definitivamente" and the Stop button through `opts`.
+pub(crate) fn run_removal_with(st: &AppState, items: &[(u64, Item)], opts: RemoveOptions) -> HashMap<u64, OutcomeDto> {
     let plain: Vec<Item> = items.iter().map(|(_, it)| it.clone()).collect();
-    let outcomes = remove_items(&plain, &st.guard, &SystemRemover, &st.log);
+    let outcomes = remove_items_with(&plain, &st.guard, &SystemRemover, &st.log, opts);
     let mut by_id = HashMap::new();
     let mut done = Vec::new();
     for ((id, _), o) in items.iter().zip(outcomes) {
@@ -276,9 +277,12 @@ fn dedup(ids: &[u64]) -> Vec<u64> {
 }
 
 #[tauri::command]
-pub async fn remove(state: State<'_, Shared>, ids: Vec<u64>) -> Result<RemoveResult, String> {
+pub async fn remove(state: State<'_, Shared>, ids: Vec<u64>, permanent: Option<bool>) -> Result<RemoveResult, String> {
     let st = Arc::clone(state.inner());
     blocking(move || {
+        // Registered like a scan so the Stop button (cancel_scan) halts the batch between items.
+        let session = ScanSession::new(&st);
+        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&session.flag) };
         let mut resolved = lock(&st.registry).resolve_removal(&ids);
         // An app opened after the scan must not lose its cache while running.
         let keys = running_keys();
@@ -286,7 +290,7 @@ pub async fn remove(state: State<'_, Shared>, ids: Vec<u64>) -> Result<RemoveRes
             resolved.items.into_iter().partition(|(_, it)| cache_of_running_app(it, &keys));
         resolved.items = free;
         resolved.rejected.extend(busy.into_iter().map(|(id, _)| (id, ERR_APP_OPEN)));
-        let mut by_id = run_removal(&st, &resolved.items);
+        let mut by_id = run_removal_with(&st, &resolved.items, opts);
         by_id.extend(resolved.rejected.into_iter().map(|(id, why)| (id, OutcomeDto::failed(id, why))));
         Ok(assemble(&dedup(&ids), by_id))
     })
@@ -294,9 +298,16 @@ pub async fn remove(state: State<'_, Shared>, ids: Vec<u64>) -> Result<RemoveRes
 }
 
 #[tauri::command]
-pub async fn uninstall(state: State<'_, Shared>, app_id: u64, leftover_ids: Vec<u64>) -> Result<RemoveResult, String> {
+pub async fn uninstall(
+    state: State<'_, Shared>,
+    app_id: u64,
+    leftover_ids: Vec<u64>,
+    permanent: Option<bool>,
+) -> Result<RemoveResult, String> {
     let st = Arc::clone(state.inner());
     blocking(move || {
+        let session = ScanSession::new(&st);
+        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&session.flag) };
         let info = lock(&st.apps).get(&app_id).cloned().ok_or(ERR_APP_GONE)?;
         let running = running_bundle_ids();
         if running.contains(&info.bundle_id) {
@@ -318,11 +329,11 @@ pub async fn uninstall(state: State<'_, Shared>, app_id: u64, leftover_ids: Vec<
         resolved.rejected.extend(stale.into_iter().map(|(id, _)| (id, ERR_NOT_RECONFIRMED)));
         // The bundle goes first and alone: if it can't be moved (e.g. root-owned), its data must stay with it.
         let bundle = [(app_id, Item::new(info.path.clone(), info.size, Policy::MoveToTrash))];
-        let mut by_id = run_removal(&st, &bundle);
+        let mut by_id = run_removal_with(&st, &bundle, opts);
         if by_id.get(&app_id).is_some_and(|o| o.ok) {
             lock(&st.apps).remove(&app_id);
             lock(&st.icons).remove(&app_id);
-            by_id.extend(run_removal(&st, &resolved.items));
+            by_id.extend(run_removal_with(&st, &resolved.items, opts));
         } else {
             by_id.extend(resolved.items.iter().map(|(id, _)| (*id, OutcomeDto::failed(*id, ERR_APP_KEPT))));
         }
