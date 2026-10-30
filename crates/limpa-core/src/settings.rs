@@ -43,6 +43,8 @@ pub struct Settings {
     /// Default for user files, apps and leftovers: delete permanently instead of moving to the Trash. Each
     /// confirmation still lets the user choose.
     pub permanent_delete: bool,
+    /// Unix seconds of the last finished Sweep run (None = never). Only `mark_smart_care` sets it.
+    pub last_smart_care: Option<u64>,
 }
 
 impl Default for Settings {
@@ -55,6 +57,7 @@ impl Default for Settings {
             notify_low_disk_gb: None,
             sounds: true,
             permanent_delete: false,
+            last_smart_care: None,
         }
     }
 }
@@ -133,11 +136,15 @@ mod tests {
         let mut s = Settings::default();
         s.ignore(PathBuf::from("/a/b"));
         s.notify_trash_gb = Some(2);
+        s.last_smart_care = Some(1_700_000_000);
         s.save(&p).unwrap();
         assert_eq!(Settings::load(&p), s);
         fs::write(&p, br#"{"menuBar": true}"#).unwrap();
         let partial = Settings::load(&p);
         assert!(partial.menu_bar && partial.smart_care.files && partial.sounds && partial.ignored.is_empty());
+        assert_eq!(partial.last_smart_care, None);
+        fs::write(&p, br#"{"lastSmartCare": 1700000000}"#).unwrap();
+        assert_eq!(Settings::load(&p).last_smart_care, Some(1_700_000_000));
     }
 
     #[test]
