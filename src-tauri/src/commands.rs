@@ -17,7 +17,7 @@ use limpa_core::fda::has_full_disk_access;
 use limpa_core::junk::scan_junk as core_scan_junk;
 use limpa_core::large::scan_large as core_scan_large;
 use limpa_core::remove::{SystemRemover, remove_items, trash_entries};
-use limpa_core::running::{app_icon_png, running_bundle_ids};
+use limpa_core::running::{app_icon_png, cache_in_use, running_bundle_ids, running_keys};
 use limpa_core::settings::Settings;
 use limpa_core::{Group, Item, Policy, Progress};
 use tauri::{AppHandle, Emitter, State};
@@ -33,6 +33,14 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 const ERR_CANCELLED: &str = "Varredura cancelada.";
 const ERR_APP_GONE: &str = "App não encontrado. Atualize a lista de apps.";
 const ERR_APP_KEPT: &str = "mantido porque o app não pôde ser removido";
+const ERR_APP_OPEN: &str = "o app dono deste cache está aberto; feche-o e tente de novo";
+const NOTE_OTHER_COPY: &str = "Outra cópia deste app está instalada";
+
+/// A `~/Library/Caches` entry, deleted permanently, whose owner app is running right now.
+fn cache_of_running_app(item: &Item, keys: &std::collections::HashSet<String>) -> bool {
+    matches!(&item.policy, Policy::DeleteJunk { root } if root.ends_with("Library/Caches"))
+        && cache_in_use(&item.name, keys)
+}
 
 async fn blocking<T, F>(f: F) -> Result<T, String>
 where
@@ -116,8 +124,7 @@ pub async fn disk_overview(state: State<'_, Shared>) -> Result<DiskOverview, Str
 #[tauri::command]
 pub async fn scan_junk(app: AppHandle, state: State<'_, Shared>) -> Result<ScanResult, String> {
     run_scan(app, &state, "junk", |st, p| {
-        let running = running_bundle_ids();
-        let groups = core_scan_junk(&st.home, &running, p);
+        let groups = core_scan_junk(&st.home, &running_keys(), p);
         store(st, Task::Junk, groups, p)
     })
     .await
@@ -202,8 +209,17 @@ pub async fn app_icon(state: State<'_, Shared>, app_id: u64) -> Result<Option<St
 #[tauri::command]
 pub async fn app_leftovers(app: AppHandle, state: State<'_, Shared>, app_id: u64) -> Result<ScanResult, String> {
     run_scan(app, &state, "leftovers", move |st, p| {
-        let info = lock(&st.apps).get(&app_id).cloned().ok_or(ERR_APP_GONE)?;
-        let items = find_leftovers(&st.home, &info, p.cancel_flag());
+        let (info, other_copy) = {
+            let apps = lock(&st.apps);
+            let info = apps.get(&app_id).cloned().ok_or(ERR_APP_GONE)?;
+            let other = apps.iter().any(|(id, a)| *id != app_id && a.bundle_id == info.bundle_id);
+            (info, other)
+        };
+        let mut items = find_leftovers(&st.home, &info, p.cancel_flag());
+        // Leftovers are shared by every copy with this bundle id; removing them would break the copy that stays.
+        if other_copy {
+            items = items.into_iter().map(|i| i.unselected(NOTE_OTHER_COPY)).collect();
+        }
         let group = Group {
             id: "leftovers".into(),
             title: "Arquivos relacionados".into(),
@@ -247,7 +263,13 @@ fn dedup(ids: &[u64]) -> Vec<u64> {
 pub async fn remove(state: State<'_, Shared>, ids: Vec<u64>) -> Result<RemoveResult, String> {
     let st = Arc::clone(state.inner());
     blocking(move || {
-        let resolved = lock(&st.registry).resolve_removal(&ids);
+        let mut resolved = lock(&st.registry).resolve_removal(&ids);
+        // An app opened after the scan must not lose its cache while running.
+        let keys = running_keys();
+        let (busy, free): (Vec<_>, Vec<_>) =
+            resolved.items.into_iter().partition(|(_, it)| cache_of_running_app(it, &keys));
+        resolved.items = free;
+        resolved.rejected.extend(busy.into_iter().map(|(id, _)| (id, ERR_APP_OPEN)));
         let mut by_id = run_removal(&st, &resolved.items);
         by_id.extend(resolved.rejected.into_iter().map(|(id, why)| (id, OutcomeDto::failed(id, why))));
         Ok(assemble(&dedup(&ids), by_id))
@@ -417,5 +439,22 @@ mod tests {
         assert!(s.flag.load(Ordering::Relaxed));
         drop(s);
         assert!(lock(&st.active).is_empty());
+    }
+
+    #[test]
+    fn caches_of_running_apps_are_refused_at_removal() {
+        let keys: std::collections::HashSet<String> = ["google".to_string(), "com.foo.app".to_string()].into();
+        let caches = PathBuf::from("/Users/u/Library/Caches");
+        let junk = |name: &str| {
+            let mut it = Item::new(caches.join(name), 1, Policy::DeleteJunk { root: caches.clone() });
+            it.name = name.into();
+            it
+        };
+        assert!(cache_of_running_app(&junk("Google"), &keys));
+        assert!(cache_of_running_app(&junk("com.foo.app.helper"), &keys));
+        assert!(!cache_of_running_app(&junk("com.bar"), &keys));
+        let logs = PathBuf::from("/Users/u/Library/Logs");
+        let log_item = Item::new(logs.join("Google"), 1, Policy::DeleteJunk { root: logs });
+        assert!(!cache_of_running_app(&log_item, &keys), "only caches are tied to running apps");
     }
 }

@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use rayon::prelude::*;
 
 use crate::model::{Group, Item, Policy, Progress};
+use crate::running::cache_in_use;
 use crate::size::alloc_size;
 
 const GROUPS: [(&str, &str, &str); 4] = [
@@ -19,7 +20,7 @@ const USER_LOGS: usize = 1;
 const XCODE: usize = 2;
 const DEV_CACHES: usize = 3;
 
-/// Caches whose removal resets system services (iCloud sync, HomeKit, Find My...), not just speed.
+/// Caches whose removal resets system services (iCloud sync, HomeKit, Find My...) or aborts downloads in progress.
 const CACHES_DENYLIST: &[&str] = &[
     "CloudKit",
     "com.apple.bird",
@@ -31,6 +32,14 @@ const CACHES_DENYLIST: &[&str] = &[
     "com.apple.ap.adprivacyd",
     "com.apple.findmy.fmipcore",
     "com.apple.icloud.fmfd",
+    // In-flight downloads (background URL sessions, App Store, macOS updates): deleting them aborts the download.
+    "com.apple.nsurlsessiond",
+    "com.apple.appstore",
+    "com.apple.appstoreagent",
+    "com.apple.SoftwareUpdate",
+    "com.apple.softwareupdated",
+    "com.apple.iCloudHelper",
+    "com.apple.cloudd",
     "br.com.limpaemeo",
 ];
 
@@ -76,7 +85,8 @@ struct Candidate {
 }
 
 /// Regenerable junk under the user's home. Groups: `user_caches`,
-/// `user_logs`, `xcode`, `dev_caches`.
+/// `user_logs`, `xcode`, `dev_caches`. `running` holds bundle ids or names of open apps
+/// (see [`crate::running::running_keys`]); their caches start unselected.
 pub fn scan_junk(home: &Path, running: &HashSet<String>, p: &Progress) -> Vec<Group> {
     let found = AtomicU64::new(0);
     let sized: Vec<(Candidate, u64)> = candidates(home, running)
@@ -111,7 +121,7 @@ pub fn scan_junk(home: &Path, running: &HashSet<String>, p: &Progress) -> Vec<Gr
 }
 
 fn candidates(home: &Path, running: &HashSet<String>) -> Vec<Candidate> {
-    let running: Vec<String> = running.iter().map(|b| b.to_lowercase()).collect();
+    let running: HashSet<String> = running.iter().map(|b| b.to_lowercase()).collect();
     let caches = home.join("Library/Caches");
     let mut out = Vec::new();
 
@@ -125,10 +135,7 @@ fn candidates(home: &Path, running: &HashSet<String>) -> Vec<Candidate> {
         if denied || dev {
             continue;
         }
-        let lower = name.to_lowercase();
-        let is_running = running
-            .iter()
-            .any(|id| lower == *id || lower.strip_prefix(id.as_str()).is_some_and(|r| r.starts_with('.')));
+        let is_running = cache_in_use(&name, &running);
         out.push(Candidate {
             path,
             root: caches.clone(),

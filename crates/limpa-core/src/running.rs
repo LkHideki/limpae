@@ -26,6 +26,64 @@ pub fn running_bundle_ids() -> HashSet<String> {
     }
 }
 
+/// Cache folders named after a vendor rather than a bundle id, keyed by the bundle id of the app that owns them.
+const VENDOR_CACHE_DIRS: &[(&str, &[&str])] = &[
+    ("com.google.chrome", &["google"]),
+    ("com.google.chrome.canary", &["google"]),
+    ("org.mozilla.firefox", &["firefox", "mozilla"]),
+    ("com.brave.browser", &["bravesoftware"]),
+    ("com.microsoft.edgemac", &["microsoft edge"]),
+    ("company.thebrowser.browser", &["arc"]),
+    ("com.operasoftware.opera", &["com.operasoftware.opera", "opera software"]),
+    ("com.vivaldi.vivaldi", &["vivaldi"]),
+];
+
+/// Lower-cased names a running app's cache folder may carry: bundle id, localized app name and known vendor
+/// folders (e.g. Chrome caches under `~/Library/Caches/Google`). Used to keep caches of open apps unselected and
+/// to refuse deleting them at removal time.
+pub fn running_keys() -> HashSet<String> {
+    #[cfg(target_os = "macos")]
+    let apps: Vec<(Option<String>, Option<String>)> = {
+        use objc2::rc::autoreleasepool;
+        use objc2_app_kit::NSWorkspace;
+
+        autoreleasepool(|_| {
+            NSWorkspace::sharedWorkspace()
+                .runningApplications()
+                .iter()
+                .map(|a| (a.bundleIdentifier().map(|s| s.to_string()), a.localizedName().map(|s| s.to_string())))
+                .collect()
+        })
+    };
+    #[cfg(not(target_os = "macos"))]
+    let apps: Vec<(Option<String>, Option<String>)> = Vec::new();
+    keys_for(apps)
+}
+
+fn keys_for(apps: Vec<(Option<String>, Option<String>)>) -> HashSet<String> {
+    let mut keys = HashSet::new();
+    for (id, name) in apps {
+        if let Some(id) = id.map(|s| s.to_lowercase()) {
+            if let Some((_, dirs)) = VENDOR_CACHE_DIRS.iter().find(|(b, _)| *b == id) {
+                keys.extend(dirs.iter().map(|d| d.to_string()));
+            }
+            keys.insert(id);
+        }
+        // Short names ("Arc", "Mail") are too ambiguous on their own; vendor aliases cover the browsers.
+        if let Some(name) = name.map(|s| s.to_lowercase()).filter(|n| n.chars().count() >= 4) {
+            keys.insert(name);
+        }
+    }
+    keys
+}
+
+/// Whether a `~/Library/Caches` entry belongs to a running app: equal to a key, or a sub-identifier of one
+/// (`com.foo.app.helper` for `com.foo.app`). Case-insensitive.
+pub fn cache_in_use(dir_name: &str, keys: &HashSet<String>) -> bool {
+    let lower = dir_name.to_lowercase();
+    keys.iter().any(|k| lower == *k || lower.strip_prefix(k.as_str()).is_some_and(|r| r.starts_with('.')))
+}
+
 /// PNG bytes of the Finder icon of `path`, rendered at `px`×`px` pixels.
 ///
 /// `iconForFile:` yields a multi-representation `NSImage` (up to 1024 px); asking for a CGImage of a `px`-sized rect
@@ -96,6 +154,22 @@ mod macos_icon {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn running_keys_cover_names_and_vendor_folders() {
+        let keys = super::keys_for(vec![
+            (Some("com.google.Chrome".into()), Some("Google Chrome".into())),
+            (Some("com.tinyspeck.slackmacgap".into()), Some("Slack".into())),
+            (None, Some("Arc".into())),
+        ]);
+        assert!(super::cache_in_use("Google", &keys));
+        assert!(super::cache_in_use("com.google.Chrome.helper", &keys));
+        assert!(super::cache_in_use("Slack", &keys));
+        assert!(super::cache_in_use("com.tinyspeck.slackmacgap", &keys));
+        assert!(!super::cache_in_use("Arc", &keys), "short names are ignored");
+        assert!(!super::cache_in_use("com.google.Chromebook", &keys));
+        assert!(super::running_keys().contains("com.apple.finder"));
+    }
+
     use super::*;
 
     #[cfg(target_os = "macos")]

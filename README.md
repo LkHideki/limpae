@@ -15,7 +15,11 @@ Limpeza de disco para macOS, com identidade visual própria. Engine em Rust (`cr
 - A interface nunca envia caminhos de arquivo. O backend guarda o resultado de cada análise e entrega só ids numéricos, que nunca se repetem. Para remover, a interface devolve ids.
 - Toda remoção passa de novo pelo `Guard` (`crates/limpa-core/src/guard.rs`) no momento em que acontece. O `Guard` exige caminho absoluto, sem `..`. Exige que o item esteja estritamente dentro da raiz permitida para a sua política. Recusa qualquer item que seja, ou que contenha, um local protegido (`/`, `~`, `~/Library`, `~/Documents` etc.). Nunca toca em `~/.ssh`, Keychains, iCloud Drive, Mail, Mensagens ou Fotos. Nunca segue symlinks.
 - Cache e log regeneráveis são apagados direto, porque mandar para o Lixo não liberaria espaço. Arquivos do usuário, apps e restos vão para o Lixo pelo `NSFileManager`, então dá para recuperar. Esvaziar a Lixeira apaga definitivamente e pede confirmação.
-- Caches de apps em execução e caches caros de baixar de novo vêm desmarcados. Arquivos do usuário nunca vêm pré-selecionados.
+- O app que está aberto é reconhecido pelo bundle id, pelo nome e por pastas de fornecedor (por exemplo `Caches/Google` para o Chrome). O cache dele vem desmarcado. Se o app for aberto depois da análise, a remoção desse cache é recusada.
+- A identidade de cada item (dispositivo e inode) é registrada na análise. Se o caminho passar a apontar para outro arquivo, a remoção é recusada.
+- Caches de downloads em andamento (sessões de URL em segundo plano, App Store, atualizações do macOS) e de serviços do iCloud, HomeKit e Buscar nunca entram na lista.
+- Se houver outra cópia do mesmo app instalada, os restos vêm desmarcados.
+- Caches caros de baixar de novo vêm desmarcados. Arquivos do usuário nunca vêm pré-selecionados.
 - Cada ação fica registrada em `~/Library/Logs/Limpaemeo/actions.log` ("Ver log" na interface).
 - Fica de fora de propósito:
   - remoção de idiomas e de binários universais, porque quebra assinaturas de código;

@@ -15,6 +15,8 @@ pub enum GuardError {
     Forbidden,
     OutsideRoot,
     InvalidRoot,
+    /// The path now names a different file than the one the scan found.
+    Changed,
 }
 
 impl fmt::Display for GuardError {
@@ -27,6 +29,7 @@ impl fmt::Display for GuardError {
             Self::Forbidden => "dentro de área proibida",
             Self::OutsideRoot => "fora da área permitida",
             Self::InvalidRoot => "raiz de limpeza inválida",
+            Self::Changed => "o item mudou desde a análise; analise de novo",
         })
     }
 }
