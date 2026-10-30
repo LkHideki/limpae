@@ -1,0 +1,21 @@
+[package]
+name = "limpaemeo"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+description = "Limpaemeo: limpeza de disco para macOS"
+
+[build-dependencies]
+tauri-build = "2"
+
+[dependencies]
+tauri = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+limpa-core = { path = "../crates/limpa-core" }
+
+[features]
+default = ["custom-protocol"]
+# Serves the embedded frontend instead of devUrl; required for any build that is shipped or run directly.
+custom-protocol = ["tauri/custom-protocol"]
