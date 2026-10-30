@@ -2,6 +2,7 @@
 // Nada vem pré-selecionado; a ação é mover para o Lixo; a interface só envia ids do registro, nunca caminhos.
 // Nomes e caminhos vêm do disco (não confiáveis): só textContent / createElement.
 import { play } from '../sound.js';
+import { t, tn, tr, lazyIntl, cmp } from '../i18n.js';
 import { h, s, mount, mid } from '../dom.js';
 import { icon, groupIcon } from '../art.js';
 import { api } from '../api.js';
@@ -46,36 +47,38 @@ function itemIcon(name, size = 16) {
 }
 
 const CATS = [
-  { id: 'large', label: 'Grandes e antigos', ic: 'folder', desc: 'Arquivos pesados que talvez você não use mais. Nada é removido sem a sua escolha.' },
-  { id: 'dups', label: 'Duplicados', ic: 'copy', desc: 'Cópias idênticas de arquivos, em pastas diferentes, que ocupam espaço à toa. Acima de 100 KB.' },
-  { id: 'sim', label: 'Imagens parecidas', ic: 'image', desc: 'Fotos quase iguais. O ponto verde marca a melhor cópia para manter. Acima de 100 KB.' },
-  { id: 'dl', label: 'Downloads', ic: 'download', desc: 'Arquivos da pasta Downloads, agrupados pelo app que os baixou.' },
+  { id: 'large', label: 'Grandes e antigos', ic: 'folder', desc: 'Arquivos pesados que talvez você não use mais. Nada é removido sem a sua escolha.' }, // i18n-ignore (chave; traduzida ao exibir)
+  { id: 'dups', label: 'Duplicados', ic: 'copy', desc: 'Cópias idênticas de arquivos, em pastas diferentes, que ocupam espaço à toa. Acima de 100 KB.' }, // i18n-ignore (chave; traduzida ao exibir)
+  { id: 'sim', label: 'Imagens parecidas', ic: 'image', desc: 'Fotos quase iguais. O ponto verde marca a melhor cópia para manter. Acima de 100 KB.' }, // i18n-ignore (chave; traduzida ao exibir)
+  { id: 'dl', label: 'Downloads', ic: 'download', desc: 'Arquivos da pasta Downloads, agrupados pelo app que os baixou.' }, // i18n-ignore (chave; traduzida ao exibir)
 ];
 // Modos de "Selecionar" por categoria: [id, rótulo]. Os rótulos Inteligente/Tudo/Nada/Parcial valem em todo o app.
-const SELECT_MODES = {
-  dups: [['smart', 'Inteligente'], ['oldest', 'Mais antigos'], ['newest', 'Mais novos'], ['none', 'Nada']],
-  sim: [['smart', 'Inteligente'], ['smallest', 'Menores'], ['largest', 'Maiores'], ['none', 'Nada']],
-  large: [['all', 'Tudo'], ['none', 'Nada']],
-  dl: [['all', 'Tudo'], ['none', 'Nada']],
+const SELECT_MODES = { // i18n-ignore (chave; traduzida ao exibir)
+  dups: [['smart', 'Inteligente'], ['oldest', 'Mais antigos'], ['newest', 'Mais novos'], ['none', 'Nada']], // i18n-ignore (chave; traduzida ao exibir)
+  sim: [['smart', 'Inteligente'], ['smallest', 'Menores'], ['largest', 'Maiores'], ['none', 'Nada']], // i18n-ignore (chave; traduzida ao exibir)
+  large: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (chave; traduzida ao exibir)
+  dl: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (chave; traduzida ao exibir)
 };
 // Filtro "Mostrar" dos duplicados, por tipo de arquivo.
-const SHOW = [['all', 'Todos os arquivos'], ['apps', 'Aplicativos'], ['archives', 'Compactados'], ['pictures', 'Imagens'], ['other', 'Outros']];
+const SHOW = [['all', 'Todos os arquivos'], ['apps', 'Aplicativos'], ['archives', 'Compactados'], ['pictures', 'Imagens'], ['other', 'Outros']]; // i18n-ignore (chave; traduzida ao exibir)
 const SHOW_EXT = { apps: ['app', 'dmg', 'pkg', 'mpkg', 'ipa', 'xip', 'iso'], archives: EXT_KIND.archive, pictures: EXT_KIND.image };
 const extOf = (name) => (name.includes('.') ? name.split('.').pop().toLowerCase() : '');
 const showKind = (name) => { const e = extOf(name); return Object.keys(SHOW_EXT).find((k) => SHOW_EXT[k].includes(e)) || 'other'; };
 const dirOf = (p) => { const i = p.lastIndexOf('/'); return i > 0 ? p.slice(0, i) : p; };
 const tilde = (p) => String(p || '').replace(/^\/Users\/[^/]+/, '~');
 
-const dtf = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const rtf = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'always' });
+const dtf = lazyIntl('DateTimeFormat', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const rtf = lazyIntl('RelativeTimeFormat', { numeric: 'always' });
+const HOME_NAME = 'Pasta pessoal'; // i18n-ignore (nome do local que vem do backend)
+const locLabel = (n) => (n === HOME_NAME ? t('Pasta pessoal') : n);
 const fmtDate = (sec) => (sec ? dtf.format(new Date(sec * 1000)) : '—');
 function accessText(sec) {
   if (!sec) return '';
   const d = Date.now() / 1000 - sec;
   for (const [unit, size] of [['year', 31557600], ['month', 2629800], ['week', 604800], ['day', 86400]]) {
-    if (d >= size) return 'acessado ' + rtf.format(-Math.floor(d / size), unit);
+    if (d >= size) return t('acessado {when}', { when: rtf.format(-Math.floor(d / size), unit) });
   }
-  return 'acessado hoje';
+  return t('acessado hoje');
 }
 
 // Estado que sobrevive à troca de módulo (a view é recriada a cada entrada).
@@ -88,6 +91,8 @@ const S = {
   q: '', sort: 'size', show: 'all',
 };
 
+const catLabel = (c) => t(c.label); // i18n-dynamic
+const catDesc = (c) => t(c.desc); // i18n-dynamic
 const resOf = (c) => (S.res ? S.res[c] : null);
 const selOf = (c) => (c === 'large' ? S.lsel : S.sel);
 const countOf = (c) => (resOf(c) ? countItems(resOf(c)) : 0);
@@ -102,7 +107,7 @@ function reclaim(result) {
 
 function totals() {
   let bytes = 0, count = 0;
-  for (const c of CATS) { const t = selectedSize(resOf(c.id), selOf(c.id)); bytes += t.bytes; count += t.count; }
+  for (const c of CATS) { const sz = selectedSize(resOf(c.id), selOf(c.id)); bytes += sz.bytes; count += sz.count; }
   return { bytes, count };
 }
 
@@ -120,8 +125,8 @@ function pickIds(cat, mode) {
   if (!result || mode === 'none') return out;
   for (const g of result.groups) {
     if (mode === 'all') { for (const i of g.items) out.add(i.id); continue; }
-    const byDate = [...g.items].sort((a, b) => (a.modified || 0) - (b.modified || 0) || a.path.localeCompare(b.path));
-    const bySize = [...g.items].sort((a, b) => a.size - b.size || a.path.localeCompare(b.path));
+    const byDate = [...g.items].sort((a, b) => (a.modified || 0) - (b.modified || 0) || cmp(a.path, b.path));
+    const bySize = [...g.items].sort((a, b) => a.size - b.size || cmp(a.path, b.path));
     const keep = { smart: keeperOf(g), oldest: byDate[byDate.length - 1], newest: byDate[0], smallest: bySize[bySize.length - 1], largest: bySize[0] }[mode];
     for (const i of g.items) if (i !== keep) out.add(i.id);
   }
@@ -146,13 +151,13 @@ function modeOf(cat) {
 
 // Grandes e antigos: subgrupos por tipo (do backend), tamanho ou data de acesso.
 function largeSections(result, view) {
-  if (view === 'kind') return result.groups.map((g) => ({ id: g.id, title: g.title, items: g.items }));
+  if (view === 'kind') return result.groups.map((g) => ({ id: g.id, title: tr(g.title), items: g.items }));
   const all = result.groups.flatMap((g) => g.items);
   const buckets = view === 'size'
-    ? [['s5', 'Acima de 5 GB', (i) => i.size >= 5e9], ['s1', 'De 1 GB a 5 GB', (i) => i.size >= 1e9], ['s05', 'De 500 MB a 1 GB', (i) => i.size >= 5e8], ['s0', 'Abaixo de 500 MB', () => true]]
+    ? [['s5', t('Acima de 5 GB'), (i) => i.size >= 5e9], ['s1', t('De 1 GB a 5 GB'), (i) => i.size >= 1e9], ['s05', t('De 500 MB a 1 GB'), (i) => i.size >= 5e8], ['s0', t('Abaixo de 500 MB'), () => true]]
     : (() => {
       const age = (i) => (i.accessed ? (Date.now() / 1000 - i.accessed) / 86400 : null);
-      return [['a365', 'Acessados há mais de 1 ano', (i) => age(i) !== null && age(i) >= 365], ['a180', 'Entre 6 meses e 1 ano', (i) => age(i) !== null && age(i) >= 180], ['a30', 'Entre 1 e 6 meses', (i) => age(i) !== null && age(i) >= 30], ['a0', 'No último mês', (i) => age(i) !== null], ['an', 'Sem data de acesso', () => true]];
+      return [['a365', t('Acessados há mais de 1 ano'), (i) => age(i) !== null && age(i) >= 365], ['a180', t('Entre 6 meses e 1 ano'), (i) => age(i) !== null && age(i) >= 180], ['a30', t('Entre 1 e 6 meses'), (i) => age(i) !== null && age(i) >= 30], ['a0', t('No último mês'), (i) => age(i) !== null], ['an', t('Sem data de acesso'), () => true]];
     })();
   const out = buckets.map(([id, title]) => ({ id, title, items: [] }));
   for (const i of all) out[buckets.findIndex(([, , test]) => test(i))].items.push(i);
@@ -195,19 +200,19 @@ export function enter(ctx) {
   // ---------- Início ----------
   function renderIdle() {
     F.phase = 'idle';
-    const select = h('select', { class: 'fl-select', 'aria-label': 'Local para analisar', onChange: (e) => { S.loc = Number(e.target.value); } },
-      (S.locs || [{ index: 0, name: 'Pasta pessoal', free: 0, total: 0 }]).map((l) => h('option', { value: l.index, selected: l.index === S.loc }, l.total ? `${l.name} · ${fmtBytes(l.free)} livres` : l.name)));
-    const feats = [['folder', 'Arquivos grandes e antigos'], ['copy', 'Duplicados'], ['image', 'Imagens parecidas'], ['download', 'Downloads']];
-    st.show(h('h1', { class: 'h1' }, 'Meus Arquivos'),
-      h('p', { class: 'sub' }, 'Organize seus arquivos e reduza a bagunça em poucos cliques.'),
+    const select = h('select', { class: 'fl-select', 'aria-label': t('Local para analisar'), onChange: (e) => { S.loc = Number(e.target.value); } },
+      (S.locs || [{ index: 0, name: HOME_NAME, free: 0, total: 0 }]).map((l) => h('option', { value: l.index, selected: l.index === S.loc }, l.total ? t('{name} · {free} livres', { name: locLabel(l.name), free: fmtBytes(l.free) }) : locLabel(l.name))));
+    const feats = [['folder', t('Arquivos grandes e antigos')], ['copy', t('Duplicados')], ['image', t('Imagens parecidas')], ['download', t('Downloads')]];
+    st.show(h('h1', { class: 'h1' }, t('Meus Arquivos')),
+      h('p', { class: 'sub' }, t('Organize seus arquivos e reduza a bagunça em poucos cliques.')),
       h('ul', { class: 'feats' }, feats.map(([ic, txt]) => h('li', null, h('span', { class: 'feat-chip' }, fi(ic, 17)), txt))),
       h('div', { class: 'fl-where' },
-        h('label', { class: 'fl-lab' }, 'Local'),
+        h('label', { class: 'fl-lab' }, t('Local')),
         h('div', { class: 'fl-select-wrap' }, fi('disk', 18), select, fi('down', 15)),
-        h('label', { class: 'fl-lab' }, 'Arquivos grandes a partir de'),
+        h('label', { class: 'fl-lab' }, t('Arquivos grandes a partir de')),
         chipRow(OPTIONS, store.largeMb, (v) => { store.largeMb = v; })),
-      S.res ? h('div', { class: 'row-actions', style: 'margin-top:18px' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { F.phase = S.res.full ? 'results' : 'review'; render(); } }, 'Voltar aos resultados')) : null);
-    ctx.setDock({ label: 'Analisar', mod: 'files', onClick: scan });
+      S.res ? h('div', { class: 'row-actions', style: 'margin-top:18px' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { F.phase = S.res.full ? 'results' : 'review'; render(); } }, t('Voltar aos resultados'))) : null);
+    ctx.setDock({ label: t('Analisar'), mod: 'files', onClick: scan });
     if (!S.locs) {
       api.clutterLocations().then((l) => { if (!ctx.alive) return; S.locs = l; S.loc = Math.min(S.loc, l.length - 1); if (F.phase === 'idle' && st) renderIdle(); }).catch(() => {});
     }
@@ -218,10 +223,10 @@ export function enter(ctx) {
     const loc = S.loc, mb = store.largeMb;
     const home = loc === 0;
     const steps = [
-      { k: 'large', task: 'large', label: 'Arquivos grandes e antigos', run: () => api.largeAt(loc, mb) },
-      home && { k: 'dl', task: 'downloads', label: 'Downloads', run: () => api.downloads() },
-      { k: 'dups', task: 'duplicates', label: 'Duplicados', run: () => api.duplicates(loc) },
-      { k: 'sim', task: 'similar', label: 'Imagens parecidas', run: () => api.similar(loc) },
+      { k: 'large', task: 'large', label: t('Arquivos grandes e antigos'), run: () => api.largeAt(loc, mb) },
+      home && { k: 'dl', task: 'downloads', label: t('Downloads'), run: () => api.downloads() },
+      { k: 'dups', task: 'duplicates', label: t('Duplicados'), run: () => api.duplicates(loc) },
+      { k: 'sim', task: 'similar', label: t('Imagens parecidas'), run: () => api.similar(loc) },
     ].filter(Boolean);
     cancelled = false;
     F.phase = 'scanning';
@@ -237,10 +242,10 @@ export function enter(ctx) {
       mount(li.firstChild, state === 'run' ? h('i', { class: 'spin' }) : state === 'done' ? icon('check', 14) : state === 'skip' ? icon('dash', 14) : null);
       li.lastChild.textContent = text;
     };
-    st.show(h('h1', { class: 'h1' }, 'Analisando…'), h('p', { class: 'sub' }, S.locs && S.locs[loc] ? S.locs[loc].name : 'Pasta pessoal'), h('ul', { class: 'fl-steps' }, [...rows.values()]), ticker);
+    st.show(h('h1', { class: 'h1' }, t('Analisando…')), h('p', { class: 'sub' }, locLabel(S.locs && S.locs[loc] ? S.locs[loc].name : HOME_NAME)), h('ul', { class: 'fl-steps' }, [...rows.values()]), ticker);
     let current = '';
     ctx.onProgress((p) => { if (p.task === current) ticker.textContent = p.path || ''; });
-    ctx.setDock({ label: 'Parar', busy: true, mod: 'files', onClick: () => { cancelled = true; ctx.setDock({ label: 'Parando', busy: true, disabled: true, mod: 'files' }); api.cancel().catch(() => {}); } });
+    ctx.setDock({ label: t('Parar'), busy: true, mod: 'files', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'files' }); api.cancel().catch(() => {}); } });
     const out = {};
     for (const step of steps) {
       if (cancelled) break;
@@ -255,14 +260,14 @@ export function enter(ctx) {
       } catch (e) {
         if (cancelled) break;
         out[step.k] = { groups: [], total: 0, needsFda: false };
-        mark(step.k, 'skip', 'não concluído');
+        mark(step.k, 'skip', t('não concluído'));
       }
     }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     if (cancelled) { F.phase = 'idle'; return render(); }
     const empty = { groups: [], total: 0, needsFda: false };
-    S.res = { large: out.large || empty, dl: out.dl || (home ? empty : null), dups: out.dups || empty, sim: out.sim || empty, loc, locName: S.locs && S.locs[loc] ? S.locs[loc].name : 'Pasta pessoal', minMb: mb, full: true, largeRef: null, ownsStore: home };
+    S.res = { large: out.large || empty, dl: out.dl || (home ? empty : null), dups: out.dups || empty, sim: out.sim || empty, loc, locName: S.locs && S.locs[loc] ? S.locs[loc].name : HOME_NAME, minMb: mb, full: true, largeRef: null, ownsStore: home };
     S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.limits = new Map(); S.thumbs = new Map();
     if (home) { store.large = S.res.large; store.largeSel = S.lsel; }
     S.res.largeRef = store.large;
@@ -283,37 +288,37 @@ export function enter(ctx) {
     const total = countOf('large') + dup.n + sim.n + countOf('dl');
     const tiles = [
       {
-        cat: 'dups', ic: 'copy', n: dup.n, label: 'Duplicados',
-        title: `${fmtNum(dup.n)} ${dup.n === 1 ? 'duplicado' : 'duplicados'}`,
-        sub: `Libere ${fmtBytes(dup.bytes)} removendo cópias idênticas.`, empty: 'Nenhuma cópia idêntica encontrada.',
+        cat: 'dups', ic: 'copy', n: dup.n, label: t('Duplicados'),
+        title: tn(dup.n, '{n} duplicado', '{n} duplicados'),
+        sub: t('Libere {size} removendo cópias idênticas.', { size: fmtBytes(dup.bytes) }), empty: t('Nenhuma cópia idêntica encontrada.'),
       },
       {
-        cat: 'sim', ic: 'image', n: sim.n, label: 'Imagens parecidas',
-        title: `${fmtNum(sim.n)} ${sim.n === 1 ? 'imagem parecida' : 'imagens parecidas'}`,
-        sub: `${fmtBytes(sim.bytes)} em fotos quase idênticas.`, empty: 'Nenhuma imagem parecida encontrada.',
+        cat: 'sim', ic: 'image', n: sim.n, label: t('Imagens parecidas'),
+        title: tn(sim.n, '{n} imagem parecida', '{n} imagens parecidas'),
+        sub: t('{size} em fotos quase idênticas.', { size: fmtBytes(sim.bytes) }), empty: t('Nenhuma imagem parecida encontrada.'),
       },
       {
-        cat: 'dl', ic: 'download', n: r.dl ? countOf('dl') : 0, label: 'Downloads',
-        title: dlTop ? (dlTop.title === 'Outros' ? `${fmtBytes(dlTop.total)} em outros downloads` : `${fmtBytes(dlTop.total)} de downloads do ${dlTop.title}`) : 'Downloads',
-        sub: dlTop ? `${plural(dlTop.items.length, 'arquivo', 'arquivos')}${r.dl.groups.length > 1 ? ` · e mais ${plural(r.dl.groups.length - 1, 'origem', 'origens')}` : ''}` : '',
-        empty: r.dl ? 'A pasta Downloads está vazia.' : 'Os Downloads são analisados só na pasta pessoal.',
+        cat: 'dl', ic: 'download', n: r.dl ? countOf('dl') : 0, label: t('Downloads'),
+        title: dlTop ? (dlTop.title === 'Outros' ? t('{size} em outros downloads', { size: fmtBytes(dlTop.total) }) : t('{size} de downloads do {app}', { size: fmtBytes(dlTop.total), app: dlTop.title })) : t('Downloads'), // i18n-ignore (compara com o rótulo do backend)
+        sub: dlTop ? (r.dl.groups.length > 1 ? t('{files} · e mais {sources}', { files: plural(dlTop.items.length, 'arquivo', 'arquivos'), sources: plural(r.dl.groups.length - 1, 'origem', 'origens') }) : plural(dlTop.items.length, 'arquivo', 'arquivos')) : '',
+        empty: r.dl ? t('A pasta Downloads está vazia.') : t('Os Downloads são analisados só na pasta pessoal.'),
       },
       {
-        cat: 'large', ic: 'folder', n: countOf('large'), label: 'Arquivos grandes e antigos',
-        title: `${fmtBytes(r.large.total)} em arquivos grandes e antigos`,
-        sub: `${plural(countOf('large'), 'arquivo', 'arquivos')} acima de ${fmtBytes(r.minMb * 1e6)}.`, empty: `Nenhum arquivo acima de ${fmtBytes(r.minMb * 1e6)}.`,
+        cat: 'large', ic: 'folder', n: countOf('large'), label: t('Arquivos grandes e antigos'),
+        title: t('{size} em arquivos grandes e antigos', { size: fmtBytes(r.large.total) }),
+        sub: t('{files} acima de {size}.', { files: plural(countOf('large'), 'arquivo', 'arquivos'), size: fmtBytes(r.minMb * 1e6) }), empty: t('Nenhum arquivo acima de {size}.', { size: fmtBytes(r.minMb * 1e6) }),
       },
     ];
-    const el = h('section', { class: 'fl-results enter', dataset: { mod: 'files' }, 'aria-label': 'Resultados' },
-      h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('files')) { F.phase = 'idle'; render(); } } }, icon('back', 15), 'Recomeçar'), h('span', { class: 'fl-where-tag' }, r.locName)),
-      h('h2', { class: 'fl-title' }, total ? `Você tem ${plural(total, 'arquivo', 'arquivos')} para revisar.` : 'Nada para revisar por aqui.'),
-      h('p', { class: 'sub fl-sub' }, total ? 'Revise cada categoria. Nada é selecionado nem removido sem a sua escolha.' : 'Tente outro local ou um tamanho mínimo menor.'),
-      total ? h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => open(CATS.find((c) => countOf(c.id))?.id || 'large') }, 'Revisar todos os arquivos') : null,
-      h('div', { class: 'fl-tiles' }, tiles.map((t) => h('div', { class: 'fl-tile' + (t.n ? '' : ' none'), dataset: { cat: t.cat } },
-        h('span', { class: 'fl-tile-ic' }, fi(t.ic, 26)),
-        h('div', { class: 'fl-tile-t' }, t.n ? t.title : t.label),
-        h('div', { class: 'fl-tile-s' }, t.n ? t.sub : t.empty),
-        t.n ? h('button', { class: 'btn sm', type: 'button', onClick: () => open(t.cat) }, 'Revisar') : null))));
+    const el = h('section', { class: 'fl-results enter', dataset: { mod: 'files' }, 'aria-label': t('Resultados') },
+      h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('files')) { F.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar')), h('span', { class: 'fl-where-tag' }, locLabel(r.locName))),
+      h('h2', { class: 'fl-title' }, total ? t('Você tem {files} para revisar.', { files: plural(total, 'arquivo', 'arquivos') }) : t('Nada para revisar por aqui.')),
+      h('p', { class: 'sub fl-sub' }, total ? t('Revise cada categoria. Nada é selecionado nem removido sem a sua escolha.') : t('Tente outro local ou um tamanho mínimo menor.')),
+      total ? h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => open(CATS.find((c) => countOf(c.id))?.id || 'large') }, t('Revisar todos os arquivos')) : null,
+      h('div', { class: 'fl-tiles' }, tiles.map((tile) => h('div', { class: 'fl-tile' + (tile.n ? '' : ' none'), dataset: { cat: tile.cat } },
+        h('span', { class: 'fl-tile-ic' }, fi(tile.ic, 26)),
+        h('div', { class: 'fl-tile-t' }, tile.n ? tile.title : tile.label),
+        h('div', { class: 'fl-tile-s' }, tile.n ? tile.sub : tile.empty),
+        tile.n ? h('button', { class: 'btn sm', type: 'button', onClick: () => open(tile.cat) }, t('Revisar')) : null))));
     mount(ctx.root, el);
   }
 
@@ -344,35 +349,35 @@ export function enter(ctx) {
     const avail = CATS.filter((c) => resOf(c.id));
     if (!avail.some((c) => c.id === S.cat)) S.cat = (avail.find((c) => countOf(c.id)) || avail[0]).id;
 
-    const catsEl = h('nav', { class: 'fm-cats', 'aria-label': 'Categorias' });
+    const catsEl = h('nav', { class: 'fm-cats', 'aria-label': t('Categorias') });
     const headEl = h('div', { class: 'fm-pane-head' });
     const listEl = h('div', { class: 'fm-list' });
     const selEl = h('div', { class: 'rv-sel' });
-    const actionBtn = h('button', { class: 'btn primary', type: 'button', onClick: () => move() }, 'Mover para o Lixo');
+    const actionBtn = h('button', { class: 'btn primary', type: 'button', onClick: () => move() }, t('Mover para o Lixo'));
     let io = null;
     listeners.push(() => { if (io) io.disconnect(); });
     const queue = [];
     let inflight = 0;
 
     const matches = (it) => { const q = S.q.trim().toLowerCase(); return !q || it.name.toLowerCase().includes(q) || it.path.toLowerCase().includes(q); };
-    const sortItems = (items) => [...items].sort(S.sort === 'name' ? (a, b) => a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' }) : (a, b) => b.size - a.size);
-    const noMatch = () => h('div', { class: 'rv-empty' }, 'Nenhum item corresponde à busca ou ao filtro.');
+    const sortItems = (items) => [...items].sort(S.sort === 'name' ? (a, b) => cmp(a.name, b.name) : (a, b) => b.size - a.size);
+    const noMatch = () => h('div', { class: 'rv-empty' }, t('Nenhum item corresponde à busca ou ao filtro.'));
 
     function renderCats() {
       mount(catsEl, avail.map((c) => {
-        const t = selectedSize(resOf(c.id), selOf(c.id));
+        const sz = selectedSize(resOf(c.id), selOf(c.id));
         const result = resOf(c.id);
         return h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(c.id === S.cat), onClick: () => { if (S.cat !== c.id) { S.cat = c.id; renderPane(); renderCats(); } } },
           h('span', { class: 'fm-cat-ic' }, fi(c.ic, 17)),
-          h('span', { class: 'fm-cat-t' }, h('b', null, c.label), h('span', null, countOf(c.id) ? `${plural(countOf(c.id), 'item', 'itens')} · ${fmtBytes(result.total)}` : 'Nada encontrado')),
-          t.count ? h('span', { class: 'fm-cat-n', title: `${plural(t.count, 'item selecionado', 'itens selecionados')}` }, fmtNum(t.count)) : null);
+          h('span', { class: 'fm-cat-t' }, h('b', null, catLabel(c)), h('span', null, countOf(c.id) ? t('{items} · {size}', { items: plural(countOf(c.id), 'item', 'itens'), size: fmtBytes(result.total) }) : t('Nada encontrado'))),
+          sz.count ? h('span', { class: 'fm-cat-n', title: plural(sz.count, 'item selecionado', 'itens selecionados') }, fmtNum(sz.count)) : null);
       }));
     }
 
     function renderFoot() {
       const { bytes, count } = totals();
-      if (!count) mount(selEl, 'Nenhum item selecionado');
-      else mount(selEl, 'Selecionado: ', h('b', null, fmtBytes(bytes)), h('small', null, plural(count, 'item', 'itens')));
+      if (!count) mount(selEl, t('Nenhum item selecionado'));
+      else mount(selEl, t('Selecionado:') + ' ', h('b', null, fmtBytes(bytes)), h('small', null, plural(count, 'item', 'itens')));
       actionBtn.disabled = count === 0;
     }
 
@@ -380,12 +385,12 @@ export function enter(ctx) {
 
     function renderHead() {
       const c = CATS.find((x) => x.id === S.cat);
-      const kids = [h('div', { class: 'fm-pane-t' }, h('h3', null, c.label), h('p', null, c.desc))];
+      const kids = [h('div', { class: 'fm-pane-t' }, h('h3', null, catLabel(c)), h('p', null, catDesc(c)))];
       const tools = [];
       if (countOf(c.id)) {
-        if (c.id === 'large') tools.push(segmented([{ value: 'kind', label: 'Tipo' }, { value: 'size', label: 'Tamanho' }, { value: 'access', label: 'Data de acesso' }], S.view, (v) => { S.view = v; renderList(); }, 'Agrupar por'));
-        if (c.id === 'dups') tools.push(selectMenuButton({ label: 'Mostrar', modes: SHOW, mode: S.show, onPick: (m) => { S.show = m; refresh(); } }));
-        tools.push(selectMenuButton({ modes: SELECT_MODES[c.id], mode: modeOf(c.id), onPick: (m) => { applySelect(c.id, m); refresh(); } }));
+        if (c.id === 'large') tools.push(segmented([{ value: 'kind', label: t('Tipo') }, { value: 'size', label: t('Tamanho') }, { value: 'access', label: t('Data de acesso') }], S.view, (v) => { S.view = v; renderList(); }, t('Agrupar por')));
+        if (c.id === 'dups') tools.push(selectMenuButton({ label: t('Mostrar'), modes: SHOW.map(([i, l]) => [i, t(l)]), mode: S.show, onPick: (m) => { S.show = m; refresh(); } })); // i18n-dynamic
+        tools.push(selectMenuButton({ label: t('Selecionar'), modes: SELECT_MODES[c.id].map(([i, l]) => [i, t(l)]), mode: modeOf(c.id), onPick: (m) => { applySelect(c.id, m); refresh(); } })); // i18n-dynamic
       }
       if (tools.length) kids.push(h('div', { class: 'fm-tools' }, tools));
       mount(headEl, kids);
@@ -403,37 +408,37 @@ export function enter(ctx) {
     // ---- linhas e seções ----
     // opts.dir: linha de uma cópia (o nome é o mesmo em todas): mostra a pasta, que é o que as diferencia.
     function fileRow(it, sel, opts = {}) {
-      const cb = checkbox(sel.has(it.id) ? 'on' : 'off', () => toggle(), `Selecionar ${it.name}`);
+      const cb = checkbox(sel.has(it.id) ? 'on' : 'off', () => toggle(), t('Selecionar {name}', { name: it.name }));
       const toggle = () => { sel.has(it.id) ? sel.delete(it.id) : sel.add(it.id); refresh(); };
       const main = opts.dir
         ? h('div', { class: 'fm-main' },
-          h('div', { class: 'fm-name' }, mid(tilde(dirOf(it.path)), 30), it.note ? h('span', { class: 'badge info' }, it.note) : null),
+          h('div', { class: 'fm-name' }, mid(tilde(dirOf(it.path)), 30), it.note ? h('span', { class: 'badge info' }, tr(it.note)) : null),
           h('div', { class: 'fm-meta' }, h('span', { class: 'fm-fname', title: it.name }, opts.when ? `${it.name} · ${opts.when(it)}` : it.name)))
         : h('div', { class: 'fm-main' },
-          h('div', { class: 'fm-name' }, h('span', { title: it.name }, it.name), it.note ? h('span', { class: 'badge info' }, it.note) : null),
+          h('div', { class: 'fm-name' }, h('span', { title: it.name }, it.name), it.note ? h('span', { class: 'badge info' }, tr(it.note)) : null),
           h('div', { class: 'fm-meta' }, mid(it.path, 26)));
       const row = h('div', { class: 'fm-row', onClick: toggle },
         cb,
         h('div', { class: 'fm-ic' }, itemIcon(it.name)),
         main,
         h('span', { class: 'fm-size' }, fmtBytes(it.size), opts.when && !opts.dir ? h('small', null, opts.when(it)) : null),
-        h('button', { class: 'icon-btn fm-act', type: 'button', title: 'Visualização Rápida', 'aria-label': `Visualização Rápida de ${it.name}`, onClick: (e) => { e.stopPropagation(); api.quickLook(it.id).catch(() => {}); } }, icon('eye', 16)),
-        h('button', { class: 'icon-btn fm-act', type: 'button', title: 'Mostrar no Finder', 'aria-label': `Mostrar ${it.name} no Finder`, onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)));
+        h('button', { class: 'icon-btn fm-act', type: 'button', title: t('Visualização Rápida'), 'aria-label': t('Visualização Rápida de {name}', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.quickLook(it.id).catch(() => {}); } }, icon('eye', 16)),
+        h('button', { class: 'icon-btn fm-act', type: 'button', title: t('Mostrar no Finder'), 'aria-label': t('Mostrar {name} no Finder', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)));
       attachMenu(row, () => ({ id: it.id, name: it.name, select: { on: sel.has(it.id), toggle }, onIgnored: () => dropItem(it) }));
       return row;
     }
 
     function more(key, total, shown, step = CHUNK) {
-      return h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.limits.set(key, (S.limits.get(key) || step) + step * 3); renderList(); } }, `Mostrar mais (${plural(total - shown, 'item', 'itens')})`));
+      return h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.limits.set(key, (S.limits.get(key) || step) + step * 3); renderList(); } }, t('Mostrar mais ({items})', { items: plural(total - shown, 'item', 'itens') })));
     }
 
     function section(sec, sel, key, opts) {
       const limit = S.limits.get(key) || CHUNK;
       const shown = sec.items.slice(0, limit);
-      const cb = checkbox(groupState(sec.items, sel), (cur) => { for (const i of sec.items) cur === 'on' ? sel.delete(i.id) : sel.add(i.id); refresh(); }, `Selecionar ${sec.title}`);
+      const cb = checkbox(groupState(sec.items, sel), (cur) => { for (const i of sec.items) cur === 'on' ? sel.delete(i.id) : sel.add(i.id); refresh(); }, t('Selecionar {name}', { name: sec.title }));
       const total = sec.items.reduce((a, i) => a + i.size, 0);
       return h('section', { class: 'fm-sec' },
-        h('div', { class: 'fm-sec-head' }, cb, h('b', { title: sec.title }, sec.title), h('span', null, `${plural(sec.items.length, 'item', 'itens')} · ${fmtBytes(total)}`)),
+        h('div', { class: 'fm-sec-head' }, cb, h('b', { title: sec.title }, sec.title), h('span', null, t('{items} · {size}', { items: plural(sec.items.length, 'item', 'itens'), size: fmtBytes(total) }))),
         shown.map((it) => fileRow(it, sel, opts)),
         sec.items.length > shown.length ? more(key, sec.items.length, shown.length) : null);
     }
@@ -446,34 +451,34 @@ export function enter(ctx) {
       const head = h('button', { class: 'fm-set-head', type: 'button', 'aria-expanded': String(open), onClick: () => { open ? S.open.delete(g.id) : S.open.add(g.id); renderList(); } },
         h('span', { class: 'fm-chev' }, fi('chevron', 16)),
         h('span', { class: 'fm-ic' }, itemIcon(g.title)),
-        h('span', { class: 'fm-set-t' }, h('b', { title: g.title }, g.title), h('span', null, g.description)),
-        all ? h('span', { class: 'badge', title: 'Todas as cópias estão selecionadas; nenhuma vai sobrar' }, 'Todas selecionadas') : null,
+        h('span', { class: 'fm-set-t' }, h('b', { title: g.title }, g.title), h('span', null, tr(g.description))),
+        all ? h('span', { class: 'badge', title: t('Todas as cópias estão selecionadas; nenhuma vai sobrar') }, t('Todas selecionadas')) : null,
         n && !all ? h('span', { class: 'fm-count' }, h('i', null, fmtNum(n)), h('span', null, fmtNum(g.items.length))) : h('span', { class: 'fm-count off' }, fmtNum(g.items.length)));
       return h('section', { class: 'fm-set', 'data-open': String(open) }, head,
-        open ? g.items.map((it) => fileRow(it, sel, { dir: true, when: (x) => `modificado ${fmtDate(x.modified)}` })) : null);
+        open ? g.items.map((it) => fileRow(it, sel, { dir: true, when: (x) => t('modificado {date}', { date: fmtDate(x.modified) }) })) : null);
     }
 
     function simCluster(g, idx) {
       const sel = S.sel;
       const n = g.items.filter((i) => sel.has(i.id)).length;
       const all = n === g.items.length;
-      const cb = checkbox(groupState(g.items, sel), (cur) => { for (const i of g.items) cur === 'on' ? sel.delete(i.id) : sel.add(i.id); refresh(); }, `Selecionar o grupo ${idx + 1}`);
+      const cb = checkbox(groupState(g.items, sel), (cur) => { for (const i of g.items) cur === 'on' ? sel.delete(i.id) : sel.add(i.id); refresh(); }, t('Selecionar o grupo {n}', { n: idx + 1 }));
       const keeper = keeperOf(g);
       return h('section', { class: 'fm-sec' },
-        h('div', { class: 'fm-sec-head' }, cb, h('b', { title: g.title }, `Grupo ${idx + 1} · ${g.title}`), h('span', null, `${g.description} · ${fmtBytes(g.total)}`), all ? h('span', { class: 'badge', title: 'Todas as imagens estão selecionadas; nenhuma vai sobrar' }, 'Todas selecionadas') : null),
+        h('div', { class: 'fm-sec-head' }, cb, h('b', { title: g.title }, t('Grupo {n} · {title}', { n: idx + 1, title: g.title })), h('span', null, `${tr(g.description)} · ${fmtBytes(g.total)}`), all ? h('span', { class: 'badge', title: t('Todas as imagens estão selecionadas; nenhuma vai sobrar') }, t('Todas selecionadas')) : null),
         h('div', { class: 'fm-grid' }, g.items.map((it) => {
           const on = sel.has(it.id);
           const toggle = () => { on ? sel.delete(it.id) : sel.add(it.id); refresh(); };
           const img = h('img', { alt: '', draggable: 'false', hidden: true });
           const ph = h('span', { class: 'fm-img-ph' }, fi('image', 22));
-          const card = h('div', { class: 'fm-img', role: 'button', tabindex: '0', 'aria-pressed': String(on), 'aria-label': `${on ? 'Desmarcar' : 'Selecionar'} ${it.name}`, dataset: { on: String(on), id: it.id },
+          const card = h('div', { class: 'fm-img', role: 'button', tabindex: '0', 'aria-pressed': String(on), 'aria-label': on ? t('Desmarcar {name}', { name: it.name }) : t('Selecionar {name}', { name: it.name }), dataset: { on: String(on), id: it.id },
             onClick: toggle,
             onKeydown: (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } } },
             h('div', { class: 'fm-img-box' }, ph, img),
             h('span', { class: 'cb fm-img-cb', 'data-state': on ? 'on' : 'off', 'aria-hidden': 'true' }, icon('check', 14)),
-            it === keeper ? h('span', { class: 'fm-keep', title: 'Melhor qualidade: sugerida para manter' }) : null,
+            it === keeper ? h('span', { class: 'fm-keep', title: t('Melhor qualidade: sugerida para manter') }) : null,
             h('div', { class: 'fm-img-cap' }, h('span', { title: it.name }, it.name), h('small', null, `${fmtBytes(it.size)} · ${fmtDate(it.modified)}`)),
-            h('button', { class: 'icon-btn fm-act fm-img-act', type: 'button', title: 'Mostrar no Finder', 'aria-label': `Mostrar ${it.name} no Finder`, onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 15)));
+            h('button', { class: 'icon-btn fm-act fm-img-act', type: 'button', title: t('Mostrar no Finder'), 'aria-label': t('Mostrar {name} no Finder', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 15)));
           attachMenu(card, () => ({ id: it.id, name: it.name, select: { on: sel.has(it.id), toggle }, onIgnored: () => dropItem(it) }));
           loadThumb(card, img, ph, it.id);
           return card;
@@ -509,25 +514,25 @@ export function enter(ctx) {
       const result = resOf(c);
       let body;
       if (!countOf(c)) {
-        body = h('div', { class: 'rv-empty' }, c === 'large' ? `Nenhum arquivo acima de ${fmtBytes(S.res.minMb * 1e6)}.` : 'Nada encontrado nesta categoria.');
+        body = h('div', { class: 'rv-empty' }, c === 'large' ? t('Nenhum arquivo acima de {size}.', { size: fmtBytes(S.res.minMb * 1e6) }) : t('Nada encontrado nesta categoria.'));
       } else if (c === 'large') {
         body = largeSections(result, S.view).map((sec) => ({ ...sec, items: sortItems(sec.items.filter(matches)) })).filter((sec) => sec.items.length)
-          .map((sec) => section(sec, S.lsel, `large:${S.view}:${sec.id}`, { when: (i) => accessText(i.accessed) || `modificado ${fmtDate(i.modified)}` }));
+          .map((sec) => section(sec, S.lsel, `large:${S.view}:${sec.id}`, { when: (i) => accessText(i.accessed) || t('modificado {date}', { date: fmtDate(i.modified) }) }));
         if (!body.length) body = noMatch();
       } else if (c === 'dl') {
-        body = result.groups.map((g) => ({ id: g.id, title: g.title, items: sortItems(g.items.filter(matches)) })).filter((sec) => sec.items.length)
+        body = result.groups.map((g) => ({ id: g.id, title: g.title === 'Outros' ? t('Outros') : g.title, items: sortItems(g.items.filter(matches)) })).filter((sec) => sec.items.length)
           .map((sec) => section(sec, S.sel, `dl:${sec.id}`, { when: (i) => fmtDate(i.modified) }));
         if (!body.length) body = noMatch();
       } else {
         const limit = S.limits.get(c) || SETS_CHUNK;
         let groups = result.groups.filter((g) => g.items.some(matches) && (c !== 'dups' || S.show === 'all' || showKind(g.title) === S.show));
-        if (S.sort === 'name') groups = [...groups].sort((a, b) => a.title.localeCompare(b.title, 'pt-BR', { sensitivity: 'base' }));
+        if (S.sort === 'name') groups = [...groups].sort((a, b) => cmp(a.title, b.title));
         const index = new Map(result.groups.map((g, i) => [g, i]));
         if (c === 'dups' && !S.open.size && groups[0]) S.open.add(groups[0].id);
         const shown = groups.slice(0, limit);
         body = groups.length
           ? [shown.map((g) => (c === 'dups' ? dupSet(g) : simCluster(g, index.get(g)))),
-            groups.length > shown.length ? h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.limits.set(c, limit + SETS_CHUNK); renderList(); } }, `Mostrar mais (${plural(groups.length - shown.length, 'grupo', 'grupos')})`)) : null]
+            groups.length > shown.length ? h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.limits.set(c, limit + SETS_CHUNK); renderList(); } }, t('Mostrar mais ({items})', { items: plural(groups.length - shown.length, 'grupo', 'grupos') }))) : null]
           : noMatch();
       }
       mount(listEl, body);
@@ -540,10 +545,10 @@ export function enter(ctx) {
       render();
     };
     const search = h('label', { class: 'search' }, icon('search', 16),
-      h('input', { type: 'search', placeholder: 'Buscar', 'aria-label': 'Buscar arquivos', value: S.q, spellcheck: 'false', onInput: (e) => { S.q = e.target.value; renderList(); } }));
-    const sortSeg = segmented([{ value: 'size', label: 'Tamanho' }, { value: 'name', label: 'Nome' }], S.sort, (v) => { S.sort = v; renderList(); }, 'Ordenar por');
-    const el = h('section', { class: 'review fm enter', dataset: { mod: 'files' }, 'aria-label': 'Gerenciador de arquivos' },
-      managerBar({ title: 'Meus Arquivos', subtitle: S.res.locName, onBack: back, controls: [search, sortSeg] }),
+      h('input', { type: 'search', placeholder: t('Buscar'), 'aria-label': t('Buscar arquivos'), value: S.q, spellcheck: 'false', onInput: (e) => { S.q = e.target.value; renderList(); } }));
+    const sortSeg = segmented([{ value: 'size', label: t('Tamanho') }, { value: 'name', label: t('Nome') }], S.sort, (v) => { S.sort = v; renderList(); }, t('Ordenar por'));
+    const el = h('section', { class: 'review fm enter', dataset: { mod: 'files' }, 'aria-label': t('Gerenciador de arquivos') },
+      managerBar({ title: t('Meus Arquivos'), subtitle: locLabel(S.res.locName), onBack: back, controls: [search, sortSeg] }),
       h('div', { class: 'fm-body' }, catsEl, h('div', { class: 'fm-pane' }, headEl, listEl)),
       h('div', { class: 'rv-foot' }, selEl, actionBtn));
     mount(ctx.root, el);
@@ -561,11 +566,13 @@ export function enter(ctx) {
     const bytes = picked.reduce((a, i) => a + i.size, 0);
     let allSel = 0;
     for (const c of ['dups', 'sim']) { const r = resOf(c); if (r) for (const g of r.groups) if (g.items.length && g.items.every((i) => S.sel.has(i.id))) allSel++; }
+    const undoNote = t('{size} serão enviados ao Lixo. Você pode restaurá-los de lá {until}.', { size: fmtBytes(bytes), until: '\u0001' }).split('\u0001');
+    const undoParts = undoNote.flatMap((part, i) => (i ? [h('strong', null, t('até esvaziar a Lixeira')), part] : [part]));
     const ok = await confirmDialog({
-      title: `Mover ${plural(picked.length, 'arquivo', 'arquivos')} para o Lixo?`,
-      body: [`${fmtBytes(bytes)} serão enviados ao Lixo. Você pode restaurá-los de lá `, h('strong', null, 'até esvaziar a Lixeira'), '.',
-        allSel ? h('span', { class: 'fl-warn' }, ` Atenção: em ${plural(allSel, 'grupo', 'grupos')} de cópias todos os itens estão selecionados, então nenhuma cópia vai sobrar.`) : null],
-      confirm: 'Mover para o Lixo', glyph: 'trash', mod: 'files',
+      title: tn(picked.length, 'Mover {n} arquivo para o Lixo?', 'Mover {n} arquivos para o Lixo?'),
+      body: [...undoParts,
+        allSel ? h('span', { class: 'fl-warn' }, ' ' + t('Atenção: em {groups} de cópias todos os itens estão selecionados, então nenhuma cópia vai sobrar.', { groups: plural(allSel, 'grupo', 'grupos') })) : null],
+      confirm: t('Mover para o Lixo'), glyph: 'trash', mod: 'files',
       permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;
@@ -573,8 +580,8 @@ export function enter(ctx) {
     F.phase = 'moving';
     ctx.setBusy(true);
     st = null; ensureStage(); st.busy(true);
-    const prog = h('p', { class: 'sub' }, `0 de ${fmtNum(picked.length)}`);
-    st.show(h('h1', { class: 'h1' }, permanent ? 'Apagando…' : 'Movendo para o Lixo…'), prog);
+    const prog = h('p', { class: 'sub' }, t('{done} de {total}', { done: fmtNum(0), total: fmtNum(picked.length) }));
+    st.show(h('h1', { class: 'h1' }, permanent ? t('Apagando…') : t('Movendo para o Lixo…')), prog);
     const sd = stopDock(ctx, 'files');
     const byId = new Map(picked.map((i) => [i.id, i]));
     const ids = picked.map((i) => i.id);
@@ -583,16 +590,16 @@ export function enter(ctx) {
     let freed = 0, done = 0;
     for (let i = 0; i < ids.length; i += REMOVE_BATCH) {
       const chunk = ids.slice(i, i + REMOVE_BATCH);
-      if (sd.stopped()) { failures.push(...chunk.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: 'cancelado; o item continua no lugar' }))); continue; }
+      if (sd.stopped()) { failures.push(...chunk.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: t('cancelado; o item continua no lugar') }))); continue; }
       try {
         const res = await api.remove(chunk, permanent);
         for (const o of res.outcomes) if (o.ok) { okIds.add(o.id); freed += o.freed || 0; }
         failures.push(...outcomesToFailures(res.outcomes, byId));
       } catch (e) {
-        failures.push(...chunk.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: e.message })));
+        failures.push(...chunk.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: tr(e.message) })));
       }
       done += chunk.length;
-      prog.textContent = `${fmtNum(done)} de ${fmtNum(ids.length)}`;
+      prog.textContent = t('{done} de {total}', { done: fmtNum(done), total: fmtNum(ids.length) });
       sd.progress(done / ids.length);
     }
     prune(okIds);
@@ -608,12 +615,12 @@ export function enter(ctx) {
 
   function renderDone() {
     const left = CATS.some((c) => countOf(c.id));
-    st.show(h('div', { class: 'big' }, bytesParts(F.moved).value, h('small', null, bytesParts(F.moved).unit)), h('div', { class: 'big-cap' }, F.permanent ? 'apagados definitivamente' : 'movidos para o Lixo'),
-      h('p', { class: 'sub' }, F.permanent ? 'O espaço já foi liberado.' : 'Esvazie a Lixeira para liberar o espaço no disco.'),
+    st.show(h('div', { class: 'big' }, bytesParts(F.moved).value, h('small', null, bytesParts(F.moved).unit)), h('div', { class: 'big-cap' }, F.permanent ? t('apagados definitivamente') : t('movidos para o Lixo')),
+      h('p', { class: 'sub' }, F.permanent ? t('O espaço já foi liberado.') : t('Esvazie a Lixeira para liberar o espaço no disco.')),
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
-        left ? h('button', { class: 'btn', type: 'button', onClick: () => { F.phase = S.res.full ? 'results' : 'review'; render(); } }, 'Revisar mais itens') : null,
-        h('button', { class: 'btn primary', type: 'button', onClick: () => { S.res = null; F.phase = 'idle'; render(); } }, 'Concluir')));
+        h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
+        left ? h('button', { class: 'btn', type: 'button', onClick: () => { F.phase = S.res.full ? 'results' : 'review'; render(); } }, t('Revisar mais itens')) : null,
+        h('button', { class: 'btn primary', type: 'button', onClick: () => { S.res = null; F.phase = 'idle'; render(); } }, t('Concluir'))));
     ctx.setDock(null);
   }
 
