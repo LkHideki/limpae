@@ -1,58 +1,51 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
-    <linearGradient id="bg" x1="0.1" y1="0" x2="0.9" y2="1">
-      <stop offset="0" stop-color="#0F5C82"/>
-      <stop offset="0.48" stop-color="#0B2B57"/>
-      <stop offset="1" stop-color="#1B0E45"/>
+    <linearGradient id="bg" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#0E6F8C"/>
+      <stop offset="0.5" stop-color="#0A2A58"/>
+      <stop offset="1" stop-color="#170B3F"/>
     </linearGradient>
-    <radialGradient id="glowA" cx="0.2" cy="0.14" r="0.62">
-      <stop offset="0" stop-color="#3CF2D2" stop-opacity="0.6"/>
-      <stop offset="1" stop-color="#3CF2D2" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="glowB" cx="0.92" cy="0.98" r="0.62">
-      <stop offset="0" stop-color="#9B6BFF" stop-opacity="0.6"/>
-      <stop offset="1" stop-color="#9B6BFF" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="film" cx="0.42" cy="0.36" r="0.66">
-      <stop offset="0" stop-color="#9FF6FF" stop-opacity="0.16"/>
-      <stop offset="0.7" stop-color="#7AA8FF" stop-opacity="0.06"/>
-      <stop offset="0.92" stop-color="#ffffff" stop-opacity="0.12"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0.3"/>
-    </radialGradient>
-    <linearGradient id="iri" x1="0.1" y1="0" x2="0.9" y2="1">
-      <stop offset="0" stop-color="#5BFFE0"/>
-      <stop offset="0.28" stop-color="#6EA8FF"/>
-      <stop offset="0.55" stop-color="#C38BFF"/>
-      <stop offset="0.8" stop-color="#FF8FB8"/>
-      <stop offset="1" stop-color="#FFD592"/>
-    </linearGradient>
-    <linearGradient id="star" x1="0" y1="0" x2="0" y2="1">
+    <radialGradient id="glowA" cx="0.18" cy="0.12" r="0.7"><stop offset="0" stop-color="#3CF2D2" stop-opacity="0.55"/><stop offset="1" stop-color="#3CF2D2" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowB" cx="0.95" cy="1" r="0.7"><stop offset="0" stop-color="#9B6BFF" stop-opacity="0.6"/><stop offset="1" stop-color="#9B6BFF" stop-opacity="0"/></radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0.35" y2="1">
       <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#D8FBFF"/>
+      <stop offset="0.45" stop-color="#C4F7FF"/>
+      <stop offset="1" stop-color="#6FC4FF"/>
     </linearGradient>
-    <radialGradient id="starGlow" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#B6FFF3" stop-opacity="0.75"/>
-      <stop offset="1" stop-color="#B6FFF3" stop-opacity="0"/>
-    </radialGradient>
-    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="26"/></filter>
-    <filter id="hl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
+    <linearGradient id="iri" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#5BFFE0"/><stop offset="0.35" stop-color="#6EA8FF"/><stop offset="0.7" stop-color="#C38BFF"/><stop offset="1" stop-color="#FF8FB8"/>
+    </linearGradient>
+    <radialGradient id="film" cx="0.36" cy="0.3" r="0.8"><stop offset="0" stop-color="#E6FDFF" stop-opacity="0.55"/><stop offset="0.6" stop-color="#9ED2FF" stop-opacity="0.22"/><stop offset="1" stop-color="#C9A8FF" stop-opacity="0.38"/></radialGradient>
+    <filter id="drop" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024"><feDropShadow dx="0" dy="30" stdDeviation="34" flood-color="#021030" flood-opacity="0.55"/></filter>
+    <filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024"><feGaussianBlur stdDeviation="22"/></filter>
+    <path id="L" d="M372 246 V646 Q372 758 484 758 H742" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <mask id="inL"><use href="#L" stroke="#fff" stroke-width="148"/></mask>
   </defs>
   <rect width="1024" height="1024" fill="url(#bg)"/>
   <rect width="1024" height="1024" fill="url(#glowA)"/>
   <rect width="1024" height="1024" fill="url(#glowB)"/>
-  <circle cx="512" cy="540" r="312" fill="#72E8FF" opacity="0.14" filter="url(#soft)"/>
-  <circle cx="512" cy="512" r="300" fill="url(#film)"/>
-  <circle cx="512" cy="512" r="294" fill="none" stroke="url(#iri)" stroke-width="18"/>
-  <circle cx="512" cy="512" r="294" fill="none" stroke="#fff" stroke-width="3" opacity="0.6"/>
-  <path d="M300 410 A240 240 0 0 1 480 286" fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" opacity="0.55" filter="url(#hl)"/>
-  <path d="M312 404 A226 226 0 0 1 478 300" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round"/>
-  <path d="M716 668 A240 240 0 0 1 622 760" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity="0.4"/>
-  <circle cx="512" cy="512" r="150" fill="url(#starGlow)"/>
-  <path d="M512 368 C526 462 562 498 656 512 C562 526 526 562 512 656 C498 562 462 526 368 512 C462 498 498 462 512 368 Z" fill="url(#star)"/>
-  <path d="M640 380 C645 410 656 421 686 426 C656 431 645 442 640 472 C635 442 624 431 594 426 C624 421 635 410 640 380 Z" fill="#fff" opacity="0.9"/>
-  <circle cx="826" cy="236" r="70" fill="url(#film)"/>
-  <circle cx="826" cy="236" r="66" fill="none" stroke="url(#iri)" stroke-width="7"/>
-  <path d="M784 212 A46 46 0 0 1 812 188" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity="0.9"/>
-  <circle cx="206" cy="826" r="44" fill="url(#film)"/>
-  <circle cx="206" cy="826" r="41" fill="none" stroke="url(#iri)" stroke-width="5"/>
+  <!-- halo atrás da letra -->
+  <use href="#L" stroke="#7CF5FF" stroke-width="170" opacity="0.35" filter="url(#glow)"/>
+  <!-- letra de vidro -->
+  <g filter="url(#drop)">
+    <use href="#L" stroke="url(#glass)" stroke-width="148"/>
+  </g>
+  <g mask="url(#inL)">
+    <use href="#L" stroke="#2F7DFF" stroke-width="70" opacity="0.30" transform="translate(34 48)"/>
+    <use href="#L" stroke="#fff" stroke-width="22" opacity="0.85" transform="translate(-40 -8)"/>
+  </g>
+  <!-- bolha -->
+  <g transform="translate(748 496)">
+    <circle r="76" fill="url(#film)"/>
+    <circle r="76" fill="none" stroke="url(#iri)" stroke-width="11"/>
+    <path d="M-50 -26 A 56 56 0 0 1 -8 -58" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+    <path d="M40 34 A 52 52 0 0 1 22 52" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity="0.6"/>
+  </g>
+  <circle cx="852" cy="640" r="26" fill="none" stroke="url(#iri)" stroke-width="7" opacity="0.9"/>
+  <!-- brilho -->
+  <g transform="translate(640 292)">
+    <path d="M0 -120 C10 -40 40 -10 120 0 C40 10 10 40 0 120 C-10 40 -40 10 -120 0 C-40 -10 -10 -40 0 -120Z" fill="#7CF5FF" opacity="0.5" filter="url(#glow)"/>
+    <path d="M0 -112 C9 -38 38 -9 112 0 C38 9 9 38 0 112 C-9 38 -38 9 -112 0 C-38 -9 -9 -38 0 -112Z" fill="#fff"/>
+  </g>
+  <path d="M818 214 C821 232 827 238 846 241 C827 244 821 250 818 268 C815 250 809 244 790 241 C809 238 815 232 818 214Z" fill="#fff" opacity="0.9"/>
 </svg>
