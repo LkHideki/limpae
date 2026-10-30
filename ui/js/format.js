@@ -1,7 +1,9 @@
-// Formatação pt-BR. Unidades decimais como o Finder (1 GB = 1e9 bytes).
-const nf0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
-const nf1 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
-const rtf = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'always' });
+// Formatação no idioma da interface. Unidades decimais como o Finder (1 GB = 1e9 bytes).
+import { t, lazyIntl } from './i18n.js';
+
+const nf0 = lazyIntl('NumberFormat', { maximumFractionDigits: 0 });
+const nf1 = lazyIntl('NumberFormat', { maximumFractionDigits: 1 });
+const rtf = lazyIntl('RelativeTimeFormat', { numeric: 'always' });
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB'];
 const NB = ' ';
 
@@ -20,16 +22,16 @@ export function fmtBytes(n) {
 }
 
 export const fmtNum = (n) => nf0.format(n || 0);
-export const plural = (n, one, many) => `${fmtNum(n)}${NB}${n === 1 ? one : many}`;
+export const plural = (n, one, many) => `${fmtNum(n)}${NB}${t(n === 1 ? one : many)}`; // i18n-dynamic
 
 export function ageText(sec) {
   if (!sec) return '';
   const d = Date.now() / 1000 - sec;
   const steps = [['year', 31557600], ['month', 2629800], ['week', 604800], ['day', 86400]];
   for (const [unit, size] of steps) {
-    if (d >= size) return 'modificado ' + rtf.format(-Math.floor(d / size), unit);
+    if (d >= size) return t('modificado {when}', { when: rtf.format(-Math.floor(d / size), unit) });
   }
-  return 'modificado hoje';
+  return t('modificado hoje');
 }
 
 export const pct = (a, b) => (b > 0 ? Math.min(100, Math.max(0, (a / b) * 100)) : 0);

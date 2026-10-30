@@ -1,4 +1,5 @@
 import { play } from './sound.js';
+import { tr } from './i18n.js';
 // Camada fina sobre window.__TAURI__ (withGlobalTauri). Erros do backend chegam como string rejeitada.
 const T = () => window.__TAURI__;
 const subs = new Set();
@@ -22,7 +23,7 @@ export async function call(name, args, opts = {}) {
   try {
     return await T().core.invoke(name, args);
   } catch (e) {
-    const msg = typeof e === 'string' ? e : (e && e.message) || 'Erro inesperado';
+    const msg = tr(typeof e === 'string' ? e : (e && e.message) || 'Erro inesperado');
     const show = !opts.quiet && !cancelRequested;
     if (show) notifier(msg);
     const err = new Error(msg);

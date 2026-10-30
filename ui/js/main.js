@@ -18,6 +18,7 @@ import * as activity from './views/activity.js';
 import * as tools from './views/tools.js';
 import * as settings from './views/settings.js';
 import { setSoundEnabled } from './sound.js';
+import { applyLangSetting, onLang } from './i18n.js';
 
 const VIEWS = { smart, clean, trash, protect, perf, apps, files, lens, cloud, tools, activity, settings };
 const view = document.getElementById('view');
@@ -123,7 +124,14 @@ window.addEventListener('focus', syncIdle);
 document.addEventListener('visibilitychange', syncIdle);
 syncIdle();
 
-buildNav();
-refreshDisk();
-api.settings().then((st) => { store.settings = st; setSoundEnabled(st.sounds); }).catch(() => {});
-navigate('smart');
+// Troca de idioma em Ajustes: refaz menu, rodapé e a tela atual no novo idioma.
+onLang(() => { buildNav(); renderFoot(); if (current) navigate(current, true); });
+
+// O idioma precisa estar definido antes da primeira pintura (o padrão é inglês; a leitura dos ajustes é local e rápida).
+api.settings().catch(() => null).then((st) => {
+  if (st) { store.settings = st; setSoundEnabled(st.sounds); }
+  applyLangSetting(st && st.language);
+  buildNav();
+  refreshDisk();
+  navigate('smart');
+});

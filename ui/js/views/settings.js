@@ -3,8 +3,9 @@ import { h, mount, mid } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
 import { store } from '../store.js';
-import { checkbox, toast } from '../ui.js';
+import { checkbox, toast, segmented } from '../ui.js';
 import { setSoundEnabled, play } from '../sound.js';
+import { t, applyLangSetting, LANGS } from '../i18n.js';
 
 const SCOPE = [
   ['junk', 'Limpeza'], ['trash', 'Lixeira'], ['protection', 'Proteção'],
@@ -36,6 +37,10 @@ export function enter(ctx) {
     mount(root,
       h('header', { class: 'set-head' }, h('h1', { class: 'h2' }, 'Ajustes')),
       h('section', { class: 'set-card' }, h('h3', null, 'Geral'),
+        h('div', { class: 'set-row' },
+          h('div', null, h('div', { class: 'set-label' }, t('Idioma')), h('div', { class: 'set-hint' }, t('Escolha o idioma da interface.'))),
+          segmented(LANGS.map((l) => ({ value: l.id, label: l.label })), s.language || 'en',
+            (v) => { save({ ...s, language: v }); applyLangSetting(v); }, t('Idioma'))),
         toggle('Reproduzir sons nas ações principais', 'Ao iniciar e concluir análises e limpezas.', s.sounds, (v) => { save({ ...s, sounds: v }); if (v) play('found'); }),
         toggle('Mostrar na barra de menus', 'Saúde, espaço livre, memória e Lixeira num relance. Com o ícone ligado, fechar a janela mantém o app aberto na barra de menus.', !!s.menuBar, (v) => save({ ...s, menuBar: v }))),
       h('section', { class: 'set-card' }, h('h3', null, 'Remoção'),
