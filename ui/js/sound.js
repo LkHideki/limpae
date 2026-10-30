@@ -93,9 +93,53 @@ const SOUNDS = {
   stop: (a) => { tone(a, 784, 0, { dur: 0.18, type: 'triangle', gain: 0.05, lp: 2400 }); tone(a, 523, 0.12, { dur: 0.32, type: 'triangle', gain: 0.05, lp: 2000 }); },
   // Erro: batida grave e curta, sem susto.
   error: (a) => { tone(a, 233, 0, { dur: 0.16, type: 'triangle', gain: 0.07, lp: 900 }); tone(a, 175, 0.13, { dur: 0.3, type: 'triangle', gain: 0.07, lp: 800 }); },
+
+  // Gestos: curtíssimos (<250 ms), baixos, nunca no hover.
+  // Marcar: vidro agudo e seco; desmarcar: toque fosco e mais grave.
+  tick: (a) => bell(a, 1976, 0, { gain: 0.03, dur: 0.16 }),
+  untick: (a) => tone(a, 660, 0, { dur: 0.09, type: 'triangle', gain: 0.035, lp: 1500 }),
+  // Chaves: subida curta ao ligar, descida abafada ao desligar.
+  'switch-on': (a) => { tone(a, 520, 0, { f2: 780, dur: 0.14, gain: 0.04 }); bell(a, 1568, 0.05, { gain: 0.025, dur: 0.2 }); },
+  'switch-off': (a) => tone(a, 659, 0, { f2: 440, dur: 0.14, type: 'triangle', gain: 0.04, lp: 1800 }),
+  // Troca de módulo: sopro bem baixo e um toque.
+  nav: (a) => { whoosh(a, 0, { dur: 0.16, gain: 0.012, from: -0.15, to: 0.15 }); bell(a, 1175, 0.03, { gain: 0.03, dur: 0.22 }); },
+  // Pressionar botão primário.
+  pop: (a) => { tone(a, 392, 0, { f2: 587, dur: 0.09, gain: 0.04, lp: 2200 }); bell(a, 1047, 0, { gain: 0.02, dur: 0.15 }); },
+  // Diálogo: abre com leve subida, fecha com descida.
+  open: (a) => { tone(a, 440, 0, { f2: 660, dur: 0.18, gain: 0.03 }); bell(a, 1319, 0.05, { gain: 0.025, dur: 0.18 }); },
+  close: (a) => tone(a, 587, 0, { f2: 392, dur: 0.16, type: 'triangle', gain: 0.03, lp: 1800 }),
+  // Diálogo destrutivo: dois tons graves e suaves, sem susto.
+  warn: (a) => { tone(a, 247, 0, { dur: 0.12, gain: 0.04, lp: 700 }); tone(a, 196, 0.09, { dur: 0.16, gain: 0.04, lp: 600 }); },
+  // Menu abrindo: tique mínimo.
+  menu: (a) => bell(a, 2093, 0, { gain: 0.018, dur: 0.09 }),
+  // Toasts: sucesso com dois sinos; erro é um 'error' mais macio.
+  ok: (a) => { bell(a, 1319, 0, { gain: 0.045, dur: 0.5, pan: -0.15 }); bell(a, 1760, 0.09, { gain: 0.04, dur: 0.7, pan: 0.15 }); },
+  err: (a) => { tone(a, 247, 0, { dur: 0.14, type: 'triangle', gain: 0.045, lp: 700 }); tone(a, 196, 0.1, { dur: 0.24, type: 'triangle', gain: 0.045, lp: 650 }); },
 };
+
+// Duração aproximada (ms) de cada voz, para contar as ativas sem acompanhar cada nó.
+const LIFE = { start: 1500, found: 1600, clean: 2700, stop: 600, error: 600, tick: 250, untick: 200, 'switch-on': 350, 'switch-off': 300, nav: 350, pop: 250, open: 350, close: 250, warn: 350, menu: 200, ok: 900, err: 450 };
+// Toast que acompanha um som de resultado já tocado não soa de novo.
+const DUCK = { ok: ['clean', 'found'], err: ['error'] };
+const MIN_GAP = 40, DUCK_MS = 400, MAX_VOICES = 6;
+const last = new Map();
+let active = 0, lastAt = 0;
+
+// Instante (performance.now) do último som que de fato tocou; feel.js usa para não somar o 'pop' a um som da view.
+export const lastPlayedAt = () => lastAt;
 
 export function play(name) {
   if (!enabled || !SOUNDS[name]) return;
-  try { const a = audio(); if (a) SOUNDS[name](a); } catch (e) { /* som é opcional */ }
+  if (!document.hasFocus() || document.body.classList.contains('idle')) return;
+  const now = performance.now();
+  if (now - (last.get(name) ?? -1e9) < MIN_GAP) return;
+  if (DUCK[name] && DUCK[name].some((n) => now - (last.get(n) ?? -1e9) < DUCK_MS)) return;
+  if (active >= MAX_VOICES) return;
+  try {
+    const a = audio();
+    if (!a) return;
+    SOUNDS[name](a);
+    last.set(name, now); lastAt = now; active++;
+    setTimeout(() => { active = Math.max(0, active - 1); }, LIFE[name] || 800);
+  } catch (e) { /* som é opcional */ }
 }
