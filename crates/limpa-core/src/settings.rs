@@ -40,6 +40,9 @@ pub struct Settings {
     pub notify_low_disk_gb: Option<u32>,
     /// Play sounds for the main actions (scan started/finished, cleanup done).
     pub sounds: bool,
+    /// Default for user files, apps and leftovers: delete permanently instead of moving to the Trash. Each
+    /// confirmation still lets the user choose.
+    pub permanent_delete: bool,
 }
 
 impl Default for Settings {
@@ -51,6 +54,7 @@ impl Default for Settings {
             notify_trash_gb: None,
             notify_low_disk_gb: None,
             sounds: true,
+            permanent_delete: false,
         }
     }
 }

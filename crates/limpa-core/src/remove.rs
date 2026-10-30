@@ -93,7 +93,32 @@ fn is_permanent(item: &Item) -> bool {
 }
 
 /// Re-validates and removes one item. Never panics: every failure becomes an error outcome.
-fn remove_one(item: &Item, guard: &Guard, r: &dyn Remover, log: &ActionLog) -> Outcome {
+/// How a batch is removed. `permanent` deletes items whose policy would normally move them to the Trash (the
+/// user chose "Apagar definitivamente"); every other check is unchanged. `cancel` stops the batch between items:
+/// items not yet started are left untouched and reported as cancelled.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct RemoveOptions<'a> {
+    pub permanent: bool,
+    pub cancel: Option<&'a AtomicBool>,
+}
+
+pub const CANCELLED: &str = "cancelado; o item continua no lugar";
+
+impl RemoveOptions<'_> {
+    fn cancelled(&self) -> bool {
+        self.cancel.is_some_and(|c| c.load(std::sync::atomic::Ordering::Relaxed))
+    }
+
+    fn deletes(&self, item: &Item) -> bool {
+        is_permanent(item) || self.permanent
+    }
+}
+
+/// Re-validates and removes one item. Never panics: every failure becomes an error outcome.
+fn remove_one(item: &Item, guard: &Guard, r: &dyn Remover, log: &ActionLog, opts: RemoveOptions) -> Outcome {
+    if opts.cancelled() {
+        return Outcome { path: item.path.clone(), ok: false, freed: 0, error: Some(CANCELLED.into()) };
+    }
     let real = match guard.check(&item.path, &item.policy).and_then(|real| same_file(item, real)) {
         Ok(real) => real,
         Err(err) => {
@@ -104,12 +129,13 @@ fn remove_one(item: &Item, guard: &Guard, r: &dyn Remover, log: &ActionLog) -> O
     let (action, result) = match item.policy {
         Policy::DeleteJunk { .. } => ("apagar", r.delete(&real)),
         Policy::EmptyTrashEntry => ("esvaziar", r.delete(&real)),
+        Policy::MoveToTrash if opts.permanent => ("apagar-definitivo", r.delete(&real)),
         Policy::MoveToTrash => ("lixo", r.trash(&real)),
     };
     let (freed, error) = match result {
         Ok(()) => (item.size, None),
         // A failed permanent delete may have removed part of a directory; a failed trash move removes nothing.
-        Err(e) if is_permanent(item) => {
+        Err(e) if opts.deletes(item) => {
             (item.size.saturating_sub(alloc_size(&real, &AtomicBool::new(false))), Some(describe(&e)))
         }
         Err(e) => (0, Some(describe(&e))),
@@ -121,10 +147,20 @@ fn remove_one(item: &Item, guard: &Guard, r: &dyn Remover, log: &ActionLog) -> O
 /// Removes `items` and returns one outcome per item, in input order. Permanent deletes run in parallel; Trash
 /// moves stay sequential so NSFileManager is used from one thread, in order.
 pub fn remove_items(items: &[Item], guard: &Guard, r: &dyn Remover, log: &ActionLog) -> Vec<Outcome> {
-    let (permanent, trashed): (Vec<_>, Vec<_>) = items.iter().enumerate().partition(|(_, it)| is_permanent(it));
+    remove_items_with(items, guard, r, log, RemoveOptions::default())
+}
+
+pub fn remove_items_with(
+    items: &[Item],
+    guard: &Guard,
+    r: &dyn Remover,
+    log: &ActionLog,
+    opts: RemoveOptions,
+) -> Vec<Outcome> {
+    let (deleted, trashed): (Vec<_>, Vec<_>) = items.iter().enumerate().partition(|(_, it)| opts.deletes(it));
     let mut done: Vec<(usize, Outcome)> =
-        permanent.into_par_iter().map(|(i, item)| (i, remove_one(item, guard, r, log))).collect();
-    done.extend(trashed.into_iter().map(|(i, item)| (i, remove_one(item, guard, r, log))));
+        deleted.into_par_iter().map(|(i, item)| (i, remove_one(item, guard, r, log, opts))).collect();
+    done.extend(trashed.into_iter().map(|(i, item)| (i, remove_one(item, guard, r, log, opts))));
     done.sort_by_key(|(i, _)| *i);
     done.into_iter().map(|(_, o)| o).collect()
 }
@@ -445,5 +481,42 @@ mod tests {
         assert!(!needs_finder(Path::new("/Users/u/Documents/a.mov"), perm), "only app bundles escalate");
         assert!(!needs_finder(Path::new("/Applications/X.app"), "some other failure"));
         assert_eq!(describe(&io::Error::from(io::ErrorKind::PermissionDenied)), "sem permissão para remover este item");
+    }
+
+    #[test]
+    fn permanent_option_deletes_instead_of_trashing_with_same_checks() {
+        let f = fixture();
+        let doc = f.home.join("Documents/film.mov");
+        fs::write(&doc, vec![1u8; 8192]).unwrap();
+        let item = f.item(doc.clone(), Policy::MoveToTrash);
+        let outside = tempfile::tempdir().unwrap();
+        let stray = outside.path().join("x");
+        fs::write(&stray, b"x").unwrap();
+        let bad = Item::new(stray.clone(), 1, Policy::MoveToTrash);
+        let fake = FakeRemover::default();
+        let opts = RemoveOptions { permanent: true, cancel: None };
+        let out = remove_items_with(&[item, bad], &f.guard, &fake, &f.log, opts);
+        assert!(out[0].ok && !out[1].ok, "{out:?}");
+        assert_eq!(fake.calls(), vec![("delete".to_string(), doc.clone())], "deleted, never trashed");
+        assert!(stray.exists(), "guard still refuses outside paths");
+        assert!(f.log_lines().iter().any(|l| l.contains("\tapagar-definitivo\tok\t")));
+    }
+
+    #[test]
+    fn cancel_leaves_remaining_items_untouched() {
+        let f = fixture();
+        let a = f.cache_dir("com.a");
+        let b = f.cache_dir("com.b");
+        let items = vec![f.item(a.clone(), f.junk()), f.item(b.clone(), f.junk())];
+        let stop = AtomicBool::new(true);
+        let out = remove_items_with(
+            &items,
+            &f.guard,
+            &SystemRemover,
+            &f.log,
+            RemoveOptions { permanent: false, cancel: Some(&stop) },
+        );
+        assert!(out.iter().all(|o| !o.ok && o.error.as_deref() == Some(CANCELLED)));
+        assert!(a.exists() && b.exists());
     }
 }
