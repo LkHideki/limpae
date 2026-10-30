@@ -17,9 +17,23 @@ impl ActionLog {
         Self { path, lock: Mutex::new(()) }
     }
 
-    /// ~/Library/Logs/Limpaemeo/actions.log
+    /// ~/Library/Logs/Limpae/actions.log
     pub fn in_home(home: &Path) -> Self {
-        Self::new(home.join("Library/Logs/Limpaemeo/actions.log"))
+        Self::new(home.join("Library/Logs/Limpae/actions.log"))
+    }
+
+    /// Like `in_home`, first moving the pre-rebrand log (~/Library/Logs/Limpaemeo) so the activity history and
+    /// the audit trail carry over. Best effort: a failed move just starts a new log.
+    pub fn in_home_migrating(home: &Path) -> Self {
+        let log = Self::in_home(home);
+        let old_dir = home.join("Library/Logs/Limpaemeo");
+        if let Some(dir) = log.path.parent()
+            && fs::symlink_metadata(dir).is_err()
+            && fs::symlink_metadata(&old_dir).is_ok()
+        {
+            let _ = fs::rename(&old_dir, dir);
+        }
+        log
     }
 
     pub fn path(&self) -> &Path {
@@ -383,5 +397,16 @@ mod tests {
         assert_eq!(v["totalFreed"], 100);
         assert_eq!(v["monthFreed"], 100);
         assert_eq!(v["days"][29]["date"], "2026-03-15");
+    }
+
+    #[test]
+    fn migrates_the_old_log_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let old = dir.path().join("Library/Logs/Limpaemeo/actions.log");
+        fs::create_dir_all(old.parent().unwrap()).unwrap();
+        fs::write(&old, "2026-10-29 10:00:00\tapagar\tok\t5\t/a\n").unwrap();
+        let log = ActionLog::in_home_migrating(dir.path());
+        assert_eq!(log.activity().total_freed, 5);
+        assert!(!old.exists());
     }
 }

@@ -314,7 +314,7 @@ pub fn score(i: &Inputs) -> Health {
             "fda",
             Severity::Info,
             "Acesso Total ao Disco desligado",
-            "Sem ele o Limpaemeo não lê a Lixeira nem parte da Biblioteca, e a análise fica incompleta.".into(),
+            "Sem ele o Limpae não lê a Lixeira nem parte da Biblioteca, e a análise fica incompleta.".into(),
             Some(("Abrir Ajustes", "fda")),
         ));
     }

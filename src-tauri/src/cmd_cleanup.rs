@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     fn resolves_registry_ids_to_existing_paths_only() {
-        let file = std::env::temp_dir().join(format!("limpaemeo-ql-{}.txt", std::process::id()));
+        let file = std::env::temp_dir().join(format!("limpae-ql-{}.txt", std::process::id()));
         std::fs::write(&file, b"x").unwrap();
         let st = AppState::with_home(PathBuf::from("/nonexistent-home"));
         let item = Item::new(file.clone(), 1, Policy::MoveToTrash);

@@ -436,7 +436,7 @@ mod tests {
         fn new() -> Self {
             static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
             let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            let dir = std::env::temp_dir().join(format!("limpaemeo-lens-{}-{n}", std::process::id()));
+            let dir = std::env::temp_dir().join(format!("limpae-lens-{}-{n}", std::process::id()));
             fs::create_dir_all(&dir).unwrap();
             Self(fs::canonicalize(dir).unwrap())
         }

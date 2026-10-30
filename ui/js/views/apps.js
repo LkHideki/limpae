@@ -266,7 +266,7 @@ export function enter(ctx) {
     if (ids.length > 3) {
       const ok = await confirmDialog({
         title: `Abrir ${plural(ids.length, 'página', 'páginas')} de atualização?`,
-        body: [`Cada página abre no navegador padrão. `, h('strong', null, 'O Limpaemeo não instala atualizações'), '; você conclui a instalação em cada app.'],
+        body: [`Cada página abre no navegador padrão. `, h('strong', null, 'O Limpae não instala atualizações'), '; você conclui a instalação em cada app.'],
         confirm: 'Abrir', glyph: 'refresh', mod: 'apps',
       });
       if (!ok) return;
@@ -697,7 +697,7 @@ export function enter(ctx) {
         h('dt', null, 'Versão instalada'), h('dd', null, u.current),
         h('dt', null, 'Versão disponível'), h('dd', null, u.latest),
         src ? [h('dt', null, 'Fonte'), h('dd', { title: src }, src)] : null),
-      h('p', { class: 'am-d-note' }, 'O Limpaemeo só avisa e abre a página da atualização no navegador. A instalação é feita por você, no próprio app.'),
+      h('p', { class: 'am-d-note' }, 'O Limpae só avisa e abre a página da atualização no navegador. A instalação é feita por você, no próprio app.'),
       h('div', { class: 'row-actions', style: 'margin-top:16px' },
         h('button', { class: 'btn primary', type: 'button', onClick: () => openUpdates([a.id]) }, icon('refresh', 15), 'Abrir página de atualização'))));
   }

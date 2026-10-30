@@ -25,7 +25,7 @@ const navEl = document.getElementById('nav');
 const foot = document.getElementById('sb-foot');
 let current = null, cleanups = [], alive = false;
 let fdaDismissed = false;
-try { fdaDismissed = localStorage.getItem('limpaemeo.fda.dismissed') === '1'; } catch (e) { /* storage indisponível */ }
+try { fdaDismissed = localStorage.getItem('limpae.fda.dismissed') === '1'; } catch (e) { /* storage indisponível */ }
 
 setNotifier((msg) => toast(msg));
 window.addEventListener('unhandledrejection', (e) => { if (!(e.reason && e.reason.reported)) toast(String((e.reason && e.reason.message) || e.reason || 'Erro inesperado')); });
@@ -81,7 +81,7 @@ function renderFoot() {
       kids.push(h('div', { class: 'fda-banner' },
         h('b', null, 'Acesso Total ao Disco'), 'Conceda para uma análise completa, incluindo a Lixeira.',
         h('div', null, h('button', { class: 'link', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes')),
-        h('button', { class: 'x', type: 'button', 'aria-label': 'Dispensar aviso', onClick: () => { fdaDismissed = true; try { localStorage.setItem('limpaemeo.fda.dismissed', '1'); } catch (e) { /* ignora */ } renderFoot(); } }, icon('x', 14))));
+        h('button', { class: 'x', type: 'button', 'aria-label': 'Dispensar aviso', onClick: () => { fdaDismissed = true; try { localStorage.setItem('limpae.fda.dismissed', '1'); } catch (e) { /* ignora */ } renderFoot(); } }, icon('x', 14))));
     }
   }
   mount(foot, kids);

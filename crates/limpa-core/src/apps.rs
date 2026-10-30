@@ -423,7 +423,7 @@ mod tests {
 
     fn list(roots: &[PathBuf], running: &[&str]) -> Vec<AppInfo> {
         let running = running.iter().map(|s| (*s).to_owned()).collect();
-        list_apps(roots, &running, "br.com.limpaemeo", &Progress::silent())
+        list_apps(roots, &running, "br.com.limpae", &Progress::silent())
     }
 
     #[test]
@@ -453,7 +453,7 @@ mod tests {
     fn skips_apple_own_and_missing_identifier() {
         let dir = tempfile::tempdir().unwrap();
         make_app(dir.path(), "Safari.app", Some(&[("CFBundleIdentifier", "com.apple.Safari")]));
-        make_app(dir.path(), "Limpa.app", Some(&[("CFBundleIdentifier", "br.com.limpaemeo")]));
+        make_app(dir.path(), "Limpa.app", Some(&[("CFBundleIdentifier", "br.com.limpae")]));
         make_app(dir.path(), "NoId.app", Some(&[("CFBundleName", "NoId")]));
         make_app(dir.path(), "NoPlist.app", None);
         make_app(dir.path(), "Ok.app", Some(&[("CFBundleIdentifier", "com.acme.ok")]));

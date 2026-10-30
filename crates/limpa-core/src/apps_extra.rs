@@ -769,7 +769,7 @@ const MAX_CONCURRENT: usize = 8;
 fn curl(url: &str) -> Option<String> {
     let mut child = Command::new("/usr/bin/curl")
         .args(["-fsSL", "--proto", "=https", "--proto-redir", "=https", "--max-redirs", "5"])
-        .args(["--max-time", "10", "--max-filesize", "3000000", "-A", "Limpaemeo", "--"])
+        .args(["--max-time", "10", "--max-filesize", "3000000", "-A", "Limpae", "--"])
         .arg(url)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -916,7 +916,7 @@ mod tests {
         assert_eq!(vendor_of("com.tinyspeck.slackmacgap"), "Slack");
         assert_eq!(vendor_of("org.acme.thing"), "Acme");
         assert_eq!(vendor_of("com.sublimehq.Sublime"), "Sublimehq");
-        assert_eq!(vendor_of("br.com.limpaemeo"), "Limpaemeo");
+        assert_eq!(vendor_of("br.com.limpae"), "Limpae");
         assert_eq!(vendor_of("noDots"), "Outros");
         assert_eq!(vendor_of(""), "Outros");
         assert_eq!(vendor_of("com."), "Outros");
@@ -1159,7 +1159,7 @@ mod tests {
         let installed: Vec<String> = installed.iter().map(|s| (*s).to_owned()).collect();
         let running: HashSet<String> = running.iter().map(|s| (*s).to_owned()).collect();
         let known: HashSet<String> = known.iter().map(|s| (*s).to_owned()).collect();
-        find_orphans(home, &installed, "br.com.limpaemeo", &running, &move |id| known.contains(id), &Progress::silent())
+        find_orphans(home, &installed, "br.com.limpae", &running, &move |id| known.contains(id), &Progress::silent())
     }
 
     fn rel(home: &Path, groups: &[Group]) -> Vec<String> {
@@ -1231,8 +1231,8 @@ mod tests {
             "AW9CBV6SY7.group.Acme.Thing",
             "group.com.acme.shared",
             "org.cups.PrintingPrefs",
-            "br.com.limpaemeo",
-            "br.com.limpaemeo.helper",
+            "br.com.limpae",
+            "br.com.limpae.helper",
             "com.installed.app",
             "com.installed.app.helper",
             "com.installed",
@@ -1413,6 +1413,6 @@ mod tests {
     #[ignore = "reads the real LaunchServices database of this Mac"]
     fn real_machine_launch_services() {
         assert!(launch_services_knows("com.apple.finder"));
-        assert!(!launch_services_knows("com.nonexistent.limpaemeo.testing"));
+        assert!(!launch_services_knows("com.nonexistent.limpae.testing"));
     }
 }

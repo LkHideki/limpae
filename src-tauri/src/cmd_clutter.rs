@@ -150,7 +150,7 @@ mod tests {
 
     #[test]
     fn resolve_refuses_missing_roots() {
-        let dir = std::env::temp_dir().join(format!("limpaemeo-clutter-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("limpae-clutter-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let st = AppState::with_home(dir.clone());
         *lock(&LOCATIONS) = vec![dir.clone(), dir.join("gone")];

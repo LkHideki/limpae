@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#0F5C82"/>
+      <stop offset="0.48" stop-color="#0B2B57"/>
+      <stop offset="1" stop-color="#1B0E45"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="0.2" cy="0.14" r="0.62">
+      <stop offset="0" stop-color="#3CF2D2" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#3CF2D2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="0.92" cy="0.98" r="0.62">
+      <stop offset="0" stop-color="#9B6BFF" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#9B6BFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="film" cx="0.42" cy="0.36" r="0.66">
+      <stop offset="0" stop-color="#9FF6FF" stop-opacity="0.16"/>
+      <stop offset="0.7" stop-color="#7AA8FF" stop-opacity="0.06"/>
+      <stop offset="0.92" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.3"/>
+    </radialGradient>
+    <linearGradient id="iri" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#5BFFE0"/>
+      <stop offset="0.28" stop-color="#6EA8FF"/>
+      <stop offset="0.55" stop-color="#C38BFF"/>
+      <stop offset="0.8" stop-color="#FF8FB8"/>
+      <stop offset="1" stop-color="#FFD592"/>
+    </linearGradient>
+    <linearGradient id="star" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D8FBFF"/>
+    </linearGradient>
+    <radialGradient id="starGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#B6FFF3" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#B6FFF3" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="26"/></filter>
+    <filter id="hl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glowA)"/>
+  <rect width="1024" height="1024" fill="url(#glowB)"/>
+  <circle cx="512" cy="540" r="312" fill="#72E8FF" opacity="0.14" filter="url(#soft)"/>
+  <circle cx="512" cy="512" r="300" fill="url(#film)"/>
+  <circle cx="512" cy="512" r="294" fill="none" stroke="url(#iri)" stroke-width="18"/>
+  <circle cx="512" cy="512" r="294" fill="none" stroke="#fff" stroke-width="3" opacity="0.6"/>
+  <path d="M300 410 A240 240 0 0 1 480 286" fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" opacity="0.55" filter="url(#hl)"/>
+  <path d="M312 404 A226 226 0 0 1 478 300" fill="none" stroke="#fff" stroke-width="13" stroke-linecap="round"/>
+  <path d="M716 668 A240 240 0 0 1 622 760" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity="0.4"/>
+  <circle cx="512" cy="512" r="150" fill="url(#starGlow)"/>
+  <path d="M512 368 C526 462 562 498 656 512 C562 526 526 562 512 656 C498 562 462 526 368 512 C462 498 498 462 512 368 Z" fill="url(#star)"/>
+  <path d="M640 380 C645 410 656 421 686 426 C656 431 645 442 640 472 C635 442 624 431 594 426 C624 421 635 410 640 380 Z" fill="#fff" opacity="0.9"/>
+  <circle cx="826" cy="236" r="70" fill="url(#film)"/>
+  <circle cx="826" cy="236" r="66" fill="none" stroke="url(#iri)" stroke-width="7"/>
+  <path d="M784 212 A46 46 0 0 1 812 188" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="206" cy="826" r="44" fill="url(#film)"/>
+  <circle cx="206" cy="826" r="41" fill="none" stroke="url(#iri)" stroke-width="5"/>
+</svg>
