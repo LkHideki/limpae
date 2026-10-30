@@ -111,3 +111,89 @@ export function layout(circles, w, h, pad = 6) {
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
   for (const c of circles) { c.x = w / 2 + (c.x - cx) * k; c.y = h / 2 + (c.y - cy) * k; c.r *= k; }
 }
+
+// ---- Mapa de bolhas do Disk Map ----------------------------------------------------------------------------
+// Raio por raiz quadrada do tamanho, comprimido entre rMin e rMax: r = rMin + (rMax − rMin)·sqrt(size/maxSize).
+// O fator `f` escala os dois extremos juntos; a folga entre bolhas (gap) e a margem (pad) ficam fixas em pixels.
+
+// Gerador determinístico (a mesma pasta sempre produz o mesmo desenho).
+function lcg(seed) {
+  let x = seed >>> 0;
+  return () => (x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296;
+}
+
+// Cópias dos círculos com raio inflado em gap/2: dois círculos encostados no empacotamento ficam a `gap` de distância.
+function packWith(radii, order, gap) {
+  const cs = order.map((i) => ({ i, r: radii[i] + gap / 2 }));
+  packSiblings(cs);
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of cs) {
+    x0 = Math.min(x0, c.x - c.r); x1 = Math.max(x1, c.x + c.r);
+    y0 = Math.min(y0, c.y - c.r); y1 = Math.max(y1, c.y + c.r);
+  }
+  return { cs, w: x1 - x0 - gap, h: y1 - y0 - gap, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+}
+
+// Ordens de inserção candidatas: o empacotamento muda de forma conforme a ordem, e algumas ficam bem mais compactas.
+function orders(n) {
+  const desc = Array.from({ length: n }, (_, i) => i);
+  const out = [desc];
+  if (n > 2) {
+    out.push([1, 0, ...desc.slice(2)]);
+    const alt = [];
+    for (let a = 0, b = n - 1; a <= b; a++, b--) { alt.push(a); if (a !== b) alt.push(b); }
+    out.push(alt);
+    const mid = [];
+    for (let i = 0; i < n; i += 2) mid.push(i);
+    for (let i = 1; i < n; i += 2) mid.push(i);
+    out.push(mid);
+  }
+  const rnd = lcg(7919 * n + 13);
+  for (let k = 0; k < 70 && n > 3; k++) {
+    const o = desc.slice();
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    out.push(o);
+  }
+  return out;
+}
+
+// Define x, y, r em cada item ({ size }, já em ordem decrescente) dentro de w × h. Devolve o fator de escala usado
+// e se coube na escala mínima. opts: gap, pad, rMin, rMax, fMax (escala máxima), fMin.
+export function fitBubbles(items, w, h, opts = {}) {
+  const { gap = 10, pad = 6, rMin = 46, rMax = 120, fMax = 1.25, fMin = 0.3, tCap = 1 } = opts;
+  const n = items.length;
+  if (!n) return { f: 1, fits: true };
+  const maxSize = Math.max(...items.map((i) => i.size), 1);
+  const t = items.map((i) => Math.min(tCap, Math.sqrt(Math.max(0, i.size) / maxSize)));
+  const radiiAt = (f) => t.map((u) => f * (rMin + (rMax - rMin) * u));
+  const availW = w - 2 * pad, availH = h - 2 * pad;
+  const ords = orders(n);
+  // Melhor empacotamento para o fator f: o que ocupa a menor caixa em relação à área disponível.
+  const bestAt = (f) => {
+    const radii = radiiAt(f);
+    let best = null;
+    for (const o of ords) {
+      const p = packWith(radii, o, gap);
+      const fitK = Math.max(p.w / availW, p.h / availH);
+      if (!best || fitK < best.fitK) best = { p, fitK, radii };
+    }
+    return best;
+  };
+  let lo = fMin, hi = fMax, pick = null;
+  const top = bestAt(hi);
+  if (top.fitK <= 1) { lo = hi; pick = top; } else {
+    for (let k = 0; k < 14; k++) {
+      const mid = (lo + hi) / 2, b = bestAt(mid);
+      if (b.fitK <= 1) { lo = mid; pick = b; } else hi = mid;
+    }
+  }
+  if (!pick) pick = bestAt(lo);
+  const fits = pick.fitK <= 1 + 1e-9;
+  for (const c of pick.p.cs) {
+    const it = items[c.i];
+    it.r = pick.radii[c.i];
+    it.x = w / 2 + (c.x - pick.p.cx);
+    it.y = h / 2 + (c.y - pick.p.cy);
+  }
+  return { f: lo, fits };
+}

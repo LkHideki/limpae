@@ -4,13 +4,19 @@
 //! `TASK_ICLOUD`, which `remove` refuses: they can only be evicted (local copy dropped, the file stays in iCloud).
 
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::io::ErrorKind;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use limpa_core::cloud;
 use limpa_core::lens::{self, Kind, LensTree, Node};
+use limpa_core::running::app_icon_png;
 use limpa_core::{Group, Guard, Item, Policy, Progress};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
@@ -28,6 +34,12 @@ const ERR_NO_TREE: &str = "Nenhum mapa disponível. Analise o espaço de novo.";
 const ERR_NO_NODE: &str = "Item desconhecido. Analise o espaço de novo.";
 const ERR_EMPTY_ROOT: &str = "Não foi possível ler este local.";
 const ERR_NOTHING_REMOVABLE: &str = "Nenhum dos itens selecionados pode ser removido.";
+const ERR_GONE: &str = "O item não existe mais no disco.";
+const ERR_NO_PREVIEW: &str = "Este item não tem uma pasta própria para visualizar.";
+const QLMANAGE: &str = "/usr/bin/qlmanage";
+const ICON_PX: u32 = 128;
+/// Icons are tiny and few (one per `.app` on screen); the cache is dropped wholesale when it grows past this.
+const ICON_CACHE_MAX: usize = 256;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -255,6 +267,92 @@ pub async fn lens_select_review(state: State<'_, Shared>, node_ids: Vec<u32>) ->
     .await
 }
 
+/// Path a node stands for on disk. The synthetic small-files node has none of its own, so "reveal" falls back to
+/// the folder that holds those files; `preview` refuses it instead.
+fn node_path(tree: &LensTree, id: u32, fallback_parent: bool) -> Result<PathBuf, String> {
+    let node = tree.node(id).ok_or(ERR_NO_NODE)?;
+    let path = match tree.path_of(id) {
+        Some(p) => Some(p),
+        None if fallback_parent => node.parent.and_then(|p| tree.path_of(p)),
+        None => None,
+    };
+    let path = path.ok_or(ERR_NO_PREVIEW)?;
+    if std::fs::symlink_metadata(&path).is_err() {
+        return Err(ERR_GONE.into());
+    }
+    Ok(path)
+}
+
+fn is_app_bundle(path: &std::path::Path) -> bool {
+    path.extension().is_some_and(|e| e.eq_ignore_ascii_case("app"))
+}
+
+/// Finder icon of an `.app` bundle as a PNG data URL, cached by path (node ids change with every scan).
+fn app_icon_url(path: &std::path::Path) -> Option<String> {
+    static CACHE: OnceLock<Mutex<HashMap<PathBuf, Option<String>>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(hit) = lock(cache).get(path) {
+        return hit.clone();
+    }
+    let url = app_icon_png(path, ICON_PX).map(|png| format!("data:image/png;base64,{}", STANDARD.encode(png)));
+    let mut c = lock(cache);
+    if c.len() >= ICON_CACHE_MAX {
+        c.clear();
+    }
+    c.insert(path.to_path_buf(), url.clone());
+    url
+}
+
+/// Real icon for an `.app` package node; `None` for anything else (the UI draws its own glyph).
+#[tauri::command]
+pub async fn lens_icon(state: State<'_, Shared>, node_id: u32) -> Result<Option<String>, String> {
+    let st = Arc::clone(state.inner());
+    blocking(move || {
+        let tree = current_tree(&st)?;
+        let node = tree.node(node_id).ok_or(ERR_NO_NODE)?;
+        if node.kind != Kind::Package {
+            return Ok(None);
+        }
+        Ok(tree.path_of(node_id).filter(|p| is_app_bundle(p)).and_then(|p| app_icon_url(&p)))
+    })
+    .await
+}
+
+/// Shows the node in Finder (`open -R`). The path is resolved from the tree; the UI only sends the id.
+#[tauri::command]
+pub async fn lens_reveal(state: State<'_, Shared>, node_id: u32) -> Result<(), String> {
+    let st = Arc::clone(state.inner());
+    blocking(move || {
+        let tree = current_tree(&st)?;
+        let path = node_path(&tree, node_id, true)?;
+        crate::commands::open(&[OsStr::new("-R"), path.as_os_str()])
+    })
+    .await
+}
+
+/// Quick Look preview (`qlmanage -p`), detached: it lives until the user closes the window; a thread reaps it.
+#[tauri::command]
+pub async fn lens_quicklook(state: State<'_, Shared>, node_id: u32) -> Result<(), String> {
+    let st = Arc::clone(state.inner());
+    blocking(move || {
+        let tree = current_tree(&st)?;
+        let path = node_path(&tree, node_id, false)?;
+        let mut child = Command::new(QLMANAGE)
+            .arg("-p")
+            .arg(&path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| format!("Não foi possível abrir a Visualização Rápida: {e}"))?;
+        std::thread::spawn(move || {
+            let _ = child.wait();
+        });
+        Ok(())
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn cloud_scan(app: AppHandle, state: State<'_, Shared>) -> Result<ScanResult, String> {
     run_scan(app, &state, "icloud", |st, p| {
@@ -439,5 +537,32 @@ mod tests {
         // The cloud eviction refuses lens ids, and `remove` refuses cloud ids.
         assert_eq!(lock(&st.registry).resolve_task(TASK_ICLOUD, &ids).items.len(), 0);
         assert!(current_tree(&st).is_err());
+    }
+
+    #[test]
+    fn node_paths_resolve_from_the_tree_only() {
+        let f = fixture();
+        let docs = find(&f, 0, "Documents");
+        let big = find(&f, docs.id, "big.mov");
+        assert_eq!(node_path(&f.tree, big.id, false).unwrap(), f.home.join("Documents/big.mov"));
+        assert_eq!(node_path(&f.tree, 99_999, true).unwrap_err(), ERR_NO_NODE);
+        // Synthetic small-files node: Finder reveals the folder that holds them; Quick Look has nothing to show.
+        let small = f.tree.children(docs.id).into_iter().find(|n| n.kind == Kind::Small).unwrap();
+        assert_eq!(node_path(&f.tree, small.id, true).unwrap(), f.home.join("Documents"));
+        assert_eq!(node_path(&f.tree, small.id, false).unwrap_err(), ERR_NO_PREVIEW);
+        // A file removed after the scan is reported instead of being handed to `open`.
+        fs::remove_file(f.home.join("Documents/big.mov")).unwrap();
+        assert_eq!(node_path(&f.tree, big.id, false).unwrap_err(), ERR_GONE);
+    }
+
+    #[test]
+    fn only_app_bundles_get_a_real_icon() {
+        assert!(is_app_bundle(std::path::Path::new("/Applications/Foo.app")));
+        assert!(is_app_bundle(std::path::Path::new("/Applications/Foo.APP")));
+        assert!(!is_app_bundle(std::path::Path::new("/Users/x/Fotos.photoslibrary")));
+        assert!(!is_app_bundle(std::path::Path::new("/Users/x/app")));
+        assert!(app_icon_url(std::path::Path::new("/nonexistent/Nope.app")).is_none());
+        // The miss is cached too: asking again must agree.
+        assert!(app_icon_url(std::path::Path::new("/nonexistent/Nope.app")).is_none());
     }
 }
