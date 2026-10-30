@@ -7,12 +7,13 @@ export const store = {
   trash: null,
   apps: null,
   large: null, largeMb: 500, largeSel: new Set(),
-  smart: { phase: 'idle', rev: 0, tiles: {}, freed: 0 },
+  smart: { phase: 'idle', rev: 0, tiles: {}, freed: {}, mods: [], inc: {}, sum: {}, snap: {}, out: {}, apps: null, stopped: false },
   cleanup: { phase: 'idle', freed: 0, failed: 0 },
   trashUi: { phase: 'idle', freed: 0 },
   files: { phase: 'idle', moved: 0 },
   icons: new Map(),
   settings: null,
+  openSection: null,   // dica de seção para o módulo de destino (Minhas Ferramentas); o módulo pode ler e limpar
 };
 
 export const bump = () => { store.rev++; };

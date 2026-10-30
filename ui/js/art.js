@@ -42,6 +42,7 @@ const P = {
   ban: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M6.3 6.3l11.4 11.4'],
   select: ['M5 5h14v14H5z', 'M8.5 12l2.5 2.5 4.5-5'],
   chevron: ['M7 10l5 5 5-5'],
+  tools: ['M12 4l8 4-8 4-8-4z', 'M4 12l8 4 8-4', 'M4 16l8 4 8-4'],
   cloud: ['M7.5 18.5a4.5 4.5 0 0 1-.5-8.97 5.5 5.5 0 0 1 10.6-.8A4.5 4.5 0 0 1 17 18.5z'],
 };
 
@@ -79,6 +80,7 @@ export const MODS = [
   { id: 'files', label: 'Meus Arquivos', glyph: 'folder' },
   { id: 'lens', label: 'Disk Map', glyph: 'lens' },
   { id: 'cloud', label: 'Nuvem', glyph: 'cloud' },
+  { id: 'tools', label: 'Minhas Ferramentas', glyph: 'tools' },
   { spacer: true },
   { id: 'activity', label: 'Minha Atividade', glyph: 'pulse' },
   { id: 'settings', label: 'Ajustes', glyph: 'gear' },

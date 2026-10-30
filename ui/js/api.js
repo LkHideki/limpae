@@ -82,4 +82,5 @@ export const api = {
   lensIcon: (nodeId) => call('lens_icon', { nodeId }, { quiet: true }),
   lensReveal: (nodeId) => call('lens_reveal', { nodeId }),
   lensQuicklook: (nodeId) => call('lens_quicklook', { nodeId }),
+  markSmartCare: () => call('mark_smart_care', undefined, { quiet: true }),
 };
