@@ -28,6 +28,8 @@ pub struct Item {
     pub note: Option<String>,
     /// Last modification, unix seconds.
     pub modified: Option<i64>,
+    /// Last access (`atime`), unix seconds.
+    pub accessed: Option<i64>,
     #[serde(skip)]
     pub policy: Policy,
     /// (device, inode) seen by the scan. Removal refuses the item if the path now points at something else.
@@ -47,8 +49,9 @@ impl Item {
             .and_then(|m| m.modified().ok())
             .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
             .map(|d| d.as_secs() as i64);
+        let accessed = md.as_ref().map(|m| m.atime());
         let ident = md.as_ref().map(|m| (m.dev(), m.ino()));
-        Self { path, name, size, selected: true, note: None, modified, policy, ident }
+        Self { path, name, size, selected: true, note: None, modified, accessed, policy, ident }
     }
 
     pub fn unselected(mut self, note: impl Into<String>) -> Self {

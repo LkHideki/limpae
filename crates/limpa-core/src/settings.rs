@@ -159,6 +159,7 @@ mod tests {
             selected: true,
             note: None,
             modified: None,
+            accessed: None,
             policy: Policy::MoveToTrash,
             ident: None,
         };

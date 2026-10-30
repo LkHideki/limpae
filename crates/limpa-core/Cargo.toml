@@ -5,6 +5,7 @@ version.workspace = true
 license.workspace = true
 
 [dependencies]
+blake3 = { version = "1", default-features = false, features = ["std"] }
 libc = "0.2"
 plist = "1.10.3"
 rayon = "1.12.0"
@@ -25,6 +26,7 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
     "objc2-core-graphics",
 ] }
 objc2-core-foundation = "0.3"
+objc2-image-io = { version = "0.3", default-features = false, features = ["std", "CGImageSource", "CGImageProperties", "objc2-core-graphics"] }
 objc2-core-graphics = "0.3"
 objc2-foundation = "0.3"
 
