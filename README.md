@@ -1,50 +1,145 @@
+<div align="center">
+
+<img src="src-tauri/icons/128x128@2x.png" width="128" height="128" alt="Limpae icon">
+
 # Limpae
 
-Limpeza de disco para macOS, com identidade visual própria. Engine em Rust (`crates/limpa-core`), shell Tauri 2 usando o WebKit do sistema (`src-tauri`) e interface em HTML/CSS/JS sem dependências (`ui`). O `.app` de release tem cerca de 5 MB.
+**A small, fast and careful disk cleaner for macOS.**<br>
+Native Rust engine, system WebKit, a hand-built interface. About 7 MB on disk.
 
-## Módulos
+![macOS 13+](https://img.shields.io/badge/macOS-13%2B-1f2937?style=flat-square&logo=apple&logoColor=white)
+![Rust 2024](https://img.shields.io/badge/Rust-2024-b7410e?style=flat-square&logo=rust&logoColor=white)
+![Tauri 2](https://img.shields.io/badge/Tauri-2-24c8db?style=flat-square&logo=tauri&logoColor=white)
+![UI](https://img.shields.io/badge/UI-vanilla%20JS-f7df1e?style=flat-square&logo=javascript&logoColor=black)
+![Languages](https://img.shields.io/badge/languages-EN%20%C2%B7%20PT--BR%20%C2%B7%20ID-4c6ef5?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-2f9e44?style=flat-square)
 
-- **Faxina** analisa lixo, Lixeira, apps e arquivos grandes de uma vez. "Executar" remove apenas o lixo pré-selecionado.
-- **Limpeza** cobre caches e logs do usuário, lixo do Xcode e caches de gerenciadores de pacotes.
-- **Lixeira** mostra o tamanho e esvazia a Lixeira, com confirmação.
-- **Aplicativos** desinstala apps junto com os restos em `~/Library`.
-- **Meus Arquivos** lista arquivos grandes na pasta pessoal, agrupados por tipo.
+</div>
 
-## Modelo de segurança
+---
 
-- A interface nunca envia caminhos de arquivo. O backend guarda o resultado de cada análise e entrega só ids numéricos, que nunca se repetem. Para remover, a interface devolve ids.
-- Toda remoção passa de novo pelo `Guard` (`crates/limpa-core/src/guard.rs`) no momento em que acontece. O `Guard` exige caminho absoluto, sem `..`. Exige que o item esteja estritamente dentro da raiz permitida para a sua política. Recusa qualquer item que seja, ou que contenha, um local protegido (`/`, `~`, `~/Library`, `~/Documents` etc.). Nunca toca em `~/.ssh`, Keychains, iCloud Drive, Mail, Mensagens ou Fotos. Nunca segue symlinks.
-- Cache e log regeneráveis são apagados direto, porque mandar para o Lixo não liberaria espaço. Arquivos do usuário, apps e restos vão para o Lixo pelo `NSFileManager`, então dá para recuperar. Esvaziar a Lixeira apaga definitivamente e pede confirmação.
-- O app que está aberto é reconhecido pelo bundle id, pelo nome e por pastas de fornecedor (por exemplo `Caches/Google` para o Chrome). O cache dele vem desmarcado. Se o app for aberto depois da análise, a remoção desse cache é recusada.
-- A identidade de cada item (dispositivo e inode) é registrada na análise. Se o caminho passar a apontar para outro arquivo, a remoção é recusada.
-- Caches de downloads em andamento (sessões de URL em segundo plano, App Store, atualizações do macOS) e de serviços do iCloud, HomeKit e Buscar nunca entram na lista.
-- Se houver outra cópia do mesmo app instalada, os restos vêm desmarcados.
-- Caches caros de baixar de novo vêm desmarcados. Arquivos do usuário nunca vêm pré-selecionados.
-- Cada ação fica registrada em `~/Library/Logs/Limpae/actions.log` ("Ver log" na interface).
-- Fica de fora de propósito:
-  - remoção de idiomas e de binários universais, porque quebra assinaturas de código;
-  - caches de sistema, porque exigem root;
-  - "antimalware" sem base de assinaturas;
-  - `~/Library/Containers` na limpeza, porque dispara alertas de privacidade.
+Limpae finds what is safe to remove, shows you exactly what it found, and only then removes it. It is built around one rule: **a deletion has to be provably safe before it is fast.**
 
-## Permissões
+No antivirus and no telemetry. Limpae makes no network requests of its own; everything runs on your Mac.
 
-Sem Acesso Total ao Disco o app funciona, mas não lê a Lixeira e parte de `~/Library`. Para conceder, vá em Ajustes do Sistema › Privacidade e Segurança › Acesso Total ao Disco. O build local é assinado ad hoc, então o macOS associa a permissão ao hash do binário. Depois de recompilar, é preciso conceder de novo.
+## Highlights
 
-## Desenvolvimento
+- **Sweep.** One scan across six modules, one pre-selected review, one button. Only safe junk is pre-selected; your own files never are.
+- **Disk Map.** An interactive bubble map of what is using your disk, with Finder-style navigation, Quick Look and reveal-in-Finder.
+- **Cleanup.** User caches and logs, Xcode and package-manager caches, AI tool leftovers, broken preferences and login items, iOS backups, Mail attachments, and Trash bins on external volumes.
+- **Application manager.** Uninstall apps together with the leftovers in `~/Library`, find orphaned leftovers, installers, unused apps and available updates.
+- **My Files.** Large and old files, exact duplicates, similar images (best copy pre-marked) and a per-app view of Downloads.
+- **Protection, without an antivirus.** Security posture checks (Gatekeeper, SIP, FileVault, firewall, XProtect age, updates), app permissions you can review and revoke, and privacy traces.
+- **Performance.** Background agents and login items with code-signature checks, a live system monitor and Time Machine snapshot thinning.
+- **Menu bar extra.** Health, free space, memory pressure and Trash size at a glance, as a native menu that costs nothing while closed.
+- **Calm by default.** Elegant motion that pauses when the window is idle, glass-like synthesized sounds (no audio files) and Esc / ⌘[ to go back.
+- **Three languages.** English (default), Brazilian Portuguese and Bahasa Indonesia, switchable in Settings.
+
+## Modules
+
+| Module | What it does |
+| --- | --- |
+| **Sweep** | Scans Cleanup, Trash, Protection, Performance, Applications and My Files in one pass and removes the pre-selected junk. |
+| **Cleanup** | System and app junk, grouped and sized, with per-item review. |
+| **Trash** | Shows what is in every Trash (including external volumes) and empties it with confirmation. |
+| **Protection** | Security posture, app permissions (TCC) and privacy traces. Read-only checks; fixes open the right Settings pane. |
+| **Performance** | Background agents, login items, live monitor, snapshots. |
+| **Applications** | Uninstaller, updater, leftovers, installers, vendor view. |
+| **My Files** | Large and old files, duplicates, similar images, Downloads. |
+| **Disk Map** | Visual disk map. |
+| **Cloud** | Evict local copies of files that are already in iCloud. |
+| **Toolbox** | Every tool in one place, with favorites and a screen cleaning mode. |
+| **Health** | Mac health score with recommendations. |
+
+## Safety model
+
+Deleting files is the dangerous part of a cleaner, so the engine is conservative and checks again at the last moment.
+
+- **The UI never sends file paths.** The backend keeps the result of every scan and hands out numeric ids that are never reused. To remove something, the UI returns ids.
+- **Everything goes through the `Guard` again at removal time** (`crates/limpa-core/src/guard.rs`). It requires an absolute path without `..`, strictly inside the root allowed for the item's policy; refuses anything that is, or contains, a protected location (`/`, `~`, `~/Library`, `~/Documents`, …); never touches `~/.ssh`, Keychains, iCloud Drive, Mail, Messages or Photos; and never follows symlinks.
+- **Identity is verified.** Each item's device and inode are recorded at scan time. If the path now points to a different file, removal is refused.
+- **Recoverable by default.** Regenerable caches and logs are deleted directly, since moving them to the Trash would free nothing. User files, apps and leftovers go to the Trash through `NSFileManager`. Permanent deletion is an explicit choice, off by default, and every confirmation still lets you decide.
+- **Open apps are protected.** A running app is recognized by bundle id, name and vendor folders (for example `Caches/Google` for Chrome). Its cache starts unselected, and if the app opens after the scan, removing that cache is refused.
+- **Leftovers need proof of ownership**, re-verified at removal. If another copy of the same app is installed, leftovers start unselected.
+- **Never listed:** in-progress downloads, App Store and macOS update caches, and iCloud, HomeKit and Find My services.
+- **Expensive-to-rebuild caches start unselected.** User files are never pre-selected.
+- **Everything is logged** to `~/Library/Logs/Limpae/actions.log`, one line per action.
+
+### Left out on purpose
+
+- Language and universal-binary stripping, because it breaks code signatures.
+- System caches, because they need root.
+- "Antimalware" without a signature database.
+- `~/Library/Containers` in Cleanup, because it triggers privacy alerts.
+
+## Install
+
+Requires macOS 13 or later, Rust (stable) and [`tauri-cli`](https://tauri.app) 2.
+
+```sh
+cargo install tauri-cli --version '^2' --locked   # once
+scripts/install.sh
+```
+
+The script builds a release bundle, copies it to `~/Applications/Limpae.app`, registers it with LaunchServices and waits until Spotlight indexes it, so Limpae shows up in Spotlight and Launchpad.
+
+### Permissions
+
+Limpae works without any special permission, but it cannot read the Trash or part of `~/Library` until you grant **Full Disk Access** (System Settings › Privacy & Security › Full Disk Access). The local build is ad-hoc signed, so macOS ties the grant to the binary hash: after rebuilding you have to grant it again.
+
+Removing system-installed apps asks Finder to move them, which prompts for your administrator password. Listing login items uses System Events. Both prompts are localized.
+
+## Languages
+
+Pick the language in **Settings › General**. English is the default.
+
+| Language | Code |
+| --- | --- |
+| English | `en` |
+| Português (Brasil) | `pt` |
+| Bahasa Indonesia | `id` |
+
+The key of every UI string is its Portuguese source text, so Portuguese needs no dictionary. English and Indonesian live in `ui/js/i18n/dict/`, one file per area, as `{ en, id }` per key. Texts that the Rust backend returns in Portuguese go through `tr()`, which also matches `{param}` patterns. The menu bar extra and the system permission prompt are localized natively.
+
+To check that nothing is missing or untranslated:
+
+```sh
+node scripts/check-i18n.mjs            # whole UI
+node scripts/check-i18n.mjs ui/js/views/apps.js
+```
+
+It reports missing translations, dynamic keys, mismatched `{placeholders}` and Portuguese literals left outside `t()`. Adding a language means adding it to `LANGS` in `ui/js/i18n.js`, a value per key in the dictionaries, and a `.lproj` folder in `src-tauri/locales`.
+
+## Architecture
+
+```
+crates/limpa-core/   Rust engine: scanning, Guard, removal, health, security, performance. No UI, no Tauri.
+src-tauri/           Tauri 2 shell: commands, scan registry, menu bar extra. Uses the system WebKit.
+ui/                  The interface in plain HTML, CSS and ES modules. No framework, no bundler, no npm.
+scripts/             install.sh, check-i18n.mjs
+```
+
+Design choices that follow from "light and fast":
+
+- The engine is a library with its own tests; the shell only adapts it to Tauri commands that run on the blocking pool.
+- Directory walks stat sequentially per directory and parallelize across subdirectories.
+- The UI has no runtime dependencies and builds DOM with `createElement`/`textContent` only, because file names come from the disk and are not trusted.
+- Continuous animations pause when the window is not focused, so the app is idle in the background. Reduced-motion preferences are honored.
+- Sounds are synthesized with WebAudio at play time; there are no audio assets.
+
+## Development
 
 ```sh
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p limpae            # abre o app servindo ./ui embutido
+node scripts/check-i18n.mjs
+cargo run -p limpae            # runs the app serving ./ui
 ```
 
-Requer Rust estável e `tauri-cli` 2.x (`cargo install tauri-cli --version '^2' --locked`).
+The `ui/` folder is served as is, so UI changes need no build step; reload the window.
 
-## Instalação
+## Credits and license
 
-```sh
-scripts/install.sh
-```
+Branding, artwork and sounds are original to Limpae.
 
-O script compila o bundle de release, copia para `~/Applications/Limpae.app`, registra no LaunchServices e indexa no Spotlight. Ele termina com sucesso só quando o `mdfind` encontra o app.
+Released under the MIT license.
