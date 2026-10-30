@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
   <key>NSAppleEventsUsageDescription</key>
-  <string>Para mover para o Lixo apps instalados pelo sistema, o Limpaemeo pede ao Finder, que solicita sua senha de administrador.</string>
+  <string>Para mover para o Lixo apps instalados pelo sistema, o Limpaemeo pede ao Finder, que solicita sua senha de administrador. Para listar e remover itens de login, ele também consulta o System Events.</string>
 </dict>
 </plist>

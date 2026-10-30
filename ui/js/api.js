@@ -72,4 +72,11 @@ export const api = {
   tccRevoke: (ids) => call('tcc_revoke', { ids }),
   privacyScan: () => call('privacy_scan'),
   privacyRemove: (ids, permanent = false) => call('privacy_remove', { ids, permanent }),
+  perfScan: () => call('perf_scan'),
+  perfMonitor: () => call('perf_monitor', undefined, { quiet: true }),
+  perfIcon: (id) => call('perf_icon', { id }, { quiet: true }),
+  agentToggle: (id, enable) => call('agent_toggle', { id, enable }),
+  agentRemove: (ids) => call('agent_remove', { ids }),
+  loginItemRemove: (ids) => call('login_item_remove', { ids }),
+  tmThin: () => call('tm_thin'),
 };

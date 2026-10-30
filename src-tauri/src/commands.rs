@@ -31,7 +31,7 @@ pub(crate) type Shared = Arc<AppState>;
 
 pub(crate) const OWN_BUNDLE_ID: &str = "br.com.limpaemeo";
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
-const ERR_CANCELLED: &str = "Varredura cancelada.";
+pub(crate) const ERR_CANCELLED: &str = "Varredura cancelada.";
 const ERR_APP_GONE: &str = "App não encontrado. Atualize a lista de apps.";
 const ERR_APP_KEPT: &str = "mantido porque o app não pôde ser removido";
 const ERR_NOT_RECONFIRMED: &str = "não foi confirmado como parte do app na verificação final";

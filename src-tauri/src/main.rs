@@ -3,6 +3,7 @@ mod cmd_cleanup;
 mod cmd_clutter;
 mod cmd_health;
 mod cmd_lens;
+mod cmd_perf;
 mod cmd_security;
 mod commands;
 mod dto;
@@ -88,6 +89,13 @@ fn main() {
             cmd_security::tcc_revoke,
             cmd_security::privacy_scan,
             cmd_security::privacy_remove,
+            cmd_perf::perf_scan,
+            cmd_perf::perf_monitor,
+            cmd_perf::perf_icon,
+            cmd_perf::agent_toggle,
+            cmd_perf::agent_remove,
+            cmd_perf::login_item_remove,
+            cmd_perf::tm_thin,
         ])
         .build(tauri::generate_context!())
         .expect("erro ao iniciar o Limpaemeo");
