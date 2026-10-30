@@ -12,6 +12,7 @@ export const store = {
   trashUi: { phase: 'idle', freed: 0 },
   files: { phase: 'idle', moved: 0 },
   icons: new Map(),
+  settings: null,
 };
 
 export const bump = () => { store.rev++; };

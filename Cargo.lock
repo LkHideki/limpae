@@ -1752,6 +1752,7 @@ dependencies = [
  "plist",
  "rayon",
  "serde",
+ "serde_json",
  "tempfile",
  "trash",
 ]

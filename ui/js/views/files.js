@@ -1,4 +1,5 @@
 // Meus Arquivos: arquivos grandes por tamanho mínimo; nada vem pré-selecionado; ação = mover para o Lixo.
+import { play } from '../sound.js';
 import { h, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
@@ -41,6 +42,7 @@ export function enter(ctx) {
   async function scan(mb) {
     cancelled = false;
     F.phase = 'scanning';
+    play('start');
     ctx.setBusy(true);
     ensureStage();
     st.busy(true);
@@ -56,6 +58,7 @@ export function enter(ctx) {
     ctx.setBusy(false);
     if (!ctx.alive) return;
     F.phase = ok ? 'review' : 'idle';
+    if (ok) play('found');
     render();
   }
 
@@ -91,6 +94,7 @@ export function enter(ctx) {
     for (const id of res.okIds) store.largeSel.delete(id);
     bump(); store.trash = null;
     F.moved = res.freed; F.failed = res.failures.length; F.phase = 'done';
+    play(res.freed ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;

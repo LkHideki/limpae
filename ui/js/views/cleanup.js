@@ -1,4 +1,5 @@
 // Limpeza: landing -> varredura -> resumo -> revisão -> limpeza -> conclusão.
+import { play } from '../sound.js';
 import { h, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
@@ -43,6 +44,7 @@ export function enter(ctx) {
   async function scan() {
     cancelled = false;
     C.phase = 'scanning';
+    play('start');
     ctx.setBusy(true);
     st.busy(true);
     const ticker = h('div', { class: 'ticker' });
@@ -51,7 +53,7 @@ export function enter(ctx) {
     ctx.setDock({ label: 'Parar', busy: true, mod: 'clean', onClick: () => { cancelled = true; ctx.setDock({ label: 'Parando', busy: true, disabled: true, mod: 'clean' }); api.cancel().catch(() => {}); } });
     try {
       const r = await api.junk();
-      if (!cancelled) { store.junk = r; store.junkSel = selectedIds(r); bump(); C.phase = 'summary'; }
+      if (!cancelled) { store.junk = r; store.junkSel = selectedIds(r); bump(); C.phase = 'summary'; play('found'); }
     } catch (e) { /* erro já exibido em toast */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
@@ -113,6 +115,7 @@ export function enter(ctx) {
     for (const id of res.okIds) store.junkSel.delete(id);
     bump();
     C.freed = res.freed; C.failed = res.failures.length; C.phase = 'done';
+    play(res.freed ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;

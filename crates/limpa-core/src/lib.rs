@@ -5,15 +5,22 @@
 //! that the scan assigned to it.
 
 pub mod apps;
+pub mod apps_extra;
+pub mod clutter;
 pub mod disk;
 pub mod fda;
 pub mod guard;
+pub mod health;
 pub mod junk;
 pub mod large;
+pub mod lens;
 pub mod log;
 pub mod model;
+pub mod perf;
 pub mod remove;
 pub mod running;
+pub mod security;
+pub mod settings;
 pub mod size;
 
 pub use guard::{Guard, GuardError};

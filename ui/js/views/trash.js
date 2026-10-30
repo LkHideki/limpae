@@ -1,4 +1,5 @@
 // Lixeira: tamanho/itens, esvaziar com confirmação permanente, e painel de Acesso Total ao Disco.
+import { play } from '../sound.js';
 import { h, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
@@ -84,6 +85,7 @@ export function enter(ctx) {
     const res = await removeGroups(r, all);
     bump();
     T.freed = res.freed; T.phase = 'done'; store.trash = null;
+    play(res.freed ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;

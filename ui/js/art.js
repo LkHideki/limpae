@@ -29,6 +29,9 @@ const P = {
   bolt: ['M13 3.5L5.5 13.5H12l-1 7 7.5-10H12z'],
   clock: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M12 8v4.2l2.8 1.8'],
   restart: ['M4.5 12a7.5 7.5 0 1 1 2.2 5.3', 'M4.2 18v-6h6'],
+  gear: ['M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M6 18l1.6-1.6M16.4 7.6L18 6'],
+  lens: ['M8 8a4 4 0 1 0 0 .01', 'M16.5 6.5a3 3 0 1 0 0 .01', 'M15 15.5a4.5 4.5 0 1 0 0 .01'],
+  pulse: ['M3.5 12h4l2-5 4 10 2-5h5'],
 };
 
 export function icon(name, size = 18, cls = '') {
@@ -52,6 +55,12 @@ export const MODS = [
   { id: 'smart', label: 'Faxina', glyph: 'smart' },
   { id: 'clean', label: 'Limpeza', glyph: 'clean' },
   { id: 'trash', label: 'Lixeira', glyph: 'trash' },
+  { id: 'protect', label: 'Proteção', glyph: 'shield' },
+  { id: 'perf', label: 'Desempenho', glyph: 'bolt' },
   { id: 'apps', label: 'Aplicativos', glyph: 'apps' },
   { id: 'files', label: 'Meus Arquivos', glyph: 'folder' },
+  { id: 'lens', label: 'Disk Map', glyph: 'lens' },
+  { spacer: true },
+  { id: 'activity', label: 'Minha Atividade', glyph: 'pulse' },
+  { id: 'settings', label: 'Ajustes', glyph: 'gear' },
 ];

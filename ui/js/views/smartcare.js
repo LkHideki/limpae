@@ -1,4 +1,5 @@
 // Faxina: landing -> varredura sequencial (bento) -> resultados -> limpeza -> conclusão.
+import { play } from '../sound.js';
 import { h, mount, sleep } from '../dom.js';
 import { orb, icon } from '../art.js';
 import { api } from '../api.js';
@@ -119,6 +120,7 @@ export function enter(ctx) {
   async function run() {
     cancelled = false;
     S.phase = 'scan'; S.err = {};
+    play('start');
     ctx.setBusy(true);
     buildBento();
     TILES.forEach((t) => paint(t, 'wait'));
@@ -140,6 +142,7 @@ export function enter(ctx) {
     ctx.setBusy(false);
     if (cancelled) { S.phase = 'idle'; renderIdle(); return; }
     S.phase = 'results'; S.rev = store.rev;
+    play('found');
     renderResults();
   }
 
@@ -185,6 +188,7 @@ export function enter(ctx) {
     store.cleanup.phase = store.junk.groups.length ? 'summary' : 'idle';
     if (!store.junk.groups.length) store.junk = null;
     S.phase = 'done'; S.rev = store.rev;
+    play('clean');
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
