@@ -79,4 +79,7 @@ export const api = {
   agentRemove: (ids) => call('agent_remove', { ids }),
   loginItemRemove: (ids) => call('login_item_remove', { ids }),
   tmThin: () => call('tm_thin'),
+  lensIcon: (nodeId) => call('lens_icon', { nodeId }, { quiet: true }),
+  lensReveal: (nodeId) => call('lens_reveal', { nodeId }),
+  lensQuicklook: (nodeId) => call('lens_quicklook', { nodeId }),
 };
