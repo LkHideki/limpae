@@ -265,13 +265,13 @@ pub(crate) fn run_removal_with(st: &AppState, items: &[(u64, Item)], opts: Remov
 }
 
 /// Builds the response in the caller's id order (duplicates collapsed); `freed` counts successes only.
-fn assemble(order: &[u64], mut by_id: HashMap<u64, OutcomeDto>) -> RemoveResult {
+pub(crate) fn assemble(order: &[u64], mut by_id: HashMap<u64, OutcomeDto>) -> RemoveResult {
     let outcomes: Vec<OutcomeDto> = order.iter().filter_map(|id| by_id.remove(id)).collect();
     let freed = outcomes.iter().filter(|o| o.ok).map(|o| o.freed).sum();
     RemoveResult { outcomes, freed }
 }
 
-fn dedup(ids: &[u64]) -> Vec<u64> {
+pub(crate) fn dedup(ids: &[u64]) -> Vec<u64> {
     let mut seen = std::collections::HashSet::new();
     ids.iter().copied().filter(|id| seen.insert(*id)).collect()
 }

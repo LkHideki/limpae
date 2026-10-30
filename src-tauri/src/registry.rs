@@ -40,6 +40,9 @@ pub const ERR_WRONG_TASK: &str = "item não pertence a esta análise";
 
 /// iCloud Drive files found by the cloud scan; they are evicted, never removed.
 pub const TASK_ICLOUD: Task = Task::Other("icloud");
+/// Browser/recent-items files: removable only through `privacy_remove`, which re-checks the browser is closed.
+pub const TASK_PRIVACY: Task = Task::Other("privacy");
+pub const ERR_PRIVACY_ONLY: &str = "itens de privacidade só podem ser removidos pela tela de Privacidade";
 /// Items chosen in Disk Map; removable through `remove` (Trash policy).
 pub const TASK_LENS: Task = Task::Other("lens");
 
@@ -113,6 +116,7 @@ impl Registry {
         self.resolve(ids, |task| match task {
             Task::Leftovers(_) => Err(ERR_LEFTOVER_VIA_REMOVE),
             t if t == TASK_ICLOUD => Err(ERR_EVICT_ONLY),
+            t if t == TASK_PRIVACY => Err(ERR_PRIVACY_ONLY),
             _ => Ok(()),
         })
     }
@@ -304,5 +308,15 @@ mod tests {
         r.replace(Task::Other("dups"), vec![]);
         assert!(r.get(&a).0.is_empty());
         assert_eq!(r.resolve_removal(&b).items.len(), 1);
+    }
+
+    #[test]
+    fn privacy_items_are_refused_by_generic_remove() {
+        let mut r = Registry::new();
+        let p = ids(&r.replace(TASK_PRIVACY, vec![group("chrome", &[("History", 1)])]));
+        let res = r.resolve_removal(&p);
+        assert!(res.items.is_empty());
+        assert_eq!(res.rejected, vec![(p[0], ERR_PRIVACY_ONLY)]);
+        assert_eq!(r.resolve_task(TASK_PRIVACY, &p).items.len(), 1);
     }
 }
