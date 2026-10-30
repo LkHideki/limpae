@@ -13,6 +13,7 @@ pub mod fda;
 pub mod guard;
 pub mod health;
 pub mod junk;
+pub mod lang;
 pub mod large;
 pub mod lens;
 pub mod log;

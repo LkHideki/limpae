@@ -45,6 +45,8 @@ pub struct Settings {
     pub permanent_delete: bool,
     /// Unix seconds of the last finished Sweep run (None = never). Only `mark_smart_care` sets it.
     pub last_smart_care: Option<u64>,
+    /// UI language: "en" (default), "pt" (Brazilian Portuguese) or "id" (Bahasa Indonesia).
+    pub language: String,
 }
 
 impl Default for Settings {
@@ -58,6 +60,7 @@ impl Default for Settings {
             sounds: true,
             permanent_delete: false,
             last_smart_care: None,
+            language: "en".into(),
         }
     }
 }
