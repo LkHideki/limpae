@@ -344,8 +344,12 @@ fn walk_dir(path: &Path, md: &Metadata, ctx: &Ctx) -> Built {
     }
     ctx.p.report(path, ctx.found.load(Ordering::Relaxed));
     let Ok(rd) = fs::read_dir(path) else { return b };
-    let entries: Vec<DirEntry> = rd.filter_map(Result::ok).collect();
-    let parts: Vec<Part> = entries.par_iter().map(|e| classify(e, ctx)).collect();
+    let entries = crate::size::stat_entries(rd);
+    let parts: Vec<Part> = if crate::size::in_app_container(path) {
+        entries.iter().map(|(e, m)| classify(e, m, ctx)).collect()
+    } else {
+        entries.par_iter().map(|(e, m)| classify(e, m, ctx)).collect()
+    };
     let (mut small_n, mut small_bytes) = (0u32, 0u64);
     for part in parts {
         match part {
@@ -376,16 +380,14 @@ fn walk_dir(path: &Path, md: &Metadata, ctx: &Ctx) -> Built {
     b
 }
 
-fn classify(e: &DirEntry, ctx: &Ctx) -> Part {
-    // DirEntry::metadata does not traverse symlinks on unix.
-    let Ok(md) = e.metadata() else { return Part::Skip };
+fn classify(e: &DirEntry, md: &Metadata, ctx: &Ctx) -> Part {
     if md.dev() != ctx.dev {
         return Part::Skip;
     }
     let path = e.path();
     if md.is_dir() {
         if is_package(&path) {
-            let (size, items) = measure(&path, &md, ctx);
+            let (size, items) = measure(&path, md, ctx);
             return Part::Node(Built {
                 name: e.file_name(),
                 size,
@@ -395,14 +397,14 @@ fn classify(e: &DirEntry, ctx: &Ctx) -> Part {
                 children: Vec::new(),
             });
         }
-        let mut b = walk_dir(&path, &md, ctx);
+        let mut b = walk_dir(&path, md, ctx);
         b.name = e.file_name();
         return Part::Node(b);
     }
-    if !ctx.first_link(&md) {
+    if !ctx.first_link(md) {
         return Part::Skip;
     }
-    let bytes = own_bytes(&md);
+    let bytes = own_bytes(md);
     ctx.found.fetch_add(bytes, Ordering::Relaxed);
     if md.is_file() && bytes >= ctx.small_below {
         return Part::Node(Built {
@@ -424,21 +426,20 @@ fn measure(path: &Path, md: &Metadata, ctx: &Ctx) -> (u64, u32) {
     }
     let own = own_bytes(md);
     let Ok(rd) = fs::read_dir(path) else { return (own, 0) };
-    let entries: Vec<DirEntry> = rd.filter_map(Result::ok).collect();
+    let entries = crate::size::stat_entries(rd);
     let (bytes, items) = entries
         .par_iter()
-        .map(|e| {
-            let Ok(m) = e.metadata() else { return (0, 0) };
+        .map(|(e, m)| {
             if m.dev() != ctx.dev {
                 return (0, 0);
             }
             if m.is_dir() {
-                return measure(&e.path(), &m, ctx);
+                return measure(&e.path(), m, ctx);
             }
-            if !ctx.first_link(&m) {
+            if !ctx.first_link(m) {
                 return (0, 0);
             }
-            (own_bytes(&m), 1)
+            (own_bytes(m), 1)
         })
         .reduce(|| (0, 0), |a, b| (a.0 + b.0, a.1 + b.1));
     ctx.found.fetch_add(bytes, Ordering::Relaxed);
