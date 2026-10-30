@@ -23,7 +23,7 @@
 .rv-name .badge { display: block; line-height: 18px; min-width: 0; max-width: 68%; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
 
 .rv-item.has-note { height: auto; min-height: 56px; padding-top: 9px; padding-bottom: 9px; }
-.rv-note { margin-top: 3px; font-size: 12px; color: #ffd08a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-note { margin-top: 3px; font-size: 12px; line-height: 1.35; color: #ffd08a; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .rv-note.info { color: #b7d0ff; }
 
 /* Grupos (painel esquerdo) com ícone */

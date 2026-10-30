@@ -142,6 +142,7 @@ export function enter(ctx) {
       body: moved.size === 0 ? permNote : perm === 0 ? trashNote : [...permNote, h('br'), ...trashNote],
       confirm: moved.size === count ? t('Mover para o Lixo') : t('Limpar'), danger: perm > 0, glyph: 'trash', mod: 'clean',
       permanentChoice: moved.size > 0, permanentDefault: !!(store.settings && store.settings.permanentDelete), trashCount: moved.size,
+      permanentTitle: moved.size === count ? t('Apagar {size} definitivamente?', { size: fmtBytes(bytes) }) : t('Limpar {size} definitivamente?', { size: fmtBytes(bytes) }),
     });
     if (!ok) return;
     C.phase = 'cleaning';
