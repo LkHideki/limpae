@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fs;
+use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path, PathBuf};
 
 use crate::model::Policy;
@@ -100,6 +101,59 @@ const HOME_FORBIDDEN: &[&str] = &[
 
 const APP_ROOTS: &[&str] = &["/Applications"];
 
+/// Top-level entries of an external volume that hold system or backup state, never user data to clean.
+const VOLUME_RESERVED: &[&str] = &[
+    "System",
+    "Library",
+    "private",
+    "usr",
+    "bin",
+    "sbin",
+    "Users",
+    "Applications",
+    "cores",
+    ".Trashes",
+    ".Spotlight-V100",
+    ".fseventsd",
+    ".DocumentRevisions-V100",
+    ".TemporaryItems",
+    ".MobileBackups",
+    "Backups.backupdb",
+];
+
+/// The `/Volumes/<name>` root of a separately mounted (external or secondary) volume holding `real`. The boot
+/// volume's alias in /Volumes canonicalizes to "/", so it never matches.
+fn external_volume(real: &Path) -> Option<PathBuf> {
+    let name = real.strip_prefix("/Volumes").ok()?.components().next()?;
+    let root = Path::new("/Volumes").join(name);
+    let dev = fs::symlink_metadata(&root).ok().filter(|m| m.is_dir())?.dev();
+    (dev != fs::metadata("/").ok()?.dev()).then_some(root)
+}
+
+/// Time Machine destinations are never touched, whatever is inside.
+fn is_backup_volume(root: &Path) -> bool {
+    ["Backups.backupdb", ".timemachine", ".com.apple.timemachine.donotpresent"]
+        .iter()
+        .any(|m| fs::symlink_metadata(root.join(m)).is_ok())
+}
+
+/// User data on an external volume: below its root, outside reserved top-level folders, not a backup disk.
+fn volume_user_data(real: &Path, root: &Path) -> bool {
+    let Ok(rel) = real.strip_prefix(root) else { return false };
+    let Some(first) = rel.components().next() else { return false };
+    !VOLUME_RESERVED.iter().any(|r| first.as_os_str() == *r) && !is_backup_volume(root)
+}
+
+/// Direct child of the user's own trash on an external volume (`<root>/.Trashes/<uid>/<entry>`).
+fn volume_trash_entry(real: &Path, root: &Path, uid: u32) -> bool {
+    real.parent() == Some(root.join(".Trashes").join(uid.to_string()).as_path()) && !is_backup_volume(root)
+}
+
+fn current_uid() -> u32 {
+    // SAFETY: getuid has no preconditions and cannot fail.
+    unsafe { libc::getuid() }
+}
+
 /// Last line of defence before anything is removed. Every removal goes
 /// through [`Guard::check`] at removal time, not at scan time, so state that
 /// changed in between (e.g. a directory swapped for a symlink) is caught.
@@ -164,8 +218,15 @@ impl Guard {
                 }
                 real.starts_with(&root) && real != root
             }
-            Policy::MoveToTrash => self.in_home(&real) || self.is_installed_app(&real),
-            Policy::EmptyTrashEntry => real.parent() == Some(self.trash.as_path()),
+            Policy::MoveToTrash => {
+                self.in_home(&real)
+                    || self.is_installed_app(&real)
+                    || external_volume(&real).is_some_and(|root| volume_user_data(&real, &root))
+            }
+            Policy::EmptyTrashEntry => {
+                real.parent() == Some(self.trash.as_path())
+                    || external_volume(&real).is_some_and(|root| volume_trash_entry(&real, &root, current_uid()))
+            }
         };
         if allowed { Ok(real) } else { Err(GuardError::OutsideRoot) }
     }
@@ -317,5 +378,38 @@ mod tests {
         let doc = f.home.join("Documents/big.mov");
         assert_eq!(f.guard.check(&doc, &Policy::EmptyTrashEntry), Err(GuardError::OutsideRoot));
         assert_eq!(f.guard.check(&f.home.join(".Trash"), &Policy::EmptyTrashEntry), Err(GuardError::Protected));
+    }
+
+    #[test]
+    fn external_volume_rules() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = fs::canonicalize(tmp.path()).unwrap();
+        for d in ["Projects", "System", ".Trashes/501"] {
+            fs::create_dir_all(root.join(d)).unwrap();
+        }
+        assert!(volume_user_data(&root.join("Projects/video.mov"), &root));
+        assert!(volume_user_data(&root.join("film.mkv"), &root));
+        assert!(!volume_user_data(&root, &root), "volume root itself");
+        assert!(!volume_user_data(&root.join("System/x"), &root));
+        assert!(!volume_user_data(&root.join(".Trashes/501/old"), &root));
+        assert!(volume_trash_entry(&root.join(".Trashes/501/old"), &root, 501));
+        assert!(!volume_trash_entry(&root.join(".Trashes/502/old"), &root, 501), "another user's trash");
+        assert!(!volume_trash_entry(&root.join(".Trashes/501/a/b"), &root, 501), "only direct children");
+        fs::create_dir(root.join("Backups.backupdb")).unwrap();
+        assert!(!volume_user_data(&root.join("Projects/video.mov"), &root), "Time Machine disk");
+        assert!(!volume_trash_entry(&root.join(".Trashes/501/old"), &root, 501));
+    }
+
+    #[test]
+    fn boot_volume_alias_is_not_external() {
+        assert_eq!(external_volume(Path::new("/Users/someone/file")), None);
+        assert_eq!(external_volume(Path::new("/Volumes")), None);
+        if let Ok(entries) = fs::read_dir("/Volumes") {
+            for e in entries.flatten() {
+                if fs::canonicalize(e.path()).is_ok_and(|c| c == Path::new("/")) {
+                    assert_eq!(external_volume(&e.path().join("x")), None, "{:?}", e.path());
+                }
+            }
+        }
     }
 }
