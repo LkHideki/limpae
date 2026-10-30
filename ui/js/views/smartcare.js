@@ -6,18 +6,20 @@ import { h, mount, sleep } from '../dom.js';
 import { orb, icon } from '../art.js';
 import { api } from '../api.js';
 import { store, selectedSize, selectedIds, pruneResult, countItems } from '../store.js';
-import { fmtBytes, plural } from '../format.js';
+import { fmtBytes } from '../format.js';
+import { t, tn, tr } from '../i18n.js';
 import { confirmDialog, failuresSheet, stage, features, checkbox } from '../ui.js';
 import { removeGroups, stopDock } from '../actions.js';
 
 // key = chave em settings.smartCare; tasks = valores de `task` do evento scan-progress; run = executa algo ao "Executar".
+// Textos como getters: o idioma só é conhecido depois que o módulo carrega, e a chave precisa ficar literal.
 const MODS = [
-  { id: 'clean', key: 'junk', mod: 'clean', title: 'Limpeza', verb: 'Procurando lixo…', glyph: 'clean', tasks: ['junk'], run: true, feat: ['search', 'Busca de lixo do sistema'] },
-  { id: 'trash', key: 'trash', mod: 'trash', title: 'Lixeira', verb: 'Verificando a Lixeira…', glyph: 'trash', tasks: ['trash'], run: true, feat: ['trash', 'Verificação da Lixeira'] },
-  { id: 'protect', key: 'protection', mod: 'protect', title: 'Proteção', verb: 'Verificando a segurança…', glyph: 'shield', tasks: [], feat: ['shield', 'Verificação de segurança do Mac'] },
-  { id: 'perf', key: 'performance', mod: 'perf', title: 'Desempenho', verb: 'Analisando o desempenho…', glyph: 'bolt', tasks: ['perf'], feat: ['bolt', 'Agentes e itens de login'] },
-  { id: 'apps', key: 'apps', mod: 'apps', title: 'Aplicativos', verb: 'Verificando atualizações…', glyph: 'apps', tasks: ['apps', 'apps_overview'], feat: ['apps', 'Atualizações e apps sem uso'] },
-  { id: 'files', key: 'files', mod: 'files', title: 'Meus Arquivos', verb: 'Procurando duplicados…', glyph: 'folder', tasks: ['duplicates'], feat: ['folder', 'Duplicados em Downloads'] },
+  { id: 'clean', key: 'junk', mod: 'clean', get title() { return t('Limpeza'); }, get verb() { return t('Procurando lixo…'); }, glyph: 'clean', tasks: ['junk'], run: true, get feat() { return ['search', t('Busca de lixo do sistema')]; } },
+  { id: 'trash', key: 'trash', mod: 'trash', get title() { return t('Lixeira'); }, get verb() { return t('Verificando a Lixeira…'); }, glyph: 'trash', tasks: ['trash'], run: true, get feat() { return ['trash', t('Verificação da Lixeira')]; } },
+  { id: 'protect', key: 'protection', mod: 'protect', get title() { return t('Proteção'); }, get verb() { return t('Verificando a segurança…'); }, glyph: 'shield', tasks: [], get feat() { return ['shield', t('Verificação de segurança do Mac')]; } },
+  { id: 'perf', key: 'performance', mod: 'perf', get title() { return t('Desempenho'); }, get verb() { return t('Analisando o desempenho…'); }, glyph: 'bolt', tasks: ['perf'], get feat() { return ['bolt', t('Agentes e itens de login')]; } },
+  { id: 'apps', key: 'apps', mod: 'apps', get title() { return t('Aplicativos'); }, get verb() { return t('Verificando atualizações…'); }, glyph: 'apps', tasks: ['apps', 'apps_overview'], get feat() { return ['apps', t('Atualizações e apps sem uso')]; } },
+  { id: 'files', key: 'files', mod: 'files', get title() { return t('Meus Arquivos'); }, get verb() { return t('Procurando duplicados…'); }, glyph: 'folder', tasks: ['duplicates'], get feat() { return ['folder', t('Duplicados em Downloads')]; } },
 ];
 const byId = (id) => MODS.find((m) => m.id === id);
 // Cópias que sobrariam depois de remover tudo menos o original sugerido de cada conjunto (só para o resumo).
@@ -48,41 +50,41 @@ export function enter(ctx) {
   // ---------- resumo de cada módulo (texto do tile) ----------
   // {num, sub, sm: número em corpo menor, review: mostra "Revisar", act: tem algo executável}
   function summarize(m) {
-    if (S.err[m.id]) return { num: 'Indisponível', sub: 'tente de novo no módulo', sm: true, review: true };
+    if (S.err[m.id]) return { num: () => t('Indisponível'), sub: () => t('tente de novo no módulo'), sm: true, review: true };
     if (m.id === 'clean') {
       const { bytes } = selectedSize(store.junk, store.junkSel);
       const has = store.junk && store.junk.groups.length > 0;
-      return bytes > 0 ? { num: `${fmtBytes(bytes)} de lixo`, sub: 'para limpar', review: true, act: true }
-        : { num: has ? 'Nada pré-selecionado' : 'Sem lixo', sub: has ? 'revise para escolher' : 'nada para limpar', sm: true, review: has };
+      return bytes > 0 ? { num: () => t('{size} de lixo', { size: fmtBytes(bytes) }), sub: () => t('para limpar'), review: true, act: true }
+        : { num: () => (has ? t('Nada pré-selecionado') : t('Sem lixo')), sub: () => (has ? t('revise para escolher') : t('nada para limpar')), sm: true, review: has };
     }
     if (m.id === 'trash') {
-      const t = store.trash;
-      const n = t ? countItems(t) : 0;
-      if (t && t.needsFda && !n) return { num: 'Requer acesso', sub: 'Acesso Total ao Disco', sm: true, review: true };
-      return n && t.total > 0 ? { num: `${fmtBytes(t.total)} na Lixeira`, sub: 'para esvaziar', review: true, act: true }
-        : { num: 'Lixeira vazia', sub: 'nada para esvaziar', sm: true };
+      const tr0 = store.trash;
+      const n = tr0 ? countItems(tr0) : 0;
+      if (tr0 && tr0.needsFda && !n) return { num: () => t('Requer acesso'), sub: () => t('Acesso Total ao Disco'), sm: true, review: true };
+      return n && tr0.total > 0 ? { num: () => t('{size} na Lixeira', { size: fmtBytes(tr0.total) }), sub: () => t('para esvaziar'), review: true, act: true }
+        : { num: () => t('Lixeira vazia'), sub: () => t('nada para esvaziar'), sm: true };
     }
     if (m.id === 'protect') {
       const c = S.sum.protect || { bad: 0, unknown: 0 };
-      return c.bad ? { num: plural(c.bad, 'ponto de atenção', 'pontos de atenção'), sub: 'para revisar', review: true }
-        : { num: 'Tudo em ordem', sub: c.unknown ? `${plural(c.unknown, 'item não verificado', 'itens não verificados')}` : 'nenhum ponto de atenção', sm: true, review: true };
+      return c.bad ? { num: () => tn(c.bad, '{n} ponto de atenção', '{n} pontos de atenção'), sub: () => t('para revisar'), review: true }
+        : { num: () => t('Tudo em ordem'), sub: () => (c.unknown ? tn(c.unknown, '{n} item não verificado', '{n} itens não verificados') : t('nenhum ponto de atenção')), sm: true, review: true };
     }
     if (m.id === 'perf') {
       const p = S.sum.perf || { flagged: 0, login: 0 };
-      const login = p.needsAutomation ? 'itens de login: requer permissão' : p.loginErr ? 'itens de login indisponíveis' : `${plural(p.login, 'item', 'itens')} de login`;
-      return p.flagged ? { num: plural(p.flagged, 'agente pede atenção', 'agentes pedem atenção'), sub: login, review: true }
-        : { num: 'Tudo em ordem', sub: login, sm: true, review: true };
+      const login = () => (p.needsAutomation ? t('itens de login: requer permissão') : p.loginErr ? t('itens de login indisponíveis') : tn(p.login, '{n} item de login', '{n} itens de login'));
+      return p.flagged ? { num: () => tn(p.flagged, '{n} agente pede atenção', '{n} agentes pedem atenção'), sub: login, review: true }
+        : { num: () => t('Tudo em ordem'), sub: login, sm: true, review: true };
     }
     if (m.id === 'apps') {
       const a = S.sum.apps || { updates: 0, unused: 0 };
-      const un = a.unused ? plural(a.unused, 'app sem uso', 'apps sem uso') : 'nenhum app sem uso';
-      return a.updates ? { num: plural(a.updates, 'atualização', 'atualizações'), sub: un, review: true }
-        : { num: 'Tudo atualizado', sub: un, sm: true, review: true };
+      const un = () => (a.unused ? tn(a.unused, '{n} app sem uso', '{n} apps sem uso') : t('nenhum app sem uso'));
+      return a.updates ? { num: () => tn(a.updates, '{n} atualização', '{n} atualizações'), sub: un, review: true }
+        : { num: () => t('Tudo atualizado'), sub: un, sm: true, review: true };
     }
     // Meus Arquivos: só revisão. Arquivos do usuário nunca vêm marcados nem entram na execução.
     const d = reclaim(store.filesFrom);
-    return d.n ? { num: plural(d.n, 'duplicado', 'duplicados'), sub: `${fmtBytes(d.bytes)} em Downloads`, review: true }
-      : { num: 'Sem duplicados', sub: 'nenhum arquivo repetido em Downloads', sm: true };
+    return d.n ? { num: () => tn(d.n, '{n} duplicado', '{n} duplicados'), sub: () => t('{size} em Downloads', { size: fmtBytes(d.bytes) }), review: true }
+      : { num: () => t('Sem duplicados'), sub: () => t('nenhum arquivo repetido em Downloads'), sm: true };
   }
   // Depois da análise vale o retrato tirado nela: a Lixeira e o lixo mudam durante a execução.
   const info = (m) => S.snap[m.id] || summarize(m);
@@ -100,32 +102,31 @@ export function enter(ctx) {
     e.el.classList.toggle('hot', st === 'hot' || st === 'clean');
     e.el.classList.toggle('skipped', skip);
     e.el.classList.toggle('dim', st === 'off' && !skip);
-    e.verb.textContent = st === 'clean' ? (m.id === 'trash' ? 'Esvaziando a Lixeira…' : 'Limpando lixo…') : m.verb;
+    e.verb.textContent = st === 'clean' ? (m.id === 'trash' ? t('Esvaziando a Lixeira…') : t('Limpando lixo…')) : m.verb;
     let main = null;
     const num = (txt, small) => h('div', { class: 't-num' + (small ? ' sm' : '') }, txt);
     const sub = (...k) => h('div', { class: 't-sub' }, ...k);
-    if (st === 'wait') main = h('div', { class: 't-main' }, sub('Aguardando…'));
+    if (st === 'wait') main = h('div', { class: 't-main' }, sub(t('Aguardando…')));
     else if (st === 'found' || st === 'done' || st === 'queue' || st === 'off') {
-      let line = sm.sub;
-      if (st === 'queue') line = 'aguardando…';
-      else if (checkable(m) && !S.inc[m.id] && st !== 'found') line = 'Pulado';
-      else if (st === 'done' && m.id === 'trash' && S.inc.trash) line = 'esvaziar (permanente)';
-      main = h('div', { class: 't-main' }, num(sm.num, sm.sm), sub(line));
+      let line = sm.sub();
+      if (st === 'queue') line = t('aguardando…');
+      else if (checkable(m) && !S.inc[m.id] && st !== 'found') line = t('Pulado');
+      else if (st === 'done' && m.id === 'trash' && S.inc.trash) line = t('esvaziar (permanente)');
+      main = h('div', { class: 't-main' }, num(sm.num(), sm.sm), sub(line));
     } else if (st === 'final') {
-      const failTxt = { partial: 'em parte', failed: 'não concluído' };
       if (o === 'cleaned' || o === 'emptied' || o === 'partial') {
-        const what = m.id === 'trash' ? 'Esvaziada' : 'Limpo';
         // "Liberado" é só o que foi apagado de vez; o que foi para o Lixo aparece à parte.
-        const freed = S.freed[m.id] || 0, tr = (S.trashed && S.trashed[m.id]) || 0;
-        const headline = m.id === 'trash' ? `${fmtBytes(freed)} da Lixeira` : freed || !tr ? `${fmtBytes(freed)} de lixo` : `${fmtBytes(tr)} no Lixo`;
-        const verb = o === 'partial' ? `${what} ${failTxt.partial}` : (!freed && tr ? 'Enviado ao Lixo' : what);
+        const freed = S.freed[m.id] || 0, trashed = (S.trashed && S.trashed[m.id]) || 0;
+        const headline = m.id === 'trash' ? t('{size} da Lixeira', { size: fmtBytes(freed) }) : freed || !trashed ? t('{size} de lixo', { size: fmtBytes(freed) }) : t('{size} no Lixo', { size: fmtBytes(trashed) });
+        const isTrash = m.id === 'trash';
+        const verb = o === 'partial' ? (isTrash ? t('Esvaziada em parte') : t('Limpo em parte')) : (!freed && trashed ? t('Enviado ao Lixo') : isTrash ? t('Esvaziada') : t('Limpo'));
         main = h('div', { class: 't-main' }, num(headline),
-          sub(h('i', { class: 'dot' + (o === 'partial' ? ' warn' : '') }), verb + (freed && tr ? ` · ${fmtBytes(tr)} no Lixo` : '')));
-      } else if (o === 'failed') main = h('div', { class: 't-main' }, num('Não concluído', true), sub(h('i', { class: 'dot warn' }), 'Falhou'));
-      else if (o === 'stopped') main = h('div', { class: 't-main' }, num(sm.num, sm.sm), sub(h('i', { class: 'dot warn' }), 'Interrompido'));
-      else if (o === 'skipped') main = h('div', { class: 't-main' }, num(sm.num, sm.sm), sub('Pulado'));
-      else main = h('div', { class: 't-main' }, num(sm.num, sm.sm),
-        sub(h('i', { class: 'dot' }), sm.review ? h('button', { class: 'link t-link', type: 'button', onClick: () => go(m) }, 'Revisar') : 'Nada a fazer'));
+          sub(h('i', { class: 'dot' + (o === 'partial' ? ' warn' : '') }), verb + (freed && trashed ? ' · ' + t('{size} no Lixo', { size: fmtBytes(trashed) }) : '')));
+      } else if (o === 'failed') main = h('div', { class: 't-main' }, num(t('Não concluído'), true), sub(h('i', { class: 'dot warn' }), t('Falhou')));
+      else if (o === 'stopped') main = h('div', { class: 't-main' }, num(sm.num(), sm.sm), sub(h('i', { class: 'dot warn' }), t('Interrompido')));
+      else if (o === 'skipped') main = h('div', { class: 't-main' }, num(sm.num(), sm.sm), sub(t('Pulado')));
+      else main = h('div', { class: 't-main' }, num(sm.num(), sm.sm),
+        sub(h('i', { class: 'dot' }), sm.review ? h('button', { class: 'link t-link', type: 'button', onClick: () => go(m) }, t('Revisar')) : t('Nada a fazer')));
     }
     const old = e.el.querySelector('.t-main');
     if (old) old.remove();
@@ -134,7 +135,7 @@ export function enter(ctx) {
     if (rv) rv.remove();
     e.el.classList.toggle('has-rv', st === 'done' && S.phase === 'results' && !!sm.review);
     if (st === 'done' && S.phase === 'results' && sm.review) {
-      e.el.append(h('div', { class: 't-review' }, h('button', { class: 'btn sm', type: 'button', 'aria-label': `Revisar ${m.title}`, onClick: () => go(m) }, 'Revisar')));
+      e.el.append(h('div', { class: 't-review' }, h('button', { class: 'btn sm', type: 'button', 'aria-label': t('Revisar {name}', { name: m.title }), onClick: () => go(m) }, t('Revisar'))));
     }
     if (e.cb) {
       e.cb.parentElement.hidden = !checkable(m);
@@ -183,7 +184,7 @@ export function enter(ctx) {
         const verb = h('div', { class: 't-verb' }, m.verb);
         let cb = null, cbWrap = null;
         if (m.run) {
-          const label = m.id === 'trash' ? 'Incluir o esvaziamento da Lixeira (permanente)' : `Incluir ${m.title} na execução`;
+          const label = m.id === 'trash' ? t('Incluir o esvaziamento da Lixeira (permanente)') : t('Incluir {name} na execução', { name: m.title });
           cb = checkbox(S.inc[m.id] ? 'on' : 'off', (state) => toggleInclude(m, state !== 'on'), label);
           cbWrap = h('span', { class: 't-cb' }, cb);
         }
@@ -210,7 +211,7 @@ export function enter(ctx) {
 
   function updateDock() {
     const n = plan().length;
-    ctx.setDock({ label: 'Executar', mod: 'smart', disabled: n === 0, onClick: execute });
+    ctx.setDock({ label: t('Executar'), mod: 'smart', disabled: n === 0, onClick: execute });
   }
 
   // ---------- idle ----------
@@ -220,12 +221,12 @@ export function enter(ctx) {
     const st = stage('smart', 'smart', 270);
     const items = list.length
       ? [features('smart', list.map((m) => m.feat)),
-        h('div', { class: 'row-actions sc-scope' }, h('button', { class: 'link', type: 'button', onClick: () => ctx.nav('settings') }, 'Escolher módulos nos Ajustes'))]
-      : [h('p', { class: 'sub' }, 'Nenhum módulo está incluído no Faxina.'),
-        h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: () => ctx.nav('settings') }, icon('gear', 15), 'Abrir Ajustes'))];
-    st.show(h('h1', { class: 'h1' }, 'Faxina'), list.length ? h('p', { class: 'sub' }, 'Manutenção rápida que cuida do essencial.') : null, ...items);
+        h('div', { class: 'row-actions sc-scope' }, h('button', { class: 'link', type: 'button', onClick: () => ctx.nav('settings') }, t('Escolher módulos nos Ajustes')))]
+      : [h('p', { class: 'sub' }, t('Nenhum módulo está incluído no Faxina.')),
+        h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: () => ctx.nav('settings') }, icon('gear', 15), t('Abrir Ajustes')))];
+    st.show(h('h1', { class: 'h1' }, t('Faxina')), list.length ? h('p', { class: 'sub' }, t('Manutenção rápida que cuida do essencial.')) : null, ...items);
     mount(root, st.el);
-    ctx.setDock({ label: 'Analisar', mod: 'smart', disabled: !list.length, onClick: run });
+    ctx.setDock({ label: t('Analisar'), mod: 'smart', disabled: !list.length, onClick: run });
   }
 
   // ---------- scan ----------
@@ -261,18 +262,18 @@ export function enter(ctx) {
     ctx.reserveDock(true);
     buildBento();
     list.forEach((m) => paint(m, 'wait'));
-    setHead('Analisando seu Mac…');
+    setHead(t('Analisando seu Mac…'));
     if (!hooked) {
       hooked = true;
       ctx.onProgress((p) => { const m = byId(active); if (m && m.tasks.includes(p.task)) els[m.id].ticker.textContent = tail(p.path || ''); });
     }
-    ctx.setDock({ label: 'Parar', busy: true, mod: 'smart', onClick: () => { cancelled = true; ctx.setDock({ label: 'Parando', busy: true, disabled: true }); api.cancel().catch(() => {}); } });
+    ctx.setDock({ label: t('Parar'), busy: true, mod: 'smart', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true }); api.cancel().catch(() => {}); } });
     await sleep(120);
     for (const m of list) {
       if (cancelled) break;
       active = m.id;
       paint(m, 'hot');
-      els[m.id].ticker.textContent = m.id === 'protect' ? 'Gatekeeper · SIP · FileVault · Firewall' : '';
+      els[m.id].ticker.textContent = m.id === 'protect' ? 'Gatekeeper · SIP · FileVault · Firewall' : ''; // i18n-ignore
       try { await Promise.all([load(m), sleep(700)]); } catch (e) { if (cancelled) break; S.err[m.id] = true; }
       if (cancelled) break;
       paint(m, 'found');
@@ -295,8 +296,8 @@ export function enter(ctx) {
     bento.dataset.phase = 'results';
     mods().forEach((m) => paint(m, 'done'));
     const any = plan().length > 0 || mods().some((m) => checkable(m));
-    setHead(any ? 'Suas tarefas estão prontas. Veja o que encontramos:' : 'Análise concluída. Veja o que encontramos:',
-      h('button', { class: 'btn sm ghost left', type: 'button', onClick: confirmRestart }, icon('restart', 14), 'Recomeçar'));
+    setHead(any ? t('Suas tarefas estão prontas. Veja o que encontramos:') : t('Análise concluída. Veja o que encontramos:'),
+      h('button', { class: 'btn sm ghost left', type: 'button', onClick: confirmRestart }, icon('restart', 14), t('Recomeçar')));
     ctx.reserveDock(true);
     updateDock();
   }
@@ -326,18 +327,18 @@ export function enter(ctx) {
     };
     const cleanDetail = (perm) => {
       const c = d.clean;
-      if (perm) return `${plural(c.count, 'item apagado', 'itens apagados')} definitivamente.`;
+      if (perm) return tn(c.count, '{n} item apagado definitivamente.', '{n} itens apagados definitivamente.');
       const parts = [];
-      if (c.perm) parts.push(`${plural(c.perm, 'item regenerável apagado', 'itens regeneráveis apagados')} direto`);
-      if (c.moved) parts.push(`${plural(c.moved, 'item vai', 'itens vão')} para o Lixo (recuperável)`);
+      if (c.perm) parts.push(tn(c.perm, '{n} item regenerável apagado direto', '{n} itens regeneráveis apagados direto'));
+      if (c.moved) parts.push(tn(c.moved, '{n} item vai para o Lixo (recuperável)', '{n} itens vão para o Lixo (recuperável)'));
       return parts.join(' · ') + '.';
     };
     let cleanRow = null;
-    if (d.clean) { cleanRow = row('clean', 'clean', 'Limpeza', d.clean.bytes, cleanDetail(false)); nodes.push(cleanRow.node); }
+    if (d.clean) { cleanRow = row('clean', 'clean', t('Limpeza'), d.clean.bytes, cleanDetail(false)); nodes.push(cleanRow.node); }
     if (d.trash) {
-      const t = row('trash', 'trash', d.trash.vols > 1 ? 'Lixeiras' : 'Lixeira', d.trash.bytes,
-        `${plural(d.trash.count, 'item excluído', 'itens excluídos')} permanentemente. Não dá para desfazer.`, true);
-      nodes.push(t.node);
+      const tRow = row('trash', 'trash', d.trash.vols > 1 ? t('Lixeiras') : t('Lixeira'), d.trash.bytes,
+        tn(d.trash.count, '{n} item excluído permanentemente. Não dá para desfazer.', '{n} itens excluídos permanentemente. Não dá para desfazer.'), true);
+      nodes.push(tRow.node);
     }
     return { el: h('div', { class: 'sc-plan' }, nodes), setPerm: (p) => { if (cleanRow) cleanRow.detailEl.textContent = cleanDetail(p); } };
   }
@@ -349,9 +350,9 @@ export function enter(ctx) {
     const pl = planNode(d);
     const movedAny = d.clean && d.clean.moved > 0;
     const pending = confirmDialog({
-      title: `Executar ${plural(tasks.length, 'tarefa', 'tarefas')}?`,
-      body: 'Confira o que vai acontecer:',
-      confirm: 'Executar', danger: !!d.trash, glyph: d.trash ? 'trash' : 'clean', mod: d.trash ? 'trash' : 'clean',
+      title: tn(tasks.length, 'Executar {n} tarefa?', 'Executar {n} tarefas?'),
+      body: t('Confira o que vai acontecer:'),
+      confirm: t('Executar'), danger: !!d.trash, glyph: d.trash ? 'trash' : 'clean', mod: d.trash ? 'trash' : 'clean',
       permanentChoice: movedAny, permanentDefault: !!(store.settings && store.settings.permanentDelete),
       trashCount: movedAny ? d.clean.moved : null,
     });
@@ -377,7 +378,7 @@ export function enter(ctx) {
     const cleanSel = store.junkSel;
     mods().forEach((m) => { if (checkable(m) && !tasks.includes(m)) S.out[m.id] = 'skipped'; });
     mods().forEach((m) => paint(m, tasks.includes(m) ? 'queue' : 'off'));
-    setHead('Executando suas tarefas…');
+    setHead(t('Executando suas tarefas…'));
     const sd = stopDock(ctx, 'smart');
     const countGroups = (m) => (m.id === 'clean' ? store.junk.groups.filter((g) => g.items.some((i) => cleanSel.has(i.id))).length : trashRes.groups.length);
     const grand = tasks.reduce((a, m) => a + countGroups(m), 0) || 1;
@@ -388,7 +389,7 @@ export function enter(ctx) {
       const result = m.id === 'clean' ? store.junk : trashRes;
       const sel = m.id === 'clean' ? cleanSel : new Set(trashRes.groups.flatMap((g) => g.items.map((i) => i.id)));
       const groups = result.groups.filter((g) => g.items.some((i) => sel.has(i.id)));
-      const label = (g) => (m.id === 'trash' && g.id === 'trash' ? 'Lixeira do Mac' : g.title);
+      const label = (g) => (m.id === 'trash' && g.id === 'trash' ? t('Lixeira do Mac') : tr(g.title));
       const rowsEl = new Map(groups.map((g) => [g.id, h('div', { class: 'prog-row', dataset: { st: 'wait' } }, h('span', { class: 'nm', title: label(g) }, label(g)), h('span', { class: 'sz' }, ''), h('span', { class: 'st' }))]));
       mount(els[m.id].list, [...rowsEl.values()]);
       paint(m, 'clean');
@@ -437,22 +438,22 @@ export function enter(ctx) {
     const failed = outs.some((o) => o === 'failed' || o === 'partial');
     const sm = S.sum || {};
     const open = (sm.protect && sm.protect.bad) || (sm.perf && sm.perf.flagged) || (sm.apps && (sm.apps.updates || sm.apps.unused));
-    const head = S.stopped ? 'Execução interrompida. O que já rodou foi concluído.'
-      : failed ? 'Concluído, mas alguns itens não puderam ser removidos.'
-        : open ? 'Limpeza concluída. Ainda há pontos para revisar.'
-          : 'Muito bem! Seu Mac está em ótima forma.';
+    const head = S.stopped ? t('Execução interrompida. O que já rodou foi concluído.')
+      : failed ? t('Concluído, mas alguns itens não puderam ser removidos.')
+        : open ? t('Limpeza concluída. Ainda há pontos para revisar.')
+          : t('Muito bem! Seu Mac está em ótima forma.');
     setHead(head);
     ctx.setDock(null);
     // Rodapé: "Ver log" (link) e "Concluir" (volta ao início, sem confirmar: nada fica pendente).
     root.append(h('div', { class: 'bento-foot center enter' },
-      h('button', { class: 'btn sm ghost', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 14), 'Ver log'),
-      h('button', { class: 'btn primary', type: 'button', onClick: restart }, 'Concluir')));
+      h('button', { class: 'btn sm ghost', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 14), t('Ver log')),
+      h('button', { class: 'btn primary', type: 'button', onClick: restart }, t('Concluir'))));
   }
 
   async function confirmRestart() {
     const ok = await confirmDialog({
-      title: 'Recomeçar a análise?', body: 'Os resultados e as marcações atuais serão descartados. Nada foi removido até agora.',
-      confirm: 'Recomeçar', glyph: 'restart', mod: 'smart',
+      title: t('Recomeçar a análise?'), body: t('Os resultados e as marcações atuais serão descartados. Nada foi removido até agora.'),
+      confirm: t('Recomeçar'), glyph: 'restart', mod: 'smart',
     });
     if (ok) restart();
   }
