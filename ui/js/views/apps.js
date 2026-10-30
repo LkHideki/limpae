@@ -56,6 +56,14 @@ function lastText(sec) {
 
 const hostOf = (url) => { try { return new URL(url).host; } catch (e) { return ''; } };
 
+// Ícone por tipo de resto (rótulo vindo do backend).
+const KIND_ICON = {
+  'Suporte do app': 'folder', Caches: 'box', 'Preferências': 'prefs', 'Preferências deste Mac': 'prefs', 'Contêiner do app': 'archive',
+  'Contêiner compartilhado': 'apps', 'Scripts do app': 'code', 'Estado das janelas': 'restart', 'Armazenamento web': 'disk',
+  Cookies: 'disk', 'Dados do WebKit': 'disk', Registros: 'log', 'Agente de inicialização': 'bolt',
+};
+const tilde = (p) => String(p || '').replace(/^\/Users\/[^/]+/, '~');
+
 export function enter(ctx) {
   if (!store.appsUi || store.appsUi.v !== 2) store.appsUi = newState();
   const U = store.appsUi;
@@ -512,16 +520,20 @@ export function enter(ctx) {
     if (!lo || lo.loading) kids.push(h('div', { class: 'ap-loading' }, h('span', { class: 'spin' }), 'Procurando restos…'));
     else if (!lo.result.groups.length) kids.push(h('div', { class: 'am-res-none' }, 'Nenhum resto encontrado.'));
     else {
-      for (const g of lo.result.groups) {
-        kids.push(h('div', { class: 'ap-sec' }, g.title));
-        for (const it of g.items) {
-          const cb = checkbox(lo.sel.has(it.id) ? 'on' : 'off', () => toggle(), `Selecionar ${it.name}`);
-          const toggle = () => { if (lo.sel.has(it.id)) lo.sel.delete(it.id); else lo.sel.add(it.id); cb.set(lo.sel.has(it.id) ? 'on' : 'off'); paintFoot(); };
-          kids.push(h('div', { class: 'lo-row', onClick: toggle }, cb, h('div', { class: 'rv-ic' }, icon(groupIcon(g.id), 16)),
-            h('div', { class: 'rv-main' }, h('div', { class: 'rv-name' }, h('span', { title: it.name }, it.name), it.note ? h('span', { class: 'badge' }, it.note) : null), h('div', { class: 'rv-meta' }, mid(it.path, 20))),
-            h('span', { class: 'rv-size' }, fmtBytes(it.size))));
-        }
-      }
+      const items = lo.result.groups.flatMap((g) => g.items);
+      const sure = items.filter((i) => !i.note), maybe = items.filter((i) => i.note);
+      const row = (it) => {
+        const cb = checkbox(lo.sel.has(it.id) ? 'on' : 'off', () => toggle(), `Selecionar ${it.name}`);
+        const toggle = () => { if (lo.sel.has(it.id)) lo.sel.delete(it.id); else lo.sel.add(it.id); cb.set(lo.sel.has(it.id) ? 'on' : 'off'); paintFoot(); };
+        return h('div', { class: 'lo-row' + (it.note ? ' maybe' : ''), onClick: toggle }, cb, h('div', { class: 'rv-ic' }, icon(KIND_ICON[it.name] || 'folder', 16)),
+          h('div', { class: 'rv-main' },
+            h('div', { class: 'rv-name' }, h('span', { title: it.name }, it.name)),
+            h('div', { class: 'rv-meta', title: it.path }, mid(tilde(it.path), 26)),
+            it.note ? h('div', { class: 'lo-why' }, icon('alert', 12), h('span', null, it.note)) : null),
+          h('span', { class: 'rv-size' }, fmtBytes(it.size)));
+      };
+      if (sure.length) kids.push(h('div', { class: 'ap-sec ok', title: 'Pastas com o identificador do app ou de componentes dentro dele, agentes que executam o app e grupos declarados na assinatura.' }, icon('shield', 13), 'Do app · verificado'), ...sure.map(row));
+      if (maybe.length) kids.push(h('div', { class: 'ap-sec warn', title: 'Parecem ser do app, mas não há prova. Vêm desmarcados.' }, icon('alert', 13), 'Talvez do app · revise'), ...maybe.map(row));
     }
     mount(box, kids);
   }
