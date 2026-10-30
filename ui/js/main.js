@@ -18,6 +18,8 @@ import * as activity from './views/activity.js';
 import * as tools from './views/tools.js';
 import * as settings from './views/settings.js';
 import { setSoundEnabled } from './sound.js';
+import './feel.js';
+import './motion.js';
 import { applyLangSetting, onLang, t, tr } from './i18n.js';
 
 const VIEWS = { smart, clean, trash, protect, perf, apps, files, lens, cloud, tools, activity, settings };
