@@ -10,8 +10,14 @@ import * as clean from './views/cleanup.js';
 import * as trash from './views/trash.js';
 import * as apps from './views/apps.js';
 import * as files from './views/files.js';
+import * as protect from './views/protection.js';
+import * as perf from './views/performance.js';
+import * as lens from './views/lens.js';
+import * as activity from './views/activity.js';
+import * as settings from './views/settings.js';
+import { setSoundEnabled } from './sound.js';
 
-const VIEWS = { smart, clean, trash, apps, files };
+const VIEWS = { smart, clean, trash, protect, perf, apps, files, lens, activity, settings };
 const view = document.getElementById('view');
 const go = createGo(document.getElementById('dock'));
 const navEl = document.getElementById('nav');
@@ -58,7 +64,7 @@ function navigate(id, force = false) {
 }
 
 function buildNav() {
-  mount(navEl, MODS.map((m) => h('button', { class: 'nav-item', type: 'button', dataset: { id: m.id }, 'aria-current': 'false', onClick: () => navigate(m.id) },
+  mount(navEl, MODS.map((m) => m.spacer ? h('div', { class: 'nav-spacer' }) : h('button', { class: 'nav-item', type: 'button', dataset: { id: m.id }, 'aria-current': 'false', onClick: () => navigate(m.id) },
     h('span', { class: 'nav-chip', dataset: { mod: m.id } }, icon(m.glyph, 16)), m.label)));
 }
 
@@ -87,4 +93,5 @@ async function refreshDisk() {
 
 buildNav();
 refreshDisk();
+api.settings().then((st) => { store.settings = st; setSoundEnabled(st.sounds); }).catch(() => {});
 navigate('smart');

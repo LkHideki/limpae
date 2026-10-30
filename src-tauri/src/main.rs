@@ -32,6 +32,11 @@ fn main() {
             commands::reveal,
             commands::reveal_log,
             commands::open_fda_settings,
+            commands::get_settings,
+            commands::set_settings,
+            commands::ignore_item,
+            commands::list_ignored,
+            commands::unignore,
         ])
         .run(tauri::generate_context!())
         .expect("erro ao iniciar o Limpaemeo");

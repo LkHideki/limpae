@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use limpa_core::Guard;
 use limpa_core::apps::AppInfo;
 use limpa_core::log::ActionLog;
+use limpa_core::settings::Settings;
 
 use crate::registry::Registry;
 
@@ -19,6 +20,8 @@ pub struct AppState {
     pub icons: Mutex<HashMap<u64, Option<String>>>,
     /// Cancel flags of the scans running right now.
     pub active: Mutex<Vec<Arc<AtomicBool>>>,
+    pub settings: Mutex<Settings>,
+    pub settings_path: PathBuf,
 }
 
 impl AppState {
@@ -28,7 +31,10 @@ impl AppState {
     }
 
     pub fn with_home(home: PathBuf) -> Self {
+        let settings_path = Settings::path_in(&home);
         Self {
+            settings: Mutex::new(Settings::load(&settings_path)),
+            settings_path,
             guard: Guard::new(&home),
             log: ActionLog::in_home(&home),
             home,

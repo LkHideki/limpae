@@ -44,4 +44,9 @@ export const api = {
   reveal: (id) => call('reveal', { id }),
   revealLog: () => call('reveal_log'),
   openFda: () => call('open_fda_settings'),
+  settings: () => call('get_settings', undefined, { quiet: true }),
+  saveSettings: (settings) => call('set_settings', { settings }),
+  ignore: (id) => call('ignore_item', { id }),
+  ignored: () => call('list_ignored', undefined, { quiet: true }),
+  unignore: (path) => call('unignore', { path }),
 };

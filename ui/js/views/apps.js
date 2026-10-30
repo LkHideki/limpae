@@ -1,4 +1,5 @@
 // Aplicativos (desinstalador): lista + painel com restos (leftovers) e confirmação.
+import { play } from '../sound.js';
 import { h, mount, mid } from '../dom.js';
 import { icon, orb, groupIcon } from '../art.js';
 import { api } from '../api.js';
@@ -163,6 +164,7 @@ export function enter(ctx) {
     const names = new Map([[app.id, { name: app.name, path: app.path }], ...lo.result.groups.flatMap((g) => g.items.map((i) => [i.id, i]))]);
     const failures = res.outcomes.filter((o) => !o.ok).map((o) => ({ name: (names.get(o.id) || {}).name || `Item ${o.id}`, path: (names.get(o.id) || {}).path, error: o.error }));
     const appFailed = res.outcomes.some((o) => !o.ok && o.id === app.id);
+    play(appFailed ? 'error' : 'clean');
     bump(); store.trash = null;
     ctx.refreshDisk();
     if (!appFailed) {

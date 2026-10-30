@@ -18,6 +18,7 @@ use limpa_core::junk::scan_junk as core_scan_junk;
 use limpa_core::large::scan_large as core_scan_large;
 use limpa_core::remove::{SystemRemover, remove_items, trash_entries};
 use limpa_core::running::{app_icon_png, running_bundle_ids};
+use limpa_core::settings::Settings;
 use limpa_core::{Group, Item, Policy, Progress};
 use tauri::{AppHandle, Emitter, State};
 
@@ -97,6 +98,7 @@ fn store(st: &AppState, task: Task, groups: Vec<Group>, progress: &Progress) -> 
     if progress.cancelled() {
         return Err(ERR_CANCELLED.into());
     }
+    let groups = lock(&st.settings).filter(groups);
     let dto = lock(&st.registry).replace(task, groups);
     Ok(ScanResult::new(dto, !has_full_disk_access(&st.home)))
 }
@@ -130,7 +132,7 @@ pub async fn scan_trash(app: AppHandle, state: State<'_, Shared>) -> Result<Scan
         }
         match result {
             Ok(group) => {
-                let groups = if group.items.is_empty() { Vec::new() } else { vec![group] };
+                let groups = lock(&st.settings).filter(vec![group]);
                 Ok(ScanResult::new(lock(&st.registry).replace(Task::Trash, groups), false))
             }
             Err(e) if e.kind() == ErrorKind::NotFound => {
@@ -336,6 +338,51 @@ pub async fn reveal_log(state: State<'_, Shared>) -> Result<(), String> {
 #[tauri::command]
 pub async fn open_fda_settings() -> Result<(), String> {
     blocking(|| open(&[OsStr::new("x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")])).await
+}
+
+#[tauri::command]
+pub fn get_settings(state: State<'_, Shared>) -> Settings {
+    lock(&state.settings).clone()
+}
+
+/// Replaces the preferences. The ignore list is not taken from the UI here (only `ignore_item` and `unignore`
+/// change it), so a stale settings object can't silently drop ignored paths.
+#[tauri::command]
+pub fn set_settings(state: State<'_, Shared>, settings: Settings) -> Result<(), String> {
+    let mut cur = lock(&state.settings);
+    let ignored = std::mem::take(&mut cur.ignored);
+    *cur = Settings { ignored, ..settings };
+    cur.save(&state.settings_path).map_err(|e| format!("Não foi possível salvar os ajustes: {e}"))
+}
+
+/// Adds a scanned item (or app) to the ignore list and forgets its id; it disappears from future scans.
+#[tauri::command]
+pub fn ignore_item(state: State<'_, Shared>, id: u64) -> Result<(), String> {
+    let from_registry = lock(&state.registry).get(&[id]).0.pop().map(|(_, it)| it.path);
+    let path = match from_registry {
+        Some(p) => p,
+        None => lock(&state.apps).get(&id).map(|a| a.path.clone()).ok_or(ERR_UNKNOWN_ITEM)?,
+    };
+    let mut s = lock(&state.settings);
+    s.ignore(path);
+    s.save(&state.settings_path).map_err(|e| format!("Não foi possível salvar a lista de ignorados: {e}"))?;
+    lock(&state.registry).forget(&[id]);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn list_ignored(state: State<'_, Shared>) -> Vec<String> {
+    lock(&state.settings).ignored.iter().map(|p| p.to_string_lossy().into_owned()).collect()
+}
+
+/// Removing an entry from the ignore list only makes the path visible to scans again; nothing on disk changes.
+#[tauri::command]
+pub fn unignore(state: State<'_, Shared>, path: String) -> Result<(), String> {
+    let mut s = lock(&state.settings);
+    if s.unignore(Path::new(&path)) {
+        s.save(&state.settings_path).map_err(|e| format!("Não foi possível salvar a lista de ignorados: {e}"))?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

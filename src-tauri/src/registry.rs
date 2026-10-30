@@ -15,6 +15,9 @@ pub enum Task {
     Large,
     /// Leftovers of the app with this id; removable only through `uninstall`.
     Leftovers(u64),
+    /// Any other scan, keyed by a stable name (e.g. "duplicates"); removable through `remove`.
+    #[allow(dead_code, reason = "constructed by the modules added in the F1-F6 increments")]
+    Other(&'static str),
 }
 
 struct Entry {
@@ -259,5 +262,15 @@ mod tests {
         assert_eq!(r.get(&a_old).1, a_old);
         assert_eq!(r.get(&b).0.len(), 1);
         assert_eq!(r.get(&a_new).0.len(), 1);
+    }
+
+    #[test]
+    fn other_tasks_are_isolated_by_name_and_removable() {
+        let mut r = Registry::new();
+        let a = ids(&r.replace(Task::Other("dups"), vec![group("d", &[("x", 1)])]));
+        let b = ids(&r.replace(Task::Other("similar"), vec![group("s", &[("y", 1)])]));
+        r.replace(Task::Other("dups"), vec![]);
+        assert!(r.get(&a).0.is_empty());
+        assert_eq!(r.resolve_removal(&b).items.len(), 1);
     }
 }

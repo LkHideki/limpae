@@ -29,6 +29,11 @@
 [data-mod="trash"] { --m1: #ffc14a; --m2: #ff7a2f; --t1: #b8530a; --t2: #8a330a; --glow: 255, 150, 50; }
 [data-mod="apps"]  { --m1: #5cc8ff; --m2: #5b5cf0; --t1: #4262e6; --t2: #3535b8; --glow: 90, 150, 255; }
 [data-mod="files"] { --m1: #36d6f0; --m2: #0fb5a8; --t1: #08818f; --t2: #065a6e; --glow: 40, 210, 230; }
+[data-mod="protect"] { --m1: #ff8fb0; --m2: #e64980; --t1: #b8285e; --t2: #8a1d48; --glow: 240, 90, 140; }
+[data-mod="perf"] { --m1: #c4a3ff; --m2: #7c5cff; --t1: #6a45e0; --t2: #4b2fb0; --glow: 150, 110, 255; }
+[data-mod="lens"] { --m1: #b8f36b; --m2: #14b8a6; --t1: #3f8a1e; --t2: #0b7a6e; --glow: 150, 230, 110; }
+[data-mod="activity"] { --m1: #2ee6c5; --m2: #4f8cff; --t1: #087f78; --t2: #2450bf; --glow: 46, 230, 197; }
+[data-mod="settings"] { --m1: #b9c6dc; --m2: #6b7a96; --t1: #4f5d78; --t2: #3a465e; --glow: 160, 175, 205; }
 
 /* ============ Base ============ */
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -373,3 +378,22 @@ body.locked .nav-item:not([aria-current="page"]) { opacity: .45; pointer-events:
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   .orb, .orb-body, .aurora i { animation: none !important; }
 }
+
+/* ============ Nav spacer, Ajustes ============ */
+.nav-spacer { flex: 0 0 18px; }
+.orb[data-mod="protect"] { --shape: 50% 50% 44% 56% / 40% 40% 60% 60%; }
+.orb[data-mod="perf"] { --shape: 42% 58% 48% 52% / 56% 44% 56% 44%; }
+.orb[data-mod="lens"] { --shape: 50%; }
+.settings { height: 100%; overflow: auto; padding: 56px 40px 40px; display: flex; flex-direction: column; gap: 16px; }
+.h2 { font-size: 30px; font-weight: 600; letter-spacing: -.01em; }
+.set-card { padding: 18px 22px; border-radius: var(--r-l); background: var(--glass); border: 1px solid var(--line); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.set-card h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line); }
+.set-card h3 + .set-row, .set-card .set-hint + .set-row { border-top: 0; }
+.set-label { font-size: 14px; }
+.set-hint { font-size: 12.5px; color: var(--text-3); margin-top: 2px; }
+.set-empty { font-size: 13px; color: var(--text-3); padding: 12px 0 4px; }
+.set-loading { display: grid; place-items: center; height: 100%; }
+.ign-list { display: flex; flex-direction: column; margin-top: 8px; }
+.ign-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.ign-path { min-width: 0; flex: 1; font-size: 13px; color: var(--text-2); }
