@@ -6,7 +6,7 @@ import { api } from '../api.js';
 import { store, countItems, bump } from '../store.js';
 import { bytesParts, fmtBytes, plural } from '../format.js';
 import { confirmDialog, failuresSheet, stage } from '../ui.js';
-import { removeGroups } from '../actions.js';
+import { removeGroups, stopDock } from '../actions.js';
 
 export function enter(ctx) {
   const T = store.trashUi;
@@ -92,9 +92,9 @@ export function enter(ctx) {
     ctx.setBusy(true);
     st.busy(true);
     st.show(h('h1', { class: 'h1' }, 'Esvaziando…'), h('p', { class: 'sub' }, 'Removendo itens da Lixeira.'));
-    ctx.setDock({ label: 'Esvaziando', busy: true, mod: 'trash' });
+    const sd = stopDock(ctx, 'trash');
     const all = new Set(r.groups.flatMap((g) => g.items.map((i) => i.id)));
-    const res = await removeGroups(r, all);
+    const res = await removeGroups(r, all, (g, status, info) => { if (status !== 'run') sd.progress(info.done / info.total); }, { stopped: sd.stopped });
     bump();
     T.freed = res.freed; T.phase = 'done'; store.trash = null;
     play(res.freed ? 'clean' : 'error');

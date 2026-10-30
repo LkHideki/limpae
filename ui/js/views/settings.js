@@ -38,6 +38,8 @@ export function enter(ctx) {
       h('section', { class: 'set-card' }, h('h3', null, 'Geral'),
         toggle('Reproduzir sons nas ações principais', 'Ao iniciar e concluir análises e limpezas.', s.sounds, (v) => { save({ ...s, sounds: v }); if (v) play('found'); }),
         toggle('Mostrar na barra de menus', 'Saúde, espaço livre, memória e Lixeira num relance. Com o ícone ligado, fechar a janela mantém o app aberto na barra de menus.', !!s.menuBar, (v) => save({ ...s, menuBar: v }))),
+      h('section', { class: 'set-card' }, h('h3', null, 'Remoção'),
+        toggle('Apagar definitivamente por padrão', 'Arquivos, apps e restos são apagados sem passar pelo Lixo. Cada confirmação ainda deixa você escolher. Caches e registros regeneráveis sempre são apagados direto.', !!s.permanentDelete, (v) => save({ ...s, permanentDelete: v }))),
       h('section', { class: 'set-card' }, h('h3', null, 'Faxina'),
         h('p', { class: 'set-hint' }, 'Módulos incluídos na análise.'),
         SCOPE.map(([k, label]) => toggle(label, null, scope[k] !== false, (v) => save({ ...s, smartCare: { ...scope, [k]: v } })))),

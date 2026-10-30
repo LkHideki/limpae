@@ -8,7 +8,7 @@ import { api } from '../api.js';
 import { store, selectedSize, pruneResult, bump, countItems } from '../store.js';
 import { bytesParts, fmtBytes, fmtNum, plural } from '../format.js';
 import { confirmDialog, failuresSheet, stage, chipRow, checkbox, segmented } from '../ui.js';
-import { outcomesToFailures } from '../actions.js';
+import { outcomesToFailures, stopDock } from '../actions.js';
 
 const OPTIONS = [{ value: 50, label: '50 MB' }, { value: 100, label: '100 MB' }, { value: 500, label: '500 MB' }, { value: 1000, label: '1 GB' }];
 const CHUNK = 60;
@@ -494,14 +494,16 @@ export function enter(ctx) {
       body: [`${fmtBytes(bytes)} serão enviados ao Lixo. Você pode restaurá-los de lá `, h('strong', null, 'até esvaziar a Lixeira'), '.',
         allSel ? h('span', { class: 'fl-warn' }, ` Atenção: em ${plural(allSel, 'grupo', 'grupos')} de cópias todos os itens estão selecionados, então nenhuma cópia vai sobrar.`) : null],
       confirm: 'Mover para o Lixo', glyph: 'trash', mod: 'files',
+      permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;
+    const permanent = ok === 'permanent';
     F.phase = 'moving';
     ctx.setBusy(true);
     st = null; ensureStage(); st.busy(true);
     const prog = h('p', { class: 'sub' }, `0 de ${fmtNum(picked.length)}`);
-    st.show(h('h1', { class: 'h1' }, 'Movendo para o Lixo…'), prog);
-    ctx.setDock({ label: 'Movendo', busy: true, mod: 'files' });
+    st.show(h('h1', { class: 'h1' }, permanent ? 'Apagando…' : 'Movendo para o Lixo…'), prog);
+    const sd = stopDock(ctx, 'files');
     const byId = new Map(picked.map((i) => [i.id, i]));
     const ids = picked.map((i) => i.id);
     const okIds = new Set();
@@ -509,8 +511,9 @@ export function enter(ctx) {
     let freed = 0, done = 0;
     for (let i = 0; i < ids.length; i += REMOVE_BATCH) {
       const chunk = ids.slice(i, i + REMOVE_BATCH);
+      if (sd.stopped()) { failures.push(...chunk.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: 'cancelado; o item continua no lugar' }))); continue; }
       try {
-        const res = await api.remove(chunk);
+        const res = await api.remove(chunk, permanent);
         for (const o of res.outcomes) if (o.ok) { okIds.add(o.id); freed += o.freed || 0; }
         failures.push(...outcomesToFailures(res.outcomes, byId));
       } catch (e) {
@@ -518,6 +521,7 @@ export function enter(ctx) {
       }
       done += chunk.length;
       prog.textContent = `${fmtNum(done)} de ${fmtNum(ids.length)}`;
+      sd.progress(done / ids.length);
     }
     for (const c of CATS) {
       const r = resOf(c.id);

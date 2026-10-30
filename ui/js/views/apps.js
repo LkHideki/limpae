@@ -7,7 +7,7 @@ import { api } from '../api.js';
 import { store, selectedSize, selectedIds, pruneResult, bump } from '../store.js';
 import { fmtBytes, plural } from '../format.js';
 import { checkbox, confirmDialog, failuresSheet, stage, features, toast } from '../ui.js';
-import { removeGroups } from '../actions.js';
+import { removeGroups, stopDock } from '../actions.js';
 
 const NAME_MATCH = 'Correspondência pelo nome';
 const UNUSED_DAYS = 180;
@@ -290,6 +290,7 @@ export function enter(ctx) {
       title: `Remover ${fmtBytes(bytes)}?`,
       body: [h('strong', null, `${what} vão para o Lixo`), `. Você pode restaurá-${count === 1 ? 'lo' : 'los'} de lá até esvaziar a Lixeira.`],
       confirm: 'Remover', glyph: 'trash', mod: 'apps',
+      permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;
     U.phase = 'busy';
@@ -301,15 +302,15 @@ export function enter(ctx) {
     const groups = res.groups.filter((g) => g.items.some((i) => sel.has(i.id)));
     const rows = new Map(groups.map((g) => [g.id, h('div', { class: 'prog-row', dataset: { st: 'wait' } }, h('span', { class: 'nm', title: g.title }, g.title), h('span', { class: 'sz' }), h('span', { class: 'st' }))]));
     st.show(h('h1', { class: 'h1' }, 'Removendo…'), h('div', { class: 'group-list' }, [...rows.values()]));
-    ctx.setDock({ label: 'Removendo', busy: true, progress: 0, mod: 'apps' });
+    const sd = stopDock(ctx, 'apps');
     const r = await removeGroups(res, sel, (g, status, info) => {
       const row = rows.get(g.id);
       row.dataset.st = status;
       if (status === 'run') { mount(row.querySelector('.st'), h('span', { class: 'spin' })); return; }
       mount(row.querySelector('.st'), icon(status === 'done' ? 'check' : 'alert', 16));
       row.querySelector('.sz').textContent = fmtBytes(info.freed);
-      ctx.setDock({ label: 'Removendo', busy: true, progress: info.done / info.total, mod: 'apps' });
-    });
+      sd.progress(info.done / info.total);
+    }, { permanent: ok === 'permanent', stopped: sd.stopped });
     const pruned = pruneResult(res, r.okIds);
     if (kind === 'installers') { U.over.installers = pruned; r.okIds.forEach((id) => U.instSel.delete(id)); } else { U.over.leftovers = pruned; r.okIds.forEach((id) => U.leftSel.delete(id)); }
     bump(); store.trash = null;
@@ -602,8 +603,10 @@ export function enter(ctx) {
       title: list.length === 1 ? `Desinstalar ${list[0].name}?` : `Desinstalar ${plural(list.length, 'app', 'apps')}?`,
       body: [h('strong', null, 'Os apps e os itens selecionados vão para o Lixo'), `. São ${fmtBytes(t.bytes)} no total (${plural(list.length, 'aplicativo', 'aplicativos')} + ${plural(t.rest, 'resto', 'restos')}). Você pode restaurá-los de lá até esvaziar a Lixeira.`],
       confirm: 'Desinstalar', glyph: 'trash', mod: 'apps',
+      permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;
+    const permanent = ok === 'permanent';
 
     const back = U.phase;
     U.phase = 'busy';
@@ -614,18 +617,19 @@ export function enter(ctx) {
     ctx.reserveDock(true);
     const rows = new Map(list.map((a) => [a.id, h('div', { class: 'prog-row', dataset: { st: 'wait' } }, h('span', { class: 'nm', title: a.name }, a.name), h('span', { class: 'sz' }), h('span', { class: 'st' }))]));
     st.show(h('h1', { class: 'h1' }, 'Desinstalando…'), h('div', { class: 'group-list' }, [...rows.values()]));
-    ctx.setDock({ label: 'Desinstalando', busy: true, progress: 0, mod: 'apps' });
+    const sd = stopDock(ctx, 'apps');
 
     const failures = [];
     let freed = 0, okCount = 0, finished = 0;
     for (const app of list) {
       const row = rows.get(app.id);
+      if (sd.stopped()) { row.dataset.st = 'fail'; failures.push({ name: app.name, path: app.path, error: 'cancelado; o app continua instalado' }); continue; }
       row.dataset.st = 'run';
       mount(row.querySelector('.st'), h('span', { class: 'spin' }));
       const lo = U.lo.get(app.id);
       const names = new Map([[app.id, { name: app.name, path: app.path }], ...(lo && lo.result ? lo.result.groups.flatMap((g) => g.items.map((i) => [i.id, i])) : [])]);
       let res = null;
-      try { res = await api.uninstall(app.id, lo ? [...lo.sel] : []); } catch (e) { /* toast já exibido */ }
+      try { res = await api.uninstall(app.id, lo ? [...lo.sel] : [], permanent); } catch (e) { /* toast já exibido */ }
       finished++;
       let appOk = false;
       if (res) {
@@ -636,7 +640,7 @@ export function enter(ctx) {
       row.dataset.st = appOk ? 'done' : 'fail';
       mount(row.querySelector('.st'), icon(appOk ? 'check' : 'alert', 16));
       row.querySelector('.sz').textContent = res ? fmtBytes(res.freed || 0) : '';
-      ctx.setDock({ label: 'Desinstalando', busy: true, progress: finished / list.length, mod: 'apps' });
+      sd.progress(finished / list.length);
       if (appOk) {
         okCount++;
         store.apps = apps().filter((a) => a.id !== app.id);

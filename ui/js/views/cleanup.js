@@ -6,7 +6,7 @@ import { api } from '../api.js';
 import { store, selectedIds, selectedSize, pruneResult, bump, countItems } from '../store.js';
 import { bytesParts, fmtBytes, plural } from '../format.js';
 import { confirmDialog, failuresSheet, stage, features } from '../ui.js';
-import { removeGroups } from '../actions.js';
+import { removeGroups, stopDock } from '../actions.js';
 import { createReview } from './review.js';
 
 const bigNum = (n, cap) => [
@@ -98,6 +98,7 @@ export function enter(ctx) {
       title: moved.size === count ? `Mover ${fmtBytes(bytes)} para o Lixo?` : `Limpar ${fmtBytes(bytes)}?`,
       body: moved.size === 0 ? permNote : perm === 0 ? trashNote : [...permNote, h('br'), ...trashNote],
       confirm: moved.size === count ? 'Mover para o Lixo' : 'Limpar', danger: perm > 0, glyph: 'trash', mod: 'clean',
+      permanentChoice: moved.size > 0, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;
     C.phase = 'cleaning';
@@ -107,15 +108,15 @@ export function enter(ctx) {
     const groups = store.junk.groups.filter((g) => g.items.some((i) => store.junkSel.has(i.id)));
     const rows = new Map(groups.map((g) => [g.id, h('div', { class: 'prog-row', dataset: { st: 'wait' } }, h('span', { class: 'nm', title: g.title }, g.title), h('span', { class: 'sz' }), h('span', { class: 'st' }))]));
     st.show(h('h1', { class: 'h1' }, 'Limpando…'), h('div', { class: 'group-list' }, [...rows.values()]));
-    ctx.setDock({ label: 'Limpando', busy: true, progress: 0, mod: 'clean' });
+    const sd = stopDock(ctx, 'clean');
     const res = await removeGroups(store.junk, store.junkSel, (g, status, info) => {
       const row = rows.get(g.id);
       row.dataset.st = status;
       if (status === 'run') { mount(row.querySelector('.st'), h('span', { class: 'spin' })); return; }
       mount(row.querySelector('.st'), icon(status === 'done' ? 'check' : 'alert', 16));
       row.querySelector('.sz').textContent = fmtBytes(info.freed);
-      ctx.setDock({ label: 'Limpando', busy: true, progress: info.done / info.total, mod: 'clean' });
-    });
+      sd.progress(info.done / info.total);
+    }, { permanent: ok === 'permanent', stopped: sd.stopped });
     store.junk = pruneResult(store.junk, res.okIds);
     for (const id of res.okIds) store.junkSel.delete(id);
     bump();
