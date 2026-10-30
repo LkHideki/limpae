@@ -351,6 +351,7 @@ export function enter(ctx) {
     const movedAny = d.clean && d.clean.moved > 0;
     const pending = confirmDialog({
       title: tn(tasks.length, 'Executar {n} tarefa?', 'Executar {n} tarefas?'),
+      permanentTitle: tn(tasks.length, 'Executar {n} tarefa definitivamente?', 'Executar {n} tarefas definitivamente?'),
       body: t('Confira o que vai acontecer:'),
       confirm: t('Executar'), danger: !!d.trash, glyph: d.trash ? 'trash' : 'clean', mod: d.trash ? 'trash' : 'clean',
       permanentChoice: movedAny, permanentDefault: !!(store.settings && store.settings.permanentDelete),
