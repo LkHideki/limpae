@@ -1,5 +1,6 @@
 // Disk Map: mapa de bolhas navegável. Só ids de nós trafegam; o backend resolve caminhos e valida cada remoção.
 import { play } from '../sound.js';
+import { t, tn, tr } from '../i18n.js';
 import { h, mount, sleep } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
@@ -71,17 +72,17 @@ function iconKind(n, root) {
 
 function ensureDefs() {
   if (document.getElementById('lens-defs')) return;
-  const t = document.createElement('template');
-  t.innerHTML = DEFS;
-  const el = t.content.firstElementChild;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = DEFS;
+  const el = tpl.content.firstElementChild;
   el.id = 'lens-defs';
   document.body.append(el);
 }
 
 function svgIcon(kind) {
-  const t = document.createElement('template');
-  t.innerHTML = `<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">${ART[kind] || ART.doc}</svg>`;
-  return t.content.firstElementChild;
+  const tpl = document.createElement('template');
+  tpl.innerHTML = `<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">${ART[kind] || ART.doc}</svg>`;
+  return tpl.content.firstElementChild;
 }
 
 // Cache dos ícones reais de .app (path -> data URL | null) e das requisições em andamento.
@@ -104,6 +105,9 @@ function nodeIcon(n, px, root) {
   return slot;
 }
 const plainIcon = (kind, px) => h('span', { class: 'fi', style: `width:${px}px;height:${px}px` }, svgIcon(kind));
+
+// O nó sintético de arquivos pequenos vem do backend com texto em português; os demais nomes são do disco.
+const nodeName = (n) => (n.kind === 'small' ? tr(n.name) : n.name);
 
 // Nome com reticências no meio, preservando a extensão: "CMPurgeableSpaceEntityPa…ntifier".
 function midCut(name, cap) {
@@ -190,36 +194,37 @@ export function enter(ctx) {
     for (const [id, el] of rows) if (id !== 'other') el.classList.toggle('sel', stateOf(id, partial) === 'on');
     const kids = S.cur.children.filter((c) => c.selectable);
     const nSel = kids.filter((c) => stateOf(c.id, partial) === 'on').length;
-    if (menuBtn) menuBtn.firstChild.textContent = nSel === 0 ? 'Nenhum' : nSel === kids.length ? 'Tudo' : `${nSel} de ${kids.length}`;
+    if (menuBtn) menuBtn.firstChild.textContent = nSel === 0 ? t('Nenhum') : nSel === kids.length ? t('Tudo') : `${nSel} ${t('de')} ${kids.length}`;
     const { bytes, count } = selTotal();
-    if (selLabel) mount(selLabel, h('b', null, count ? plural(count, 'item selecionado', 'itens selecionados') : 'Nenhum item selecionado'), h('i', { class: 'sep' }), h('span', null, fmtBytes(bytes)));
+    if (selLabel) mount(selLabel, h('b', null, count ? plural(count, 'item selecionado', 'itens selecionados') : t('Nenhum item selecionado')), h('i', { class: 'sep' }), h('span', null, fmtBytes(bytes)));
     if (reviewBtn) reviewBtn.disabled = count === 0;
   }
 
   // ---------- landing ----------
-  function rootTitle(r) { return r.isVolume ? r.name : 'Pasta pessoal'; }
+  function rootTitle(r) { return r.isVolume ? r.name : t('Pasta pessoal'); }
+  const volName = () => (S.vol.isVolume ? S.vol.name : t('Pasta pessoal')); // traduzido na hora de exibir
 
   function renderIdle() {
-    const pick = h('div', { class: 'lens-roots', role: 'radiogroup', 'aria-label': 'Local para analisar' });
+    const pick = h('div', { class: 'lens-roots', role: 'radiogroup', 'aria-label': t('Local para analisar') });
     const drawRoots = () => {
-      if (!S.roots) { mount(pick, h('div', { class: 'lens-roots-load' }, h('span', { class: 'spin' }), 'Lendo os locais…')); return; }
+      if (!S.roots) { mount(pick, h('div', { class: 'lens-roots-load' }, h('span', { class: 'spin' }), t('Lendo os locais…'))); return; }
       mount(pick, S.roots.map((r) => {
         const usedPct = pct(r.used, r.total);
         return h('button', { class: 'lens-root', type: 'button', role: 'radio', 'aria-checked': String(r.index === S.rootIdx), onClick: () => { S.rootIdx = r.index; drawRoots(); } },
           h('span', { class: 'lr-ic' }, icon(r.isVolume ? 'disk' : 'folder', 18)),
-          h('span', { class: 'lr-main' }, h('b', null, rootTitle(r)), h('small', null, r.total ? `${fmtBytes(r.used)} de ${fmtBytes(r.total)} usados` : r.path)),
+          h('span', { class: 'lr-main' }, h('b', null, rootTitle(r)), h('small', null, r.total ? t('{used} de {total} usados', { used: fmtBytes(r.used), total: fmtBytes(r.total) }) : r.path)),
           h('span', { class: 'lr-bar' }, h('i', { style: `width:${usedPct}%` })));
       }));
     };
     drawRoots();
     st.show(h('h1', { class: 'h1' }, 'Disk Map'),
-      h('p', { class: 'sub' }, 'Veja o que ocupa espaço no Mac em um mapa de bolhas e escolha o que mover para o Lixo.'),
-      h('p', { class: 'lens-lead' }, 'Analisar'), pick,
-      S.cur && S.phase === 'idle' && S.hasMap ? h('div', { class: 'row-actions', style: 'margin-top:18px' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.phase = 'map'; render(); } }, 'Voltar ao mapa')) : null);
-    ctx.setDock({ label: 'Analisar', mod: 'lens', disabled: !S.roots, onClick: scan });
+      h('p', { class: 'sub' }, t('Veja o que ocupa espaço no Mac em um mapa de bolhas e escolha o que mover para o Lixo.')),
+      h('p', { class: 'lens-lead' }, t('Analisar')), pick,
+      S.cur && S.phase === 'idle' && S.hasMap ? h('div', { class: 'row-actions', style: 'margin-top:18px' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.phase = 'map'; render(); } }, t('Voltar ao mapa'))) : null);
+    ctx.setDock({ label: t('Analisar'), mod: 'lens', disabled: !S.roots, onClick: scan });
     if (!S.roots) {
-      api.lensRoots().then((r) => { S.roots = r; if (S.rootIdx >= r.length) S.rootIdx = 0; if (ctx.alive && S.phase === 'idle') { drawRoots(); ctx.setDock({ label: 'Analisar', mod: 'lens', onClick: scan }); } })
-        .catch(() => { if (ctx.alive) mount(pick, h('div', { class: 'lens-roots-load' }, 'Não foi possível ler os locais.', h('button', { class: 'link', type: 'button', onClick: () => { S.roots = null; render(); } }, 'Tentar de novo'))); });
+      api.lensRoots().then((r) => { S.roots = r; if (S.rootIdx >= r.length) S.rootIdx = 0; if (ctx.alive && S.phase === 'idle') { drawRoots(); ctx.setDock({ label: t('Analisar'), mod: 'lens', onClick: scan }); } })
+        .catch(() => { if (ctx.alive) mount(pick, h('div', { class: 'lens-roots-load' }, t('Não foi possível ler os locais.'), h('button', { class: 'link', type: 'button', onClick: () => { S.roots = null; render(); } }, t('Tentar de novo')))); });
     }
   }
 
@@ -233,15 +238,15 @@ export function enter(ctx) {
     st.busy(true);
     const ticker = h('div', { class: 'ticker' });
     const count = h('p', { class: 'sub lens-count' });
-    st.show(h('h1', { class: 'h1' }, 'Visualizando seu espaço…'), count, ticker);
-    ctx.onProgress((p) => { if (p.task === 'lens') { ticker.textContent = p.path || ''; count.textContent = p.bytes ? `${fmtBytes(p.bytes)} medidos` : ''; } });
-    ctx.setDock({ label: 'Parar', busy: true, mod: 'lens', onClick: () => { cancelled = true; ctx.setDock({ label: 'Parando', busy: true, disabled: true, mod: 'lens' }); api.cancel().catch(() => {}); } });
+    st.show(h('h1', { class: 'h1' }, t('Visualizando seu espaço…')), count, ticker);
+    ctx.onProgress((p) => { if (p.task === 'lens') { ticker.textContent = p.path || ''; count.textContent = p.bytes ? t('{size} medidos', { size: fmtBytes(p.bytes) }) : ''; } });
+    ctx.setDock({ label: t('Parar'), busy: true, mod: 'lens', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'lens' }); api.cancel().catch(() => {}); } });
     let ok = false;
     try {
       const r = await api.lensScan(S.rootIdx);
       if (!cancelled) {
         const root = S.roots[S.rootIdx];
-        S.root = r.root; S.vol = { total: r.volumeTotal, used: r.volumeUsed, name: rootTitle(root), isVolume: !!root.isVolume };
+        S.root = r.root; S.vol = { total: r.volumeTotal, used: r.volumeUsed, name: root.name, isVolume: !!root.isVolume };
         S.cache = new Map([[r.root.id, r.root]]); S.sel = new Set(); S.hist = []; S.pos = -1; S.cur = null; S.icons = new Map();
         ok = true;
       }
@@ -321,13 +326,13 @@ export function enter(ctx) {
     if (mark) mark.classList.add('ctx-open');
     const from = bubs.get(n.id);
     openMenu({
-      at, opener, label: `Ações de ${n.name}`, onClose: () => mark && mark.classList.remove('ctx-open'),
+      at, opener, label: t('Ações de {name}', { name: n.name }), onClose: () => mark && mark.classList.remove('ctx-open'),
       items: [
-        { label: S.sel.has(n.id) ? 'Desmarcar' : 'Selecionar', icon: 'select', disabled: locked && !on, onSelect: () => toggle(n.id) },
-        ...(n.drillable ? [{ label: 'Abrir pasta', icon: 'folder', onSelect: () => drill(n, from) }] : []),
+        { label: S.sel.has(n.id) ? t('Desmarcar') : t('Selecionar'), icon: 'select', disabled: locked && !on, onSelect: () => toggle(n.id) },
+        ...(n.drillable ? [{ label: t('Abrir pasta'), icon: 'folder', onSelect: () => drill(n, from) }] : []),
         { sep: true },
-        { label: 'Mostrar no Finder', icon: 'reveal', onSelect: () => api.lensReveal(n.id).catch(() => {}) },
-        { label: 'Visualização Rápida', icon: 'eye', disabled: n.kind === 'small', onSelect: () => api.lensQuicklook(n.id).catch(() => {}) },
+        { label: t('Mostrar no Finder'), icon: 'reveal', onSelect: () => api.lensReveal(n.id).catch(() => {}) },
+        { label: t('Visualização Rápida'), icon: 'eye', disabled: n.kind === 'small', onSelect: () => api.lensQuicklook(n.id).catch(() => {}) },
       ],
     });
   }
@@ -362,22 +367,22 @@ export function enter(ctx) {
   function drawHead() {
     const { node: cur } = S.cur, atRoot = cur.id === S.root.id;
     mount(shell.headIc, atRoot ? plainIcon(S.vol.isVolume ? 'drive' : 'home', 46) : nodeIcon(cur, 46));
-    mount(shell.headT, h('b', { title: cur.path }, atRoot ? S.vol.name : cur.name),
+    mount(shell.headT, h('b', { title: cur.path }, atRoot ? volName() : nodeName(cur)),
       h('span', null, fmtBytes(cur.size), h('i', { class: 'sep' }), plural(cur.items, 'item', 'itens')));
   }
 
   function row(n, i) {
     const partial = partialIds();
-    const cb = checkbox(stateOf(n.id, partial), () => toggle(n.id), `Selecionar ${n.name}`);
-    if (!n.selectable) { cb.disabled = true; cb.title = n.kind === 'small' ? 'Arquivos pequenos não são listados um a um' : 'Item protegido: não pode ser removido'; }
+    const cb = checkbox(stateOf(n.id, partial), () => toggle(n.id), t('Selecionar {name}', { name: nodeName(n) }));
+    if (!n.selectable) { cb.disabled = true; cb.title = n.kind === 'small' ? t('Arquivos pequenos não são listados um a um') : t('Item protegido: não pode ser removido'); }
     cbs.set(n.id, cb);
-    const more = h('button', { class: 'icon-btn ln-act', type: 'button', title: 'Mais ações', 'aria-label': `Mais ações para ${n.name}`, 'aria-haspopup': 'menu',
+    const more = h('button', { class: 'icon-btn ln-act', type: 'button', title: t('Mais ações'), 'aria-label': t('Mais ações para {name}', { name: nodeName(n) }), 'aria-haspopup': 'menu',
       onClick: (e) => { e.stopPropagation(); nodeMenu(n, below(more), more, el); } }, icon('more', 16));
-    const open = n.drillable ? h('button', { class: 'icon-btn ln-act ln-open', type: 'button', 'aria-label': `Abrir ${n.name}`, title: 'Abrir pasta',
+    const open = n.drillable ? h('button', { class: 'icon-btn ln-act ln-open', type: 'button', 'aria-label': t('Abrir {name}', { name: nodeName(n) }), title: t('Abrir pasta'),
       onClick: (e) => { e.stopPropagation(); drill(n, bubs.get(n.id)); } }, icon('back', 15)) : null;
     const el = h('div', { class: 'ln-row' + (n.drillable ? ' dir' : '') + (n.selectable ? '' : ' locked'), tabindex: '0', dataset: { id: String(n.id) }, vars: { '--i': String(Math.min(i, 24)) } },
       cb, h('span', { class: 'ln-ic' }, nodeIcon(n, 30)),
-      h('span', { class: 'ln-name', title: n.path }, n.name),
+      h('span', { class: 'ln-name', title: n.path }, nodeName(n)),
       open, more,
       h('span', { class: 'ln-size' }, fmtBytes(n.size)));
     clickable(el, n);
@@ -389,7 +394,7 @@ export function enter(ctx) {
     const el = h('button', { class: 'ln-row other', type: 'button', onMouseenter: () => hover('other', true), onMouseleave: () => hover('other', false),
       onClick: () => { S.expanded = !S.expanded; drawList(); } },
       h('span', { class: 'ln-ic' }, plainIcon('other', 30)),
-      h('span', { class: 'ln-name' }, 'Outros itens', h('small', null, plural(rest, 'item', 'itens'))),
+      h('span', { class: 'ln-name' }, t('Outros itens'), h('small', null, plural(rest, 'item', 'itens'))),
       h('span', { class: 'ln-size' }, fmtBytes(total)),
       h('span', { class: 'ln-chev' + (S.expanded ? ' open' : ''), 'aria-hidden': 'true' }, icon('chevron', 14)));
     rows.set('other', el);
@@ -407,10 +412,10 @@ export function enter(ctx) {
       out.push(otherRow(rest.length, rest.reduce((a, c) => a + c.size, 0)));
       if (S.expanded) {
         out.push(...rest.slice(0, S.listLimit).map((n, i) => row(n, i)));
-        if (rest.length > S.listLimit) out.push(h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.listLimit += LIST_CHUNK; drawList(); } }, `Mostrar mais (${plural(rest.length - S.listLimit, 'item', 'itens')})`)));
+        if (rest.length > S.listLimit) out.push(h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.listLimit += LIST_CHUNK; drawList(); } }, `${t('Mostrar mais')} (${plural(rest.length - S.listLimit, 'item', 'itens')})`)));
       }
     }
-    if (!kids.length) out.push(h('div', { class: 'rv-empty' }, 'Esta pasta está vazia.'));
+    if (!kids.length) out.push(h('div', { class: 'rv-empty' }, t('Esta pasta está vazia.')));
     mount(shell.listEl, out);
     refreshSel();
   }
@@ -424,7 +429,7 @@ export function enter(ctx) {
       if (i) out.push(h('span', { class: 'crumb-sep', 'aria-hidden': 'true' }, icon('back', 11)));
       if (!c) { out.push(h('span', { class: 'crumb dots', title: cr.slice(1, -2).map((x) => x.name).join(' › ') }, '…')); return; }
       const last = c.id === S.cur.node.id, isRoot = c.id === S.root.id;
-      const label = isRoot ? S.vol.name : c.name;
+      const label = isRoot ? volName() : c.name;
       out.push(h('button', { class: 'crumb' + (last ? ' cur' : ''), type: 'button', title: label, 'aria-current': last ? 'page' : null, disabled: last, onClick: () => go(c.id, { dir: 'out' }) },
         plainIcon(isRoot ? (S.vol.isVolume ? 'drive' : 'home') : 'folder', 17), h('span', null, label)));
     });
@@ -458,7 +463,7 @@ export function enter(ctx) {
 
   function bubble(it, i) {
     const r = it.r, n = it.n, other = it.other;
-    const full = other ? `Outros itens (${fmtNum(it.count)})` : n.name;
+    const full = other ? t('Outros itens ({n})', { n: fmtNum(it.count) }) : nodeName(n);
     const label = full;
     const sizeText = fmtBytes(it.bytes);
     const tier = r >= 84 ? 'l' : r >= 62 ? 'm' : r >= 42 ? 's' : 'xs';
@@ -468,13 +473,13 @@ export function enter(ctx) {
     const px = Math.round(Math.min(Math.max(r * (showName ? 0.56 : 0.7), 24), 66));
     const el = h('div', {
       class: `bub t-${tier} k-${other ? 'other' : n.kind}${!other && !n.selectable ? ' locked' : ''}`, role: 'button', tabindex: '0',
-      'aria-label': `${label}, ${sizeText}${!other && n.drillable ? ', pasta' : ''}`, title: `${label} · ${sizeText}`,
+      'aria-label': `${label}, ${sizeText}${!other && n.drillable ? ', ' + t('pasta') : ''}`, title: `${label} · ${sizeText}`,
       style: `left:${(it.x - r).toFixed(1)}px;top:${(it.y - r).toFixed(1)}px;width:${(2 * r).toFixed(1)}px;height:${(2 * r).toFixed(1)}px`, vars: { '--i': String(i) },
     },
     h('span', { class: 'bub-body' },
       h('span', { class: 'bub-in' },
         other ? plainIcon('other', px) : nodeIcon(n, px),
-        showName ? h('span', { class: 'bub-name', style: `font-size:${fs}px` }, other ? (cap >= full.length ? full : cap >= 12 ? 'Outros itens' : 'Outros') : midCut(label, cap)) : null,
+        showName ? h('span', { class: 'bub-name', style: `font-size:${fs}px` }, other ? (cap >= full.length ? full : cap >= 12 ? t('Outros itens') : t('Outros')) : midCut(label, cap)) : null,
         h('span', { class: 'bub-size' }, sizeText)),
       !other && !n.selectable && n.kind !== 'small' ? h('span', { class: 'bub-lock', 'aria-hidden': 'true' }, icon('lock', 11)) : null,
       !other ? h('span', { class: 'bub-check', 'aria-hidden': 'true' }, icon('check', 14)) : null));
@@ -513,8 +518,8 @@ export function enter(ctx) {
     const usedPct = pct(vol.used, vol.total), rootPct = Math.min(usedPct, pct(root.size, vol.total));
 
     const volCard = h('div', { class: 'lens-vol' },
-      h('div', { class: 'lv-top' }, h('b', null, vol.name), h('span', null, vol.total ? `${fmtBytes(vol.used)} de ${fmtBytes(vol.total)} usados` : `${fmtBytes(root.size)} analisados`)),
-      h('div', { class: 'lv-bar', role: 'img', 'aria-label': `${Math.round(usedPct)}% do volume em uso` }, h('i', { class: 'used', style: `width:${usedPct}%` }), h('i', { class: 'mine', style: `width:${rootPct}%` })));
+      h('div', { class: 'lv-top' }, h('b', null, volName()), h('span', null, vol.total ? t('{used} de {total} usados', { used: fmtBytes(vol.used), total: fmtBytes(vol.total) }) : t('{size} analisados', { size: fmtBytes(root.size) }))),
+      h('div', { class: 'lv-bar', role: 'img', 'aria-label': t('{pct}% do volume em uso', { pct: Math.round(usedPct) }) }, h('i', { class: 'used', style: `width:${usedPct}%` }), h('i', { class: 'mine', style: `width:${rootPct}%` })));
 
     menuBtn = h('button', { class: 'ln-select', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onClick: () => {
       const kids = S.cur.children.filter((c) => c.selectable);
@@ -522,44 +527,44 @@ export function enter(ctx) {
       const nSel = kids.filter((c) => stateOf(c.id, partial) === 'on').length;
       menuBtn.setAttribute('aria-expanded', 'true');
       openMenu({
-        at: below(menuBtn), opener: menuBtn, label: 'Selecionar', onClose: () => menuBtn.setAttribute('aria-expanded', 'false'),
+        at: below(menuBtn), opener: menuBtn, label: t('Selecionar'), onClose: () => menuBtn.setAttribute('aria-expanded', 'false'),
         items: [
-          { label: 'Nenhum', checked: nSel === 0, onSelect: () => { for (const c of S.cur.children) S.sel.delete(c.id); refreshSel(); } },
-          { label: 'Tudo', checked: kids.length > 0 && nSel === kids.length, onSelect: () => { for (const c of S.cur.children) if (c.selectable && !ancestorsSelected(c.id)) S.sel.add(c.id); refreshSel(); } },
+          { label: t('Nenhum'), checked: nSel === 0, onSelect: () => { for (const c of S.cur.children) S.sel.delete(c.id); refreshSel(); } },
+          { label: t('Tudo'), checked: kids.length > 0 && nSel === kids.length, onSelect: () => { for (const c of S.cur.children) if (c.selectable && !ancestorsSelected(c.id)) S.sel.add(c.id); refreshSel(); } },
         ],
       });
-    } }, h('span', null, 'Nenhum'), icon('chevron', 13));
+    } }, h('span', null, t('Nenhum')), icon('chevron', 13));
 
     const headIc = h('span', { class: 'll-ic' }), headT = h('div', { class: 'll-t' });
     const listEl = h('div', { class: 'ln-rows' });
     const listCard = h('div', { class: 'lens-list' },
       h('div', { class: 'll-head' }, headIc, headT),
-      h('div', { class: 'll-sel' }, h('span', null, 'Selecionar:'), menuBtn),
+      h('div', { class: 'll-sel' }, h('span', null, t('Selecionar:')), menuBtn),
       listEl);
 
-    const layer = h('div', { class: 'bub-layer', role: 'group', 'aria-label': 'Mapa de bolhas' });
+    const layer = h('div', { class: 'bub-layer', role: 'group', 'aria-label': t('Mapa de bolhas') });
     layer.addEventListener('dblclick', (e) => { if (e.target === layer) goUp(); });
-    const empty = h('div', { class: 'map-empty', hidden: true }, 'Nada para mostrar aqui.');
+    const empty = h('div', { class: 'map-empty', hidden: true }, t('Nada para mostrar aqui.'));
     const mapEl = h('div', { class: 'lens-map' }, layer, empty);
     mapEl.addEventListener('dblclick', (e) => { if (e.target === mapEl) goUp(); });
 
-    const backBtn = h('button', { class: 'nav-arrow', type: 'button', 'aria-label': 'Voltar', title: 'Voltar (⌘[)', onClick: goBack }, icon('back', 16));
-    const fwdBtn = h('button', { class: 'nav-arrow fwd', type: 'button', 'aria-label': 'Avançar', title: 'Avançar (⌘])', onClick: goFwd }, icon('back', 16));
-    const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'Caminho' });
+    const backBtn = h('button', { class: 'nav-arrow', type: 'button', 'aria-label': t('Voltar'), title: t('Voltar') + ' (⌘[)', onClick: goBack }, icon('back', 16));
+    const fwdBtn = h('button', { class: 'nav-arrow fwd', type: 'button', 'aria-label': t('Avançar'), title: t('Avançar') + ' (⌘])', onClick: goFwd }, icon('back', 16));
+    const crumbs = h('nav', { class: 'crumbs', 'aria-label': t('Caminho') });
     const nav = h('div', { class: 'lens-nav' }, backBtn, fwdBtn, crumbs);
 
     selLabel = h('div', { class: 'lens-sel', 'aria-live': 'polite' });
-    reviewBtn = h('button', { class: 'btn primary lens-review', type: 'button', disabled: true, onClick: review }, 'Revisar e Remover');
+    reviewBtn = h('button', { class: 'btn primary lens-review', type: 'button', disabled: true, onClick: review }, t('Revisar e Remover'));
 
     const el = h('section', { class: 'lens', dataset: { mod: 'lens' }, 'aria-label': 'Disk Map', tabindex: '-1' },
-      h('div', { class: 'lens-top' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('lens')) { S.phase = 'idle'; S.hasMap = true; st = null; render(); } } }, icon('back', 14), 'Recomeçar')),
+      h('div', { class: 'lens-top' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('lens')) { S.phase = 'idle'; S.hasMap = true; st = null; render(); } } }, icon('back', 14), t('Recomeçar'))),
       h('div', { class: 'lens-body' },
         h('aside', { class: 'lens-left' }, volCard, listCard),
         h('div', { class: 'lens-right' }, nav, mapEl)),
       h('div', { class: 'lens-foot' }, selLabel, reviewBtn));
     el.addEventListener('keydown', (e) => {
-      const t = e.target;
-      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) return;
+      const tg = e.target;
+      if (tg instanceof HTMLInputElement || tg instanceof HTMLTextAreaElement) return;
       if (e.key === 'Backspace' || (e.metaKey && e.key === 'ArrowUp')) { e.preventDefault(); goUp(); }
       else if (e.metaKey && e.key === '[') { e.preventDefault(); goBack(); }
       else if (e.metaKey && e.key === ']') { e.preventDefault(); goFwd(); }
@@ -615,8 +620,8 @@ export function enter(ctx) {
     const back = () => { S.phase = 'map'; render(); };
     const rv = createReview({
       result, sel, mod: 'lens', title: 'Disk Map',
-      subtitle: `Revisar e Remover · ${plural(result.groups.reduce((a, g) => a + g.items.length, 0), 'item', 'itens')} · ${fmtBytes(result.total)}`,
-      actionLabel: 'Mover para o Lixo', showAge: true, emptyText: 'Nada selecionado.',
+      subtitle: `${t('Revisar e Remover')} · ${plural(result.groups.reduce((a, g) => a + g.items.length, 0), 'item', 'itens')} · ${fmtBytes(result.total)}`,
+      actionLabel: t('Mover para o Lixo'), showAge: true, emptyText: t('Nada selecionado.'),
       onBack: back, onAction: () => move(),
     });
     mount(ctx.root, rv.el);
@@ -629,9 +634,9 @@ export function enter(ctx) {
     for (const g of result.groups) for (const i of g.items) if (sel.has(i.id)) { bytes += i.size; count++; }
     if (!count) return;
     const ok = await confirmDialog({
-      title: `Mover ${plural(count, 'item', 'itens')} para o Lixo?`,
-      body: [`${fmtBytes(bytes)} serão enviados ao Lixo. Você pode restaurá-los de lá `, h('strong', null, 'até esvaziar a Lixeira'), '.'],
-      confirm: 'Mover para o Lixo', glyph: 'trash', mod: 'lens',
+      title: tn(count, 'Mover 1 item para o Lixo?', 'Mover {n} itens para o Lixo?'),
+      body: [t('{size} serão enviados ao Lixo. Você pode restaurá-los de lá ', { size: fmtBytes(bytes) }), h('strong', null, t('até esvaziar a Lixeira')), '.'],
+      confirm: t('Mover para o Lixo'), glyph: 'trash', mod: 'lens',
       permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
     });
     if (!ok) return;
@@ -639,7 +644,7 @@ export function enter(ctx) {
     ctx.setBusy(true);
     ctx.reserveDock(true);
     st = stage('lens', 'lens', 260); mount(ctx.root, st.el); st.busy(true);
-    st.show(h('h1', { class: 'h1' }, permanent ? 'Apagando…' : 'Movendo para o Lixo…'), h('p', { class: 'sub' }, plural(count, 'item', 'itens') + '.'));
+    st.show(h('h1', { class: 'h1' }, permanent ? t('Apagando…') : t('Movendo para o Lixo…')), h('p', { class: 'sub' }, plural(count, 'item', 'itens') + '.'));
     const sd = stopDock(ctx, 'lens');
     const res = await removeGroups(result, sel, (g, status, info) => { if (status !== 'run') sd.progress(info.done / info.total); }, { permanent, stopped: sd.stopped });
     bump(); store.trash = null;
@@ -653,12 +658,12 @@ export function enter(ctx) {
   }
 
   function renderDone() {
-    st.show(h('div', { class: 'big' }, bytesParts(S.moved).value, h('small', null, bytesParts(S.moved).unit)), h('div', { class: 'big-cap' }, S.permanent ? 'apagados definitivamente' : 'movidos para o Lixo'),
-      h('p', { class: 'sub' }, (S.permanent ? 'O espaço já foi liberado.' : 'Esvazie a Lixeira para liberar o espaço no disco.') + ' O mapa mudou: analise de novo para ver o resultado.'),
+    st.show(h('div', { class: 'big' }, bytesParts(S.moved).value, h('small', null, bytesParts(S.moved).unit)), h('div', { class: 'big-cap' }, S.permanent ? t('apagados definitivamente') : t('movidos para o Lixo')),
+      h('p', { class: 'sub' }, (S.permanent ? t('O espaço já foi liberado.') : t('Esvazie a Lixeira para liberar o espaço no disco.')) + ' ' + t('O mapa mudou: analise de novo para ver o resultado.')),
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
-        S.permanent ? null : h('button', { class: 'btn', type: 'button', onClick: () => ctx.nav('trash') }, icon('trash', 15), 'Ir para a Lixeira'),
-        h('button', { class: 'btn primary', type: 'button', onClick: () => { S.phase = 'idle'; st = null; render(); } }, 'Concluir')));
+        h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
+        S.permanent ? null : h('button', { class: 'btn', type: 'button', onClick: () => ctx.nav('trash') }, icon('trash', 15), t('Ir para a Lixeira')),
+        h('button', { class: 'btn primary', type: 'button', onClick: () => { S.phase = 'idle'; st = null; render(); } }, t('Concluir'))));
     ctx.setDock(null);
   }
 
