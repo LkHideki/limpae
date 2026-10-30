@@ -1,3 +1,4 @@
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -29,6 +30,9 @@ pub struct Item {
     pub modified: Option<i64>,
     #[serde(skip)]
     pub policy: Policy,
+    /// (device, inode) seen by the scan. Removal refuses the item if the path now points at something else.
+    #[serde(skip)]
+    pub ident: Option<(u64, u64)>,
 }
 
 impl Item {
@@ -37,12 +41,14 @@ impl Item {
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.to_string_lossy().into_owned());
-        let modified = std::fs::symlink_metadata(&path)
-            .and_then(|m| m.modified())
-            .ok()
+        let md = std::fs::symlink_metadata(&path).ok();
+        let modified = md
+            .as_ref()
+            .and_then(|m| m.modified().ok())
             .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
             .map(|d| d.as_secs() as i64);
-        Self { path, name, size, selected: true, note: None, modified, policy }
+        let ident = md.as_ref().map(|m| (m.dev(), m.ino()));
+        Self { path, name, size, selected: true, note: None, modified, policy, ident }
     }
 
     pub fn unselected(mut self, note: impl Into<String>) -> Self {

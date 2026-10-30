@@ -160,6 +160,7 @@ mod tests {
             note: None,
             modified: None,
             policy: Policy::MoveToTrash,
+            ident: None,
         };
         let groups = vec![
             Group { id: "g1".into(), title: String::new(), description: String::new(), items: vec![item("/c/a")] },

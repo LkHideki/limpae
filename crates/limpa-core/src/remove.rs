@@ -1,5 +1,6 @@
 use std::fs;
 use std::io;
+use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 
@@ -8,7 +9,7 @@ use serde::Serialize;
 use trash::TrashContext;
 use trash::macos::{DeleteMethod, TrashContextExtMacos};
 
-use crate::guard::Guard;
+use crate::guard::{Guard, GuardError};
 use crate::log::ActionLog;
 use crate::model::{Group, Item, Policy};
 use crate::size::alloc_size;
@@ -44,13 +45,20 @@ impl Remover for SystemRemover {
     }
 }
 
+/// The scan's (device, inode) must still be what the path names; otherwise the user reviewed a different file.
+fn same_file(item: &Item, real: PathBuf) -> Result<PathBuf, GuardError> {
+    let Some(ident) = item.ident else { return Ok(real) };
+    let md = fs::symlink_metadata(&real).map_err(|_| GuardError::Missing)?;
+    if (md.dev(), md.ino()) == ident { Ok(real) } else { Err(GuardError::Changed) }
+}
+
 fn is_permanent(item: &Item) -> bool {
     !matches!(item.policy, Policy::MoveToTrash)
 }
 
 /// Re-validates and removes one item. Never panics: every failure becomes an error outcome.
 fn remove_one(item: &Item, guard: &Guard, r: &dyn Remover, log: &ActionLog) -> Outcome {
-    let real = match guard.check(&item.path, &item.policy) {
+    let real = match guard.check(&item.path, &item.policy).and_then(|real| same_file(item, real)) {
         Ok(real) => real,
         Err(err) => {
             log.record("recusado", &item.path, false, 0);
@@ -375,5 +383,19 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let err = trash_entries(tmp.path(), &AtomicBool::new(false)).unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn replaced_path_is_refused() {
+        let f = fixture();
+        let dir = f.cache_dir("com.swap");
+        let item = f.item(dir.clone(), f.junk());
+        fs::remove_dir_all(&dir).unwrap();
+        fs::create_dir(&dir).unwrap();
+        fs::write(dir.join("new-and-important"), b"x").unwrap();
+        let out = remove_items(&[item], &f.guard, &SystemRemover, &f.log);
+        assert!(!out[0].ok);
+        assert_eq!(out[0].error.as_deref(), Some("o item mudou desde a análise; analise de novo"));
+        assert!(dir.join("new-and-important").exists());
     }
 }
