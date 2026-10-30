@@ -16,8 +16,8 @@ const C = { phase: 'idle', result: null, sel: new Set(), freed: 0 };
 
 export function enter(ctx) {
   let st = null, cancelled = false;
-  if (C.phase === 'review' && !C.result) C.phase = 'idle';
-  if (!['review', 'done'].includes(C.phase)) C.phase = 'idle';
+  if (['summary', 'review'].includes(C.phase) && !C.result) C.phase = 'idle';
+  if (!['summary', 'review', 'done'].includes(C.phase)) C.phase = 'idle';
 
   function ensureStage() {
     if (!st) { st = stage('cloud', 'cloud', 260); mount(ctx.root, st.el); }
@@ -26,10 +26,11 @@ export function enter(ctx) {
   }
 
   function render() {
-    if (C.phase === 'review' && C.result) {
+    ctx.onBack(null);
+    if (['summary', 'review'].includes(C.phase) && C.result) {
       if (C.result.needsFda) return renderFda();
       if (!countItems(C.result)) return renderEmpty();
-      return renderReview();
+      return C.phase === 'review' ? renderReview() : renderSummary();
     }
     ensureStage();
     if (C.phase === 'done') return renderDone();
@@ -41,7 +42,7 @@ export function enter(ctx) {
     st.show(h('h1', { class: 'h1' }, 'Libere espaço sem perder nada do iCloud'),
       h('p', { class: 'sub' }, 'Remova do Mac as cópias dos arquivos do iCloud Drive que você não usa agora.'),
       features('cloud', [['cloud', 'Os arquivos continuam guardados no iCloud'], ['refresh', 'Baixam de novo quando você abrir'], ['shield', 'Nada é apagado da nuvem']]),
-      C.result ? h('div', { class: 'row-actions' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { C.phase = 'review'; st = null; render(); } }, 'Voltar aos resultados')) : null);
+      C.result ? h('div', { class: 'row-actions' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { C.phase = 'summary'; st = null; render(); } }, 'Voltar aos resultados')) : null);
     ctx.setDock({ label: 'Analisar', mod: 'cloud', onClick: scan });
   }
 
@@ -63,7 +64,7 @@ export function enter(ctx) {
     } catch (e) { /* toast já exibido */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
-    C.phase = ok ? 'review' : 'idle';
+    C.phase = ok ? 'summary' : 'idle';
     if (ok) { st = null; play('found'); }
     render();
   }
@@ -88,35 +89,65 @@ export function enter(ctx) {
     ctx.setDock(null);
   }
 
+  // Resumo: o total baixado e os arquivos grandes, cada um com Revisar e Liberar do Mac.
+  // Nada vem marcado: "Liberar do Mac" num bloco marca só aquele bloco e pede confirmação.
+  const BIG = 100e6;
+  function renderSummary() {
+    st = null;
+    ctx.reserveDock(false);
+    ctx.setDock(null);
+    const items = C.result.groups.flatMap((g) => g.items);
+    const big = items.filter((i) => i.size >= BIG);
+    const bigBytes = big.reduce((a, i) => a + i.size, 0);
+    const tile = (id, ic, title, sub, list, extra) => h('div', { class: 'cl-tile', dataset: { tile: id } },
+      h('span', { class: 'fl-tile-ic' }, icon(ic, 26)),
+      h('div', { class: 'cl-tile-n' }, title),
+      h('div', { class: 'cl-tile-t' }, sub),
+      h('div', { class: 'fl-tile-s' }, extra),
+      h('div', { class: 'cl-tile-act' },
+        h('button', { class: 'btn sm', type: 'button', onClick: () => { C.phase = 'review'; render(); } }, 'Revisar'),
+        h('button', { class: 'btn sm primary', type: 'button', onClick: async () => { C.sel = new Set(list.map((i) => i.id)); if (!(await evict())) C.sel = new Set(); } }, 'Liberar do Mac')));
+    mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'cloud' }, 'aria-label': 'Resultados da Nuvem' },
+      h('h2', { class: 'fl-title' }, `${fmtBytes(C.result.total)} de arquivos do iCloud neste Mac.`),
+      h('p', { class: 'sub fl-sub' }, 'Continuam guardados no iCloud e baixam de novo quando você abrir. Nada vem marcado.'),
+      h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => { C.phase = 'review'; render(); } }, 'Revisar todos os arquivos'),
+      h('div', { class: 'cl-tiles', dataset: { n: big.length ? 2 : 1 } },
+        tile('all', 'cloud', fmtBytes(C.result.total), 'Arquivos baixados', items, plural(items.length, 'arquivo', 'arquivos') + ' ocupando espaço neste Mac.'),
+        big.length ? tile('big', 'disk', fmtBytes(bigBytes), 'Arquivos grandes baixados', big, `${plural(big.length, 'arquivo', 'arquivos')} acima de ${fmtBytes(BIG)}.`) : null)));
+  }
+
   function renderReview() {
     st = null;
     ctx.reserveDock(false);
     ctx.setDock(null);
     const n = countItems(C.result);
+    const back = () => { C.phase = 'summary'; render(); };
     const rv = createReview({
-      result: C.result, sel: C.sel, mod: 'cloud', title: 'Arquivos do iCloud neste Mac',
-      subtitle: `${plural(n, 'arquivo', 'arquivos')} · ${fmtBytes(C.result.total)} ocupados · continuam no iCloud`,
-      actionLabel: 'Remover do Mac', showAge: true, emptyText: 'Nenhum arquivo baixado.',
-      onBack: () => { C.phase = 'idle'; render(); }, onAction: () => evict(),
+      result: C.result, sel: C.sel, mod: 'cloud', title: 'Nuvem',
+      subtitle: `${plural(n, 'arquivo', 'arquivos')} do iCloud neste Mac · ${fmtBytes(C.result.total)} ocupados · continuam no iCloud`,
+      actionLabel: 'Liberar do Mac', showAge: true, emptyText: 'Nenhum arquivo baixado.', quickLook: false,
+      onBack: back, onAction: () => evict(),
     });
     mount(ctx.root, rv.el);
+    ctx.onBack(back);
   }
 
   async function evict() {
     const { bytes, count } = selectedSize(C.result, C.sel);
     if (!count) return;
     const ok = await confirmDialog({
-      title: `Remover ${plural(count, 'arquivo', 'arquivos')} deste Mac?`,
+      title: `Liberar ${plural(count, 'arquivo', 'arquivos')} deste Mac?`,
       body: [`Isso libera cerca de ${fmtBytes(bytes)}. `, h('strong', null, 'Os arquivos continuam no iCloud'), ' e baixam de novo quando você abrir. Nada é apagado da nuvem nem enviado ao Lixo.'],
-      confirm: 'Remover do Mac', glyph: 'cloud', mod: 'cloud',
+      confirm: 'Liberar do Mac', glyph: 'cloud', mod: 'cloud',
     });
-    if (!ok) return;
+    if (!ok) return false;
     C.phase = 'working';
+    ctx.onBack(null);
     ctx.setBusy(true);
     st = null; ensureStage(); st.busy(true);
     const line = h('p', { class: 'sub' }, `0 de ${count}`);
-    st.show(h('h1', { class: 'h1' }, 'Removendo do Mac…'), line);
-    ctx.setDock({ label: 'Removendo', busy: true, mod: 'cloud' });
+    st.show(h('h1', { class: 'h1' }, 'Liberando do Mac…'), line);
+    ctx.setDock(null); // a operação não pode ser interrompida entre lotes pelo backend: sem botão que pareça Parar
 
     const items = C.result.groups.flatMap((g) => g.items).filter((i) => C.sel.has(i.id));
     const byId = new Map(items.map((i) => [i.id, i]));
@@ -140,18 +171,21 @@ export function enter(ctx) {
     play(freed ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
-    if (!ctx.alive) return;
+    if (!ctx.alive) return true;
     st = null;
     render();
     if (failures.length) failuresSheet(failures);
+    return true;
   }
 
   function renderDone() {
+    const left = C.result ? countItems(C.result) : 0;
     st.show(h('div', { class: 'big' }, bytesParts(C.freed).value, h('small', null, bytesParts(C.freed).unit)), h('div', { class: 'big-cap' }, 'liberados neste Mac'),
       h('p', { class: 'sub' }, 'Os arquivos continuam no iCloud e baixam de novo quando você abrir.'),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
-        C.result && countItems(C.result) ? h('button', { class: 'btn primary', type: 'button', onClick: () => { C.phase = 'review'; st = null; render(); } }, 'Continuar revisando') : h('button', { class: 'btn primary', type: 'button', onClick: () => { C.phase = 'idle'; C.result = null; render(); } }, 'Analisar de novo')));
+        left ? h('button', { class: 'btn', type: 'button', onClick: () => { C.phase = 'review'; st = null; render(); } }, icon('search', 15), 'Revisar itens restantes') : null,
+        h('button', { class: 'btn primary', type: 'button', onClick: () => { C.phase = 'idle'; C.result = null; render(); } }, 'Concluir')));
     ctx.setDock(null);
   }
 

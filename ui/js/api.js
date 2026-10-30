@@ -43,6 +43,8 @@ export const api = {
   uninstall: (appId, leftoverIds, permanent = false) => call('uninstall', { appId, leftoverIds, permanent }),
   cancel: () => { play('stop'); return call('cancel_scan', undefined, { quiet: true }); },
   reveal: (id) => call('reveal', { id }),
+  openApp: (appId) => call('open_app', { appId }),
+  downloadDups: () => call('scan_download_dups'),
   revealLog: () => call('reveal_log'),
   openFda: () => call('open_fda_settings'),
   settings: () => call('get_settings', undefined, { quiet: true }),

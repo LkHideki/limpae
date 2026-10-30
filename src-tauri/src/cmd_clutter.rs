@@ -76,6 +76,23 @@ pub async fn scan_duplicates(app: AppHandle, state: State<'_, Shared>, location:
     .await
 }
 
+/// Duplicates inside `~/Downloads` only (the Sweep "Meus Arquivos" tile). Same registry task as
+/// `scan_duplicates`, so "Revisar" opens My Files on the Duplicates category with these results. Review-only:
+/// the UI never pre-selects user files, and Run never touches them.
+#[tauri::command]
+pub async fn scan_download_dups(app: AppHandle, state: State<'_, Shared>) -> Result<ScanResult, String> {
+    run_scan(app, &state, "duplicates", move |st, p| {
+        let root = st.home.join("Downloads");
+        let groups = if std::fs::metadata(&root).is_ok_and(|m| m.is_dir()) {
+            clutter::duplicates(&root, DUP_MIN_BYTES, p)
+        } else {
+            Vec::new()
+        };
+        store(st, Task::Other("duplicates"), groups, p)
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn scan_similar(app: AppHandle, state: State<'_, Shared>, location: usize) -> Result<ScanResult, String> {
     run_scan(app, &state, "similar", move |st, p| {

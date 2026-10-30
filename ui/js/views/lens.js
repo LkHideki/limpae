@@ -5,7 +5,7 @@ import { icon } from '../art.js';
 import { api } from '../api.js';
 import { store, bump } from '../store.js';
 import { bytesParts, fmtBytes, fmtNum, plural, pct } from '../format.js';
-import { confirmDialog, failuresSheet, stage, checkbox } from '../ui.js';
+import { confirmDialog, confirmRestart, failuresSheet, stage, checkbox } from '../ui.js';
 import { removeGroups, stopDock } from '../actions.js';
 import { fitBubbles } from '../pack.js';
 import { createReview, openMenu } from './review.js';
@@ -127,6 +127,7 @@ export function enter(ctx) {
   const node = (id) => S.cache.get(id);
 
   function render() {
+    ctx.onBack(null);
     if (S.phase === 'map' && S.cur) return renderMap('first');
     dropShell();
     if (S.phase === 'review' && S.review) return renderReview();
@@ -551,7 +552,7 @@ export function enter(ctx) {
     reviewBtn = h('button', { class: 'btn primary lens-review', type: 'button', disabled: true, onClick: review }, 'Revisar e Remover');
 
     const el = h('section', { class: 'lens', dataset: { mod: 'lens' }, 'aria-label': 'Disk Map', tabindex: '-1' },
-      h('div', { class: 'lens-top' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: () => { S.phase = 'idle'; S.hasMap = true; st = null; render(); } }, icon('back', 14), 'Recomeçar')),
+      h('div', { class: 'lens-top' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('lens')) { S.phase = 'idle'; S.hasMap = true; st = null; render(); } } }, icon('back', 14), 'Recomeçar')),
       h('div', { class: 'lens-body' },
         h('aside', { class: 'lens-left' }, volCard, listCard),
         h('div', { class: 'lens-right' }, nav, mapEl)),
@@ -611,13 +612,15 @@ export function enter(ctx) {
     ctx.reserveDock(false);
     ctx.setDock(null);
     const { result, sel } = S.review;
+    const back = () => { S.phase = 'map'; render(); };
     const rv = createReview({
-      result, sel, mod: 'lens', title: 'Revisar e Remover',
-      subtitle: `${plural(result.groups.reduce((a, g) => a + g.items.length, 0), 'item', 'itens')} · ${fmtBytes(result.total)}`,
+      result, sel, mod: 'lens', title: 'Disk Map',
+      subtitle: `Revisar e Remover · ${plural(result.groups.reduce((a, g) => a + g.items.length, 0), 'item', 'itens')} · ${fmtBytes(result.total)}`,
       actionLabel: 'Mover para o Lixo', showAge: true, emptyText: 'Nada selecionado.',
-      onBack: () => { S.phase = 'map'; render(); }, onAction: () => move(),
+      onBack: back, onAction: () => move(),
     });
     mount(ctx.root, rv.el);
+    ctx.onBack(back);
   }
 
   async function move() {
@@ -640,8 +643,8 @@ export function enter(ctx) {
     const sd = stopDock(ctx, 'lens');
     const res = await removeGroups(result, sel, (g, status, info) => { if (status !== 'run') sd.progress(info.done / info.total); }, { permanent, stopped: sd.stopped });
     bump(); store.trash = null;
-    S.moved = res.freed; S.permanent = permanent; S.phase = 'done'; S.hasMap = false; S.cur = null; S.review = null; S.sel = new Set();
-    play(res.freed ? 'clean' : 'error');
+    S.moved = res.handled; S.permanent = permanent; S.phase = 'done'; S.hasMap = false; S.cur = null; S.review = null; S.sel = new Set();
+    play(res.handled ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
@@ -654,8 +657,8 @@ export function enter(ctx) {
       h('p', { class: 'sub' }, (S.permanent ? 'O espaço já foi liberado.' : 'Esvazie a Lixeira para liberar o espaço no disco.') + ' O mapa mudou: analise de novo para ver o resultado.'),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), 'Ver log'),
-        h('button', { class: 'btn primary', type: 'button', onClick: () => { S.phase = 'idle'; st = null; render(); } }, 'Analisar de novo'),
-        h('button', { class: 'btn', type: 'button', onClick: () => ctx.nav('trash') }, icon('trash', 15), 'Ir para a Lixeira')));
+        S.permanent ? null : h('button', { class: 'btn', type: 'button', onClick: () => ctx.nav('trash') }, icon('trash', 15), 'Ir para a Lixeira'),
+        h('button', { class: 'btn primary', type: 'button', onClick: () => { S.phase = 'idle'; st = null; render(); } }, 'Concluir')));
     ctx.setDock(null);
   }
 

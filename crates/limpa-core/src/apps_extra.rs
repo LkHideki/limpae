@@ -391,10 +391,26 @@ pub fn launch_services_knows(bundle_id: &str) -> bool {
 // ---------------------------------------------------------------------------------------------------------------
 
 const INSTALLER_EXTS: &[&str] = &["dmg", "pkg", "mpkg", "xip"];
+const INSTALLER_OLD_SECS: i64 = 30 * 86_400;
+const INSTALLER_HEAVY_BYTES: u64 = 1_000_000_000;
+const NOTE_INSTALLER_CHECK: &str = "Antigo ou grande; confira antes";
+
+/// Pre-selected only when recent and not heavy; the rest is left for the user to decide.
+fn installer_item(item: Item, now: i64) -> Item {
+    let old = item.modified.is_some_and(|m| now - m > INSTALLER_OLD_SECS);
+    if old || item.size > INSTALLER_HEAVY_BYTES {
+        return item.unselected(NOTE_INSTALLER_CHECK);
+    }
+    let mut item = item;
+    item.note = Some(NOTE_INSTALLER.into());
+    item
+}
 
 /// Installers (`.dmg .pkg .mpkg .xip`) directly inside `~/Downloads` and `~/Desktop`. No recursion, no symlinks.
-/// They can be downloaded again, so they come pre-selected.
+/// They can be downloaded again, so recent and small ones come pre-selected; old (> 30 days) or heavy (> 1 GB)
+/// ones stay unselected, since a licensed or hard-to-find installer is not always easy to download again.
 pub fn find_installers(home: &Path, cancel: &AtomicBool) -> Vec<Group> {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
     let mut paths = Vec::new();
     for dir in ["Downloads", "Desktop"] {
         let Ok(rd) = fs::read_dir(home.join(dir)) else { continue };
@@ -414,9 +430,8 @@ pub fn find_installers(home: &Path, cancel: &AtomicBool) -> Vec<Group> {
         .into_par_iter()
         .map(|path| {
             let size = alloc_size(&path, cancel);
-            let mut item = Item::new(path, size, Policy::MoveToTrash);
-            item.note = Some(NOTE_INSTALLER.into());
-            item
+            let item = Item::new(path, size, Policy::MoveToTrash);
+            installer_item(item, now)
         })
         .collect();
     if cancel.load(std::sync::atomic::Ordering::Relaxed) || items.is_empty() {
@@ -1389,6 +1404,21 @@ mod tests {
         assert!(items.iter().all(|i| i.selected && i.note.as_deref() == Some("Instalador")));
         assert!(items.windows(2).all(|w| w[0].size >= w[1].size));
         assert!(items[0].path.ends_with("Desktop/Xcode.xip"));
+    }
+
+    #[test]
+    fn old_or_heavy_installers_are_not_preselected() {
+        let (_t, home) = fake_home();
+        touch(&home.join("Downloads/App.dmg"), 10);
+        let base = Item::new(home.join("Downloads/App.dmg"), 10, Policy::MoveToTrash);
+        let now = base.modified.unwrap();
+        let fresh = installer_item(base.clone(), now);
+        assert!(fresh.selected && fresh.note.as_deref() == Some("Instalador"));
+        let old = installer_item(base.clone(), now + 31 * 86_400);
+        assert!(!old.selected && old.note.as_deref() == Some(NOTE_INSTALLER_CHECK));
+        let mut heavy = base;
+        heavy.size = 2_000_000_000;
+        assert!(!installer_item(heavy, now).selected);
     }
 
     #[test]

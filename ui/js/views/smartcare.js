@@ -17,10 +17,15 @@ const MODS = [
   { id: 'protect', key: 'protection', mod: 'protect', title: 'Proteção', verb: 'Verificando a segurança…', glyph: 'shield', tasks: [], feat: ['shield', 'Verificação de segurança do Mac'] },
   { id: 'perf', key: 'performance', mod: 'perf', title: 'Desempenho', verb: 'Analisando o desempenho…', glyph: 'bolt', tasks: ['perf'], feat: ['bolt', 'Agentes e itens de login'] },
   { id: 'apps', key: 'apps', mod: 'apps', title: 'Aplicativos', verb: 'Verificando atualizações…', glyph: 'apps', tasks: ['apps', 'apps_overview'], feat: ['apps', 'Atualizações e apps sem uso'] },
-  { id: 'files', key: 'files', mod: 'files', title: 'Meus Arquivos', verb: 'Analisando seu armazenamento…', glyph: 'folder', tasks: ['large'], feat: ['folder', 'Arquivos grandes esquecidos'] },
+  { id: 'files', key: 'files', mod: 'files', title: 'Meus Arquivos', verb: 'Procurando duplicados…', glyph: 'folder', tasks: ['duplicates'], feat: ['folder', 'Duplicados em Downloads'] },
 ];
 const byId = (id) => MODS.find((m) => m.id === id);
-const LARGE_MB = 500;
+// Cópias que sobrariam depois de remover tudo menos o original sugerido de cada conjunto (só para o resumo).
+function reclaim(result) {
+  let n = 0, bytes = 0;
+  if (result) for (const g of result.groups) { const keep = g.items.find((i) => i.note) || g.items[0]; for (const i of g.items) if (i !== keep) { n++; bytes += i.size; } }
+  return { n, bytes };
+}
 const tail = (p) => (p.length > 56 ? '…' + p.slice(-55) : p);
 const layout = (n) => (n <= 3 ? [n] : n === 4 ? [2, 2] : n === 5 ? [3, 2] : [3, 3]);
 
@@ -74,10 +79,10 @@ export function enter(ctx) {
       return a.updates ? { num: plural(a.updates, 'atualização', 'atualizações'), sub: un, review: true }
         : { num: 'Tudo atualizado', sub: un, sm: true, review: true };
     }
-    const n = store.large ? countItems(store.large) : 0;
-    const lim = `acima de ${fmtBytes(store.largeMb * 1e6)}`;
-    return n ? { num: plural(n, 'arquivo grande', 'arquivos grandes'), sub: `${fmtBytes(store.large.total)} no total`, review: true }
-      : { num: 'Nenhum arquivo grande', sub: lim, sm: true };
+    // Meus Arquivos: só revisão. Arquivos do usuário nunca vêm marcados nem entram na execução.
+    const d = reclaim(store.filesFrom);
+    return d.n ? { num: plural(d.n, 'duplicado', 'duplicados'), sub: `${fmtBytes(d.bytes)} em Downloads`, review: true }
+      : { num: 'Sem duplicados', sub: 'nenhum arquivo repetido em Downloads', sm: true };
   }
   // Depois da análise vale o retrato tirado nela: a Lixeira e o lixo mudam durante a execução.
   const info = (m) => S.snap[m.id] || summarize(m);
@@ -110,9 +115,12 @@ export function enter(ctx) {
       const failTxt = { partial: 'em parte', failed: 'não concluído' };
       if (o === 'cleaned' || o === 'emptied' || o === 'partial') {
         const what = m.id === 'trash' ? 'Esvaziada' : 'Limpo';
-        const freed = S.freed[m.id] || 0;
-        main = h('div', { class: 't-main' }, num(m.id === 'trash' ? `${fmtBytes(freed)} da Lixeira` : `${fmtBytes(freed)} de lixo`),
-          sub(h('i', { class: 'dot' + (o === 'partial' ? ' warn' : '') }), o === 'partial' ? `${what} ${failTxt.partial}` : what));
+        // "Liberado" é só o que foi apagado de vez; o que foi para o Lixo aparece à parte.
+        const freed = S.freed[m.id] || 0, tr = (S.trashed && S.trashed[m.id]) || 0;
+        const headline = m.id === 'trash' ? `${fmtBytes(freed)} da Lixeira` : freed || !tr ? `${fmtBytes(freed)} de lixo` : `${fmtBytes(tr)} no Lixo`;
+        const verb = o === 'partial' ? `${what} ${failTxt.partial}` : (!freed && tr ? 'Enviado ao Lixo' : what);
+        main = h('div', { class: 't-main' }, num(headline),
+          sub(h('i', { class: 'dot' + (o === 'partial' ? ' warn' : '') }), verb + (freed && tr ? ` · ${fmtBytes(tr)} no Lixo` : '')));
       } else if (o === 'failed') main = h('div', { class: 't-main' }, num('Não concluído', true), sub(h('i', { class: 'dot warn' }), 'Falhou'));
       else if (o === 'stopped') main = h('div', { class: 't-main' }, num(sm.num, sm.sm), sub(h('i', { class: 'dot warn' }), 'Interrompido'));
       else if (o === 'skipped') main = h('div', { class: 't-main' }, num(sm.num, sm.sm), sub('Pulado'));
@@ -138,7 +146,8 @@ export function enter(ctx) {
   // "Revisar": leva ao módulo com o resultado já carregado (store).
   function go(m) {
     if (m.id === 'clean') store.cleanup.phase = store.junk && store.junk.groups.length ? 'review' : 'idle';
-    else if (m.id === 'files') store.files.phase = 'review';
+    else if (m.id === 'files') store.files.phase = store.filesFrom && store.filesFrom.groups.length ? 'review' : 'idle';
+    else if (m.id === 'trash') store.trashUi.phase = store.trash && countItems(store.trash) ? 'review' : 'idle';
     else if (m.id === 'apps') primeApps();
     ctx.nav(m.id);
   }
@@ -236,7 +245,7 @@ export function enter(ctx) {
       S.apps = { ov, meta };
       const ids = new Set(store.apps.map((a) => a.id));
       S.sum.apps = { updates: (ov.updates || []).filter((u) => ids.has(u.appId)).length, unused: (ov.unused || []).filter((id) => ids.has(id)).length };
-    } else { store.largeMb = LARGE_MB; store.large = await api.large(LARGE_MB); store.largeSel = new Set(); }
+    } else { store.filesFrom = await api.downloadDups(); }
   }
 
   async function run() {
@@ -244,7 +253,8 @@ export function enter(ctx) {
     const list = enabled();
     if (!list.length) return renderIdle();
     cancelled = false;
-    S.phase = 'scan'; S.err = {}; S.mods = list.map((m) => m.id); S.sum = {}; S.snap = {}; S.out = {}; S.freed = {}; S.apps = null;
+    S.phase = 'scan'; S.err = {}; S.mods = list.map((m) => m.id); S.sum = {}; S.snap = {}; S.out = {}; S.freed = {}; S.trashed = {}; S.apps = null;
+    store.filesFrom = null;
     S.inc = { clean: true, trash: false };
     play('start');
     ctx.setBusy(true);
@@ -362,7 +372,7 @@ export function enter(ctx) {
     S.phase = 'cleaning';
     bento.dataset.phase = 'cleaning';
     ctx.setBusy(true);
-    S.out = {}; S.freed = {};
+    S.out = {}; S.freed = {}; S.trashed = {};
     const trashRes = store.trash;
     const cleanSel = store.junkSel;
     mods().forEach((m) => { if (checkable(m) && !tasks.includes(m)) S.out[m.id] = 'skipped'; });
@@ -391,7 +401,7 @@ export function enter(ctx) {
       }, { permanent: ok === 'permanent' && m.id === 'clean', stopped: sd.stopped });
       base += groups.length;
       await sleep(400);
-      S.freed[m.id] = res.freed;
+      S.freed[m.id] = res.freed; S.trashed[m.id] = res.trashed;
       failures.push(...res.failures);
       const good = res.okIds.size > 0;
       S.out[m.id] = !res.failures.length ? (m.id === 'trash' ? 'emptied' : 'cleaned') : good ? 'partial' : 'failed';
@@ -431,10 +441,12 @@ export function enter(ctx) {
       : failed ? 'Concluído, mas alguns itens não puderam ser removidos.'
         : open ? 'Limpeza concluída. Ainda há pontos para revisar.'
           : 'Muito bem! Seu Mac está em ótima forma.';
-    setHead(head,
-      h('button', { class: 'btn sm ghost left', type: 'button', onClick: restart }, icon('restart', 14), 'Recomeçar'));
+    setHead(head);
     ctx.setDock(null);
-    root.append(h('div', { class: 'bento-foot enter' }, h('button', { class: 'btn sm', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 14), 'Ver log')));
+    // Rodapé: "Ver log" (link) e "Concluir" (volta ao início, sem confirmar: nada fica pendente).
+    root.append(h('div', { class: 'bento-foot center enter' },
+      h('button', { class: 'btn sm ghost', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 14), 'Ver log'),
+      h('button', { class: 'btn primary', type: 'button', onClick: restart }, 'Concluir')));
   }
 
   async function confirmRestart() {
@@ -446,7 +458,7 @@ export function enter(ctx) {
   }
 
   function restart() {
-    S.phase = 'idle'; S.out = {}; S.sum = {}; S.snap = {}; S.freed = {}; S.inc = {}; S.apps = null; S.stopped = false;
+    S.phase = 'idle'; S.out = {}; S.sum = {}; S.snap = {}; S.freed = {}; S.trashed = {}; S.inc = {}; S.apps = null; S.stopped = false;
     Object.keys(els).forEach((k) => delete els[k]);
     renderIdle();
   }

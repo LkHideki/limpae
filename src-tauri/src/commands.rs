@@ -382,6 +382,26 @@ pub async fn reveal(state: State<'_, Shared>, id: u64) -> Result<(), String> {
     .await
 }
 
+/// Path of an app from the last `list_apps`; anything else (registry items, stale ids) is refused.
+fn listed_app_path(st: &AppState, id: u64) -> Result<PathBuf, String> {
+    let path = lock(&st.apps).get(&id).map(|a| a.path.clone()).ok_or(ERR_APP_GONE)?;
+    if !exists(&path) {
+        return Err("O app não existe mais no disco.".into());
+    }
+    Ok(path)
+}
+
+/// Opens an installed app (`open <app>`), resolved by id from the listed apps.
+#[tauri::command]
+pub async fn open_app(state: State<'_, Shared>, app_id: u64) -> Result<(), String> {
+    let st = Arc::clone(state.inner());
+    blocking(move || {
+        let path = listed_app_path(&st, app_id)?;
+        open(&[path.as_os_str()])
+    })
+    .await
+}
+
 #[tauri::command]
 pub async fn reveal_log(state: State<'_, Shared>) -> Result<(), String> {
     let st = Arc::clone(state.inner());
@@ -467,6 +487,35 @@ mod tests {
         let r = assemble(&[1, 2, 3], by_id);
         assert_eq!(r.outcomes.iter().map(|o| o.id).collect::<Vec<_>>(), [1, 2, 3]);
         assert_eq!(r.freed, 15);
+    }
+
+    #[test]
+    fn open_app_resolves_only_listed_apps() {
+        let dir = std::env::temp_dir().join(format!("limpae-openapp-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let st = AppState::with_home(PathBuf::from("/nonexistent-home"));
+        let info = limpa_core::apps::AppInfo {
+            path: dir.clone(),
+            name: "Foo".into(),
+            bundle_id: "com.foo".into(),
+            version: None,
+            size: 1,
+            running: false,
+        };
+        lock(&st.apps).insert(7, info);
+        assert_eq!(listed_app_path(&st, 7).unwrap(), dir);
+        assert_eq!(listed_app_path(&st, 8).unwrap_err(), ERR_APP_GONE);
+        // A scanned item id is not an app id.
+        let group = Group {
+            id: "g".into(),
+            title: "g".into(),
+            description: String::new(),
+            items: vec![Item::new(dir.clone(), 1, Policy::MoveToTrash)],
+        };
+        let id = lock(&st.registry).replace(Task::Large, vec![group])[0].items[0].id;
+        assert!(listed_app_path(&st, id).is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(listed_app_path(&st, 7).is_err());
     }
 
     #[test]

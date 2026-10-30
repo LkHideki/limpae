@@ -4,7 +4,7 @@ import { h, mount, mid } from '../dom.js';
 import { icon, groupIcon } from '../art.js';
 import { api } from '../api.js';
 import { fmtBytes, plural, ageText } from '../format.js';
-import { checkbox, segmented, toast } from '../ui.js';
+import { checkbox, segmented, toast, managerBar } from '../ui.js';
 import { selectedSize } from '../store.js';
 
 const CHUNK = 250;
@@ -78,8 +78,11 @@ export function openMenu({ items, at, label, opener, onClose }) {
 const below = (el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.bottom + 6 }; };
 const isMenuKey = (e) => e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10');
 
-export function createReview({ result, sel, mod, title, subtitle, actionLabel, showAge = false, extra = null, onBack, onAction, emptyText = 'Nada encontrado.' }) {
-  const st = { q: '', sort: 'size', gid: result.groups[0] ? result.groups[0].id : null, limit: CHUNK, anchor: null };
+// title = nome do módulo (barra superior, com "Voltar"); subtitle = o que esta revisão mostra.
+// ignore: false esconde "Ignorar" (a Lixeira não vai para a lista de ignorados); quickLook: false esconde
+// "Visualização Rápida" (abrir um arquivo do iCloud o baixaria de novo).
+export function createReview({ result, sel, mod, title, subtitle, actionLabel, showAge = false, extra = null, onBack, onAction, emptyText = 'Nada encontrado.', ignore = true, quickLook = true, gid = null }) {
+  const st = { q: '', sort: 'size', gid: result.groups.some((g) => g.id === gid) ? gid : (result.groups[0] ? result.groups[0].id : null), limit: CHUNK, anchor: null };
   const groupsEl = h('div', { class: 'rv-groups' });
   const itemsEl = h('div', { class: 'rv-items-wrap' });
   const selEl = h('div', { class: 'rv-sel' });
@@ -103,7 +106,10 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
 
   function renderFooter() {
     const { bytes, count } = selectedSize(result, sel);
-    mount(selEl, 'Selecionado: ', h('b', null, fmtBytes(bytes)), h('small', null, plural(count, 'item', 'itens')));
+    // Seleções fora da categoria aberta também valem para a ação: o rodapé diz em quantas categorias estão.
+    const cats = result.groups.filter((g) => g.items.some((i) => sel.has(i.id))).length;
+    if (!count) mount(selEl, 'Nenhum item selecionado');
+    else mount(selEl, 'Selecionado: ', h('b', null, fmtBytes(bytes)), h('small', null, plural(count, 'item', 'itens') + (cats > 1 ? ` em ${plural(cats, 'categoria', 'categorias')}` : '')));
     actionBtn.disabled = count === 0;
   }
 
@@ -135,7 +141,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     refresh();
   }
 
-  async function ignore(it) {
+  async function ignoreItem(it) {
     try {
       await api.ignore(it.id);
     } catch (e) { return; } // o erro já foi mostrado
@@ -151,10 +157,10 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
       items: [
         { label: on ? 'Desmarcar' : 'Selecionar', icon: 'select', onSelect: () => { on ? sel.delete(it.id) : sel.add(it.id); refresh(); } },
         { label: 'Mostrar no Finder', icon: 'reveal', onSelect: () => api.reveal(it.id).catch(() => {}) },
-        { label: 'Visualização Rápida', icon: 'eye', onSelect: () => api.quickLook(it.id).catch(() => {}) },
-        { sep: true },
-        { label: 'Ignorar', icon: 'ban', onSelect: () => ignore(it) },
-      ],
+        quickLook ? { label: 'Visualização Rápida', icon: 'eye', onSelect: () => api.quickLook(it.id).catch(() => {}) } : null,
+        ignore ? { sep: true } : null,
+        ignore ? { label: 'Ignorar', icon: 'ban', onSelect: () => ignoreItem(it) } : null,
+      ].filter(Boolean),
     });
   }
 
@@ -252,10 +258,10 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
   const sort = segmented([{ value: 'size', label: 'Tamanho' }, { value: 'name', label: 'Nome' }], st.sort, (v) => { st.sort = v; refresh(); }, 'Ordenar por');
 
   const el = h('section', { class: 'review enter', dataset: { mod }, 'aria-label': title },
-    h('div', { class: 'rv-head' }, h('div', { class: 'rv-title' }, h('h2', null, title), subtitle ? h('p', null, subtitle) : null), search, sort),
+    managerBar({ title, subtitle, onBack, controls: [search, sort] }),
     extra ? h('div', { class: 'rv-extra' }, extra) : null,
     h('div', { class: 'rv-body' }, groupsEl, itemsEl),
-    h('div', { class: 'rv-foot' }, selEl, h('button', { class: 'btn', type: 'button', onClick: onBack }, 'Voltar'), actionBtn));
+    h('div', { class: 'rv-foot' }, selEl, actionBtn));
   // ⌘A seleciona todos os itens visíveis do grupo aberto; ⌘⇧A desmarca (fora de campos de texto).
   el.addEventListener('keydown', (e) => {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'a' || e.target.tagName === 'INPUT') return;
