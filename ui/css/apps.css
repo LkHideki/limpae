@@ -115,3 +115,9 @@
 .lo-row.maybe .rv-name span { color: var(--text-2); }
 .lo-why { display: flex; align-items: center; gap: 5px; margin-top: 3px; font-size: 11.5px; color: #ffcf86; line-height: 1.3; }
 .lo-why span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* i18n: selo de estado nunca é cortado; o nome do app cede espaço */
+.am-row .rv-name { min-width: 0; }
+.am-row .rv-name > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.am-row .rv-name .badge { flex: none; max-width: none; white-space: nowrap; overflow: visible; }
+.am-row .am-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

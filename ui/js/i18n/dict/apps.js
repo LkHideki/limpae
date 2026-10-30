@@ -63,6 +63,9 @@ export default {
   '. Você pode restaurá-lo de lá até esvaziar a Lixeira.': { en: '. You can restore it from there until you empty the Trash.', id: '. Anda dapat memulihkannya dari sana sampai Tempat Sampah dikosongkan.' },
   '. Você pode restaurá-los de lá até esvaziar a Lixeira.': { en: '. You can restore them from there until you empty the Trash.', id: '. Anda dapat memulihkannya dari sana sampai Tempat Sampah dikosongkan.' },
   'Mover {size} para o Lixo?': { en: 'Move {size} to the Trash?', id: 'Pindahkan {size} ke Tempat Sampah?' },
+  'Apagar {size} definitivamente?': { en: 'Delete {size} permanently?', id: 'Hapus {size} secara permanen?' },
+  'Apagar {name} definitivamente?': { en: 'Delete {name} permanently?', id: 'Hapus {name} secara permanen?' },
+  'Apagar {n} apps definitivamente?': { en: 'Delete {n} apps permanently?', id: 'Hapus {n} aplikasi secara permanen?' },
   'Mover para o Lixo': { en: 'Move to Trash', id: 'Pindahkan ke Tempat Sampah' },
   'Removendo…': { en: 'Removing…', id: 'Menghapus…' },
   '{n} instalador removido': { en: '{n} installer removed', id: '{n} penginstal dihapus' },
@@ -187,6 +190,7 @@ export default {
   'O agente executa um programa fora do app': { en: 'The agent runs a program outside the app', id: 'Agen menjalankan program di luar aplikasi' },
   'Grupo não declarado pelo app': { en: 'Group not declared by the app', id: 'Grup tidak dideklarasikan oleh aplikasi' },
   'App não encontrado; pode guardar dados': { en: 'App not found; may hold data', id: 'Aplikasi tidak ditemukan; mungkin menyimpan data' },
+  'Pode conter documentos; confira antes': { en: 'May contain documents; check first', id: 'Mungkin berisi dokumen; periksa dulu' },
   'Instalador': { en: 'Installer', id: 'Penginstal' },
   'Instaladores em Downloads e na Mesa que podem ser baixados de novo.': { en: 'Installers in Downloads and on the Desktop that can be downloaded again.', id: 'Penginstal di Unduhan dan Meja yang dapat diunduh lagi.' },
 };

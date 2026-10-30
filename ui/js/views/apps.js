@@ -295,6 +295,7 @@ export function enter(ctx) {
       : tn(count, '{n} resto de app vai para o Lixo', '{n} restos de apps vão para o Lixo');
     const ok = await confirmDialog({
       title: t('Mover {size} para o Lixo?', { size: fmtBytes(bytes) }),
+      permanentTitle: t('Apagar {size} definitivamente?', { size: fmtBytes(bytes) }),
       body: [h('strong', null, what), tn(count, '. Você pode restaurá-lo de lá até esvaziar a Lixeira.', '. Você pode restaurá-los de lá até esvaziar a Lixeira.')],
       confirm: t('Mover para o Lixo'), glyph: 'trash', mod: 'apps',
       permanentChoice: true, permanentDefault: !!(store.settings && store.settings.permanentDelete),
@@ -630,6 +631,7 @@ export function enter(ctx) {
     const tot = totalFor(list);
     const ok = await confirmDialog({
       title: list.length === 1 ? t('Desinstalar {name}?', { name: list[0].name }) : t('Desinstalar {n} apps?', { n: fmtNum(list.length) }),
+      permanentTitle: list.length === 1 ? t('Apagar {name} definitivamente?', { name: list[0].name }) : t('Apagar {n} apps definitivamente?', { n: fmtNum(list.length) }),
       body: [h('strong', null, t('Os apps e os itens selecionados vão para o Lixo')), t('. São {size} no total ({apps} + {rest}). Você pode restaurá-los de lá até esvaziar a Lixeira.', {
         size: fmtBytes(tot.bytes), apps: tn(list.length, '{n} aplicativo', '{n} aplicativos'), rest: tn(tot.rest, '{n} resto', '{n} restos'),
       })],

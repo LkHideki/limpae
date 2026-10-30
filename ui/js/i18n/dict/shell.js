@@ -12,7 +12,7 @@ export default {
   'Arquivos pesados que talvez você não use mais.': { en: 'Large files you may no longer use.', id: 'File besar yang mungkin tidak Anda gunakan lagi.' },
   'Cópias idênticas de arquivos em pastas diferentes.': { en: 'Identical copies of files in different folders.', id: 'Salinan file yang identik di folder berbeda.' },
   'Fotos quase iguais, com a melhor cópia marcada.': { en: 'Nearly identical photos, with the best copy marked.', id: 'Foto yang hampir sama, dengan salinan terbaik ditandai.' },
-  'Desinstalador': { en: 'Uninstaller', id: 'Pencopot Pemasangan' },
+  'Desinstalador': { en: 'Uninstaller', id: 'Pencopot' },
   'Remova apps por completo, com todos os arquivos relacionados.': { en: 'Remove apps completely, along with all related files.', id: 'Hapus aplikasi sepenuhnya, beserta semua file terkait.' },
   'Atualizador': { en: 'Updater', id: 'Pembaru' },
   'Acompanhe as versões mais recentes dos seus apps.': { en: 'Keep track of the latest versions of your apps.', id: 'Pantau versi terbaru aplikasi Anda.' },
