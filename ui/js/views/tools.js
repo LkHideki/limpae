@@ -2,6 +2,7 @@
 import { h, s, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { store } from '../store.js';
+import { t } from '../i18n.js';
 
 const FAV_KEY = 'limpae.tools.fav';
 
@@ -20,36 +21,37 @@ function ti(name, size = 18, cls = '') {
     ...PATHS[name].map((d) => s('path', { d })));
 }
 
+// getTools: função porque o idioma só é conhecido depois de carregar o módulo.
 // to = id do módulo (ctx.nav); `mod` dá a cor do tile. Sem seção interna: os módulos não leem dica de seção.
-const TOOLS = [
-  { id: 'junk', name: 'Lixo do sistema', desc: 'Caches, registros e restos que os apps recriam sozinhos.', ic: 'clean', mod: 'clean', to: 'clean' },
-  { id: 'trash', name: 'Lixeira', desc: 'Veja o que há na Lixeira e esvazie de uma vez.', ic: 'trash', mod: 'trash', to: 'trash' },
-  { id: 'ai', name: 'Lixo de IA', desc: 'Modelos e caches de ferramentas de IA que ocupam espaço.', ic: 'chip', mod: 'clean', to: 'clean' },
-  { id: 'mail', name: 'Anexos do Mail', desc: 'Anexos baixados pelo Mail que já estão no servidor.', ic: 'mail', mod: 'clean', to: 'clean' },
-  { id: 'large', name: 'Arquivos grandes e antigos', desc: 'Arquivos pesados que talvez você não use mais.', ic: 'folder', mod: 'files', to: 'files' },
-  { id: 'dups', name: 'Duplicados', desc: 'Cópias idênticas de arquivos em pastas diferentes.', ic: 'copy', mod: 'files', to: 'files' },
-  { id: 'similar', name: 'Imagens parecidas', desc: 'Fotos quase iguais, com a melhor cópia marcada.', ic: 'image', mod: 'files', to: 'files' },
-  { id: 'downloads', name: 'Downloads', desc: 'Arquivos da pasta Downloads, agrupados pelo app que os baixou.', ic: 'download', mod: 'files', to: 'files' },
-  { id: 'uninstall', name: 'Desinstalador', desc: 'Remova apps por completo, com todos os arquivos relacionados.', ic: 'apps', mod: 'apps', to: 'apps' },
-  { id: 'updater', name: 'Atualizador', desc: 'Acompanhe as versões mais recentes dos seus apps.', ic: 'refresh', mod: 'apps', to: 'apps' },
-  { id: 'leftovers', name: 'Restos de apps', desc: 'Encontre o que sobrou de apps que já foram removidos.', ic: 'unlink', mod: 'apps', to: 'apps' },
-  { id: 'installers', name: 'Instaladores', desc: 'Arquivos .dmg e .pkg que já cumpriram o papel.', ic: 'box', mod: 'apps', to: 'apps' },
-  { id: 'lens', name: 'Disk Map', desc: 'Um mapa visual do que ocupa espaço no disco.', ic: 'lens', mod: 'lens', to: 'lens' },
-  { id: 'cloud', name: 'Nuvem (iCloud)', desc: 'Libere espaço tirando do Mac cópias que já estão no iCloud.', ic: 'cloud', mod: 'cloud', to: 'cloud' },
-  { id: 'security', name: 'Verificação de segurança', desc: 'Gatekeeper, FileVault, firewall e outros ajustes de proteção.', ic: 'shield', mod: 'protect', to: 'protect' },
-  { id: 'perms', name: 'Permissões de apps', desc: 'Veja e revogue o que cada app pode acessar no Mac.', ic: 'lock', mod: 'protect', to: 'protect' },
-  { id: 'privacy', name: 'Privacidade', desc: 'Históricos e rastros de uso que ficam registrados.', ic: 'eye', mod: 'protect', to: 'protect' },
-  { id: 'agents', name: 'Agentes em segundo plano', desc: 'Gerencie o que roda sozinho no seu Mac.', ic: 'chip', mod: 'perf', to: 'perf' },
-  { id: 'login', name: 'Itens de login', desc: 'Apps que abrem sozinhos quando você entra no Mac.', ic: 'restart', mod: 'perf', to: 'perf' },
-  { id: 'monitor', name: 'Monitor do sistema', desc: 'Memória, processador, bateria e tempo ligado.', ic: 'pulse', mod: 'perf', to: 'perf' },
-  { id: 'snaps', name: 'Snapshots do Time Machine', desc: 'Cópias locais temporárias que o macOS guarda no disco.', ic: 'clock', mod: 'perf', to: 'perf' },
-  { id: 'screen', name: 'Modo de limpeza de tela', desc: 'Bloqueia teclado e mouse para você limpar a tela e as teclas.', ic: 'display', mod: 'tools', action: 'screen' },
+const getTools = () => [
+  { id: 'junk', name: t('Lixo do sistema'), desc: t('Caches, registros e restos que os apps recriam sozinhos.'), ic: 'clean', mod: 'clean', to: 'clean' },
+  { id: 'trash', name: t('Lixeira'), desc: t('Veja o que há na Lixeira e esvazie de uma vez.'), ic: 'trash', mod: 'trash', to: 'trash' },
+  { id: 'ai', name: t('Lixo de IA'), desc: t('Modelos e caches de ferramentas de IA que ocupam espaço.'), ic: 'chip', mod: 'clean', to: 'clean' },
+  { id: 'mail', name: t('Anexos do Mail'), desc: t('Anexos baixados pelo Mail que já estão no servidor.'), ic: 'mail', mod: 'clean', to: 'clean' },
+  { id: 'large', name: t('Arquivos grandes e antigos'), desc: t('Arquivos pesados que talvez você não use mais.'), ic: 'folder', mod: 'files', to: 'files' },
+  { id: 'dups', name: t('Duplicados'), desc: t('Cópias idênticas de arquivos em pastas diferentes.'), ic: 'copy', mod: 'files', to: 'files' },
+  { id: 'similar', name: t('Imagens parecidas'), desc: t('Fotos quase iguais, com a melhor cópia marcada.'), ic: 'image', mod: 'files', to: 'files' },
+  { id: 'downloads', name: t('Downloads'), desc: t('Arquivos da pasta Downloads, agrupados pelo app que os baixou.'), ic: 'download', mod: 'files', to: 'files' },
+  { id: 'uninstall', name: t('Desinstalador'), desc: t('Remova apps por completo, com todos os arquivos relacionados.'), ic: 'apps', mod: 'apps', to: 'apps' },
+  { id: 'updater', name: t('Atualizador'), desc: t('Acompanhe as versões mais recentes dos seus apps.'), ic: 'refresh', mod: 'apps', to: 'apps' },
+  { id: 'leftovers', name: t('Restos de apps'), desc: t('Encontre o que sobrou de apps que já foram removidos.'), ic: 'unlink', mod: 'apps', to: 'apps' },
+  { id: 'installers', name: t('Instaladores'), desc: t('Arquivos .dmg e .pkg que já cumpriram o papel.'), ic: 'box', mod: 'apps', to: 'apps' },
+  { id: 'lens', name: t('Disk Map'), desc: t('Um mapa visual do que ocupa espaço no disco.'), ic: 'lens', mod: 'lens', to: 'lens' },
+  { id: 'cloud', name: t('Nuvem (iCloud)'), desc: t('Libere espaço tirando do Mac cópias que já estão no iCloud.'), ic: 'cloud', mod: 'cloud', to: 'cloud' },
+  { id: 'security', name: t('Verificação de segurança'), desc: t('Gatekeeper, FileVault, firewall e outros ajustes de proteção.'), ic: 'shield', mod: 'protect', to: 'protect' },
+  { id: 'perms', name: t('Permissões de apps'), desc: t('Veja e revogue o que cada app pode acessar no Mac.'), ic: 'lock', mod: 'protect', to: 'protect' },
+  { id: 'privacy', name: t('Privacidade'), desc: t('Históricos e rastros de uso que ficam registrados.'), ic: 'eye', mod: 'protect', to: 'protect' },
+  { id: 'agents', name: t('Agentes em segundo plano'), desc: t('Gerencie o que roda sozinho no seu Mac.'), ic: 'chip', mod: 'perf', to: 'perf' },
+  { id: 'login', name: t('Itens de login'), desc: t('Apps que abrem sozinhos quando você entra no Mac.'), ic: 'restart', mod: 'perf', to: 'perf' },
+  { id: 'monitor', name: t('Monitor do sistema'), desc: t('Memória, processador, bateria e tempo ligado.'), ic: 'pulse', mod: 'perf', to: 'perf' },
+  { id: 'snaps', name: t('Snapshots do Time Machine'), desc: t('Cópias locais temporárias que o macOS guarda no disco.'), ic: 'clock', mod: 'perf', to: 'perf' },
+  { id: 'screen', name: t('Modo de limpeza de tela'), desc: t('Bloqueia teclado e mouse para você limpar a tela e as teclas.'), ic: 'display', mod: 'tools', action: 'screen' },
 ];
 
 function loadFavs() {
   try {
     const v = JSON.parse(localStorage.getItem(FAV_KEY) || '[]');
-    return Array.isArray(v) ? v.filter((x) => TOOLS.some((t) => t.id === x)) : [];
+    return Array.isArray(v) ? v.filter((x) => getTools().some((tool) => tool.id === x)) : [];
   } catch (e) { return []; }
 }
 function saveFavs(list) {
@@ -88,8 +90,8 @@ function screenCleaning() {
   const R = 34, C = 2 * Math.PI * R;
   const arc = s('circle', { class: 'arc', cx: 40, cy: 40, r: R, 'stroke-dasharray': C.toFixed(2), 'stroke-dashoffset': C.toFixed(2) });
   const ring = s('svg', { class: 'sc-ring', viewBox: '0 0 80 80', 'aria-hidden': 'true' }, s('circle', { class: 'track', cx: 40, cy: 40, r: R }), arc);
-  const ov = h('div', { id: 'sclean', class: 'sclean', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Modo de limpeza de tela ativo', tabindex: '-1' },
-    h('div', { class: 'sc-center' }, ring, h('p', { class: 'sc-hint' }, 'Segure Esc para sair')));
+  const ov = h('div', { id: 'sclean', class: 'sclean', role: 'dialog', 'aria-modal': 'true', 'aria-label': t('Modo de limpeza de tela ativo'), tabindex: '-1' },
+    h('div', { class: 'sc-center' }, ring, h('p', { class: 'sc-hint' }, t('Segure Esc para sair'))));
   const prev = document.activeElement;
   let t0 = 0, raf = 0, closed = false, restore = null;
 
@@ -124,7 +126,7 @@ function screenCleaning() {
   enterFullscreen().then((r) => { if (closed) { if (r) r(); } else restore = r; }).catch(() => {});
 }
 
-const norm = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const norm = (x) => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 export function enter(ctx) {
   ctx.reserveDock(false);
@@ -132,19 +134,19 @@ export function enter(ctx) {
   store.openSection = null;
   let favs = loadFavs();
   let q = '';
-  const search = h('input', { type: 'search', placeholder: 'Buscar ferramentas…', 'aria-label': 'Buscar ferramentas', autocomplete: 'off', spellcheck: 'false' });
+  const search = h('input', { type: 'search', placeholder: t('Buscar ferramentas…'), 'aria-label': t('Buscar ferramentas'), autocomplete: 'off', spellcheck: 'false' });
   const body = h('div', { class: 'tl-body' });
   const root = h('section', { class: 'tools enter', dataset: { mod: 'tools' } },
     h('header', { class: 'tl-head' },
-      h('div', { class: 'tl-title' }, h('h1', { class: 'h2' }, 'Minhas Ferramentas'), h('p', { class: 'tl-sub' }, 'Ferramentas rápidas para tarefas pontuais: limpe, proteja e cuide do seu Mac em poucos cliques.')),
+      h('div', { class: 'tl-title' }, h('h1', { class: 'h2' }, t('Minhas Ferramentas')), h('p', { class: 'tl-sub' }, t('Ferramentas rápidas para tarefas pontuais: limpe, proteja e cuide do seu Mac em poucos cliques.'))),
       h('label', { class: 'search' }, icon('search', 16), search)),
     body);
   mount(ctx.root, root);
 
-  const open = (t) => {
-    if (t.action === 'screen') return screenCleaning();
-    store.openSection = t.id;
-    ctx.nav(t.to);
+  const open = (tool) => {
+    if (tool.action === 'screen') return screenCleaning();
+    store.openSection = tool.id;
+    ctx.nav(tool.to);
   };
   const toggleFav = (id) => {
     favs = favs.includes(id) ? favs.filter((x) => x !== id) : [...favs, id];
@@ -152,28 +154,28 @@ export function enter(ctx) {
     render();
   };
 
-  function tile(t) {
-    const fav = favs.includes(t.id);
-    const star = h('button', { class: 'tl-star', type: 'button', 'aria-pressed': String(fav), 'aria-label': fav ? `Remover ${t.name} dos favoritos` : `Favoritar ${t.name}`, title: fav ? 'Remover dos favoritos' : 'Favoritar', onClick: () => toggleFav(t.id) },
-      fav ? h('span', { class: 'tl-saved' }, 'Salvo') : null, ti('star', 16));
-    return h('div', { class: 'tl-tile', dataset: { mod: t.mod, tool: t.id } },
-      h('div', { class: 'tl-top' }, h('span', { class: 'tl-ic' }, ti(t.ic, 22)), star),
-      h('h3', { class: 'tl-name' }, t.name),
-      h('p', { class: 'tl-desc' }, t.desc),
-      h('div', { class: 'tl-act' }, h('button', { class: 'btn sm tl-open', type: 'button', 'aria-label': `${t.action ? 'Iniciar' : 'Abrir'} ${t.name}`, onClick: () => open(t) }, t.action ? 'Iniciar' : 'Abrir')));
+  function tile(tool) {
+    const fav = favs.includes(tool.id);
+    const star = h('button', { class: 'tl-star', type: 'button', 'aria-pressed': String(fav), 'aria-label': fav ? t('Remover {name} dos favoritos', { name: tool.name }) : t('Favoritar {name}', { name: tool.name }), title: fav ? t('Remover dos favoritos') : t('Favoritar'), onClick: () => toggleFav(tool.id) },
+      fav ? h('span', { class: 'tl-saved' }, t('Salvo')) : null, ti('star', 16));
+    return h('div', { class: 'tl-tile', dataset: { mod: tool.mod, tool: tool.id } },
+      h('div', { class: 'tl-top' }, h('span', { class: 'tl-ic' }, ti(tool.ic, 22)), star),
+      h('h3', { class: 'tl-name' }, tool.name),
+      h('p', { class: 'tl-desc' }, tool.desc),
+      h('div', { class: 'tl-act' }, h('button', { class: 'btn sm tl-open', type: 'button', 'aria-label': tool.action ? t('Iniciar {name}', { name: tool.name }) : t('Abrir {name}', { name: tool.name }), onClick: () => open(tool) }, tool.action ? t('Iniciar') : t('Abrir'))));
   }
 
   function render() {
     const f = norm(q.trim());
-    const match = (t) => !f || norm(t.name).includes(f) || norm(t.desc).includes(f);
-    const list = TOOLS.filter(match);
-    const fav = list.filter((t) => favs.includes(t.id)).sort((a, b) => favs.indexOf(a.id) - favs.indexOf(b.id));
-    const rest = list.filter((t) => !favs.includes(t.id));
+    const match = (tool) => !f || norm(tool.name).includes(f) || norm(tool.desc).includes(f);
+    const list = getTools().filter(match);
+    const fav = list.filter((tool) => favs.includes(tool.id)).sort((a, b) => favs.indexOf(a.id) - favs.indexOf(b.id));
+    const rest = list.filter((tool) => !favs.includes(tool.id));
     const grid = (items) => h('div', { class: 'tl-grid' }, items.map(tile));
     const kids = [];
-    if (!list.length) kids.push(h('div', { class: 'tl-empty' }, `Nenhuma ferramenta encontrada para “${q.trim()}”.`));
-    if (fav.length) kids.push(h('h2', { class: 'tl-sec' }, 'Favoritos'), grid(fav));
-    if (rest.length) kids.push(fav.length ? h('h2', { class: 'tl-sec' }, 'Outras ferramentas') : null, grid(rest));
+    if (!list.length) kids.push(h('div', { class: 'tl-empty' }, t('Nenhuma ferramenta encontrada para “{q}”.', { q: q.trim() })));
+    if (fav.length) kids.push(h('h2', { class: 'tl-sec' }, t('Favoritos')), grid(fav));
+    if (rest.length) kids.push(fav.length ? h('h2', { class: 'tl-sec' }, t('Outras ferramentas')) : null, grid(rest));
     mount(body, kids);
   }
 

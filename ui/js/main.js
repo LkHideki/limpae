@@ -18,7 +18,7 @@ import * as activity from './views/activity.js';
 import * as tools from './views/tools.js';
 import * as settings from './views/settings.js';
 import { setSoundEnabled } from './sound.js';
-import { applyLangSetting, onLang } from './i18n.js';
+import { applyLangSetting, onLang, t, tr } from './i18n.js';
 
 const VIEWS = { smart, clean, trash, protect, perf, apps, files, lens, cloud, tools, activity, settings };
 const view = document.getElementById('view');
@@ -30,8 +30,8 @@ let backFn = null; // "Voltar" do gerenciador montado agora (Esc e ⌘[ chamam o
 let fdaDismissed = false;
 try { fdaDismissed = localStorage.getItem('limpae.fda.dismissed') === '1'; } catch (e) { /* storage indisponível */ }
 
-setNotifier((msg) => toast(msg));
-window.addEventListener('unhandledrejection', (e) => { if (!(e.reason && e.reason.reported)) toast(String((e.reason && e.reason.message) || e.reason || 'Erro inesperado')); });
+setNotifier((msg) => toast(tr(msg)));
+window.addEventListener('unhandledrejection', (e) => { if (!(e.reason && e.reason.reported)) toast(tr(String((e.reason && e.reason.message) || e.reason || t('Erro inesperado')))); });
 
 function setBusy(b) {
   store.busy = b;
@@ -71,8 +71,9 @@ function navigate(id, force = false) {
 }
 
 function buildNav() {
+  navEl.setAttribute('aria-label', t('Módulos'));
   mount(navEl, MODS.map((m) => m.spacer ? h('div', { class: 'nav-spacer' }) : h('button', { class: 'nav-item', type: 'button', dataset: { id: m.id }, 'aria-current': 'false', onClick: () => navigate(m.id) },
-    h('span', { class: 'nav-chip', dataset: { mod: m.id } }, icon(m.glyph, 16)), m.label)));
+    h('span', { class: 'nav-chip', dataset: { mod: m.id } }, icon(m.glyph, 16)), m.label())));
 }
 
 function renderFoot() {
@@ -80,14 +81,14 @@ function renderFoot() {
   const kids = [];
   if (d) {
     const pctUsed = d.total ? Math.min(100, (d.used / d.total) * 100) : 0;
-    kids.push(h('div', { class: 'disk', title: `${fmtBytes(d.used)} usados` },
-      h('div', { class: 'disk-bar', role: 'img', 'aria-label': `${Math.round(pctUsed)}% do disco em uso` }, h('i', { style: `width:${pctUsed}%` })),
-      h('div', { class: 'disk-txt' }, h('b', null, fmtBytes(d.free)), ' livres de ', fmtBytes(d.total))));
+    kids.push(h('div', { class: 'disk', title: t('{size} usados', { size: fmtBytes(d.used) }) },
+      h('div', { class: 'disk-bar', role: 'img', 'aria-label': t('{pct}% do disco em uso', { pct: Math.round(pctUsed) }) }, h('i', { style: `width:${pctUsed}%` })),
+      h('div', { class: 'disk-txt' }, h('b', null, fmtBytes(d.free)), ' ', t('livres de {total}', { total: fmtBytes(d.total) }))));
     if (d.fda === false && !fdaDismissed) {
       kids.push(h('div', { class: 'fda-banner' },
-        h('b', null, 'Acesso Total ao Disco'), h('span', { class: 'fda-desc' }, 'Conceda para uma análise completa, incluindo a Lixeira.'),
-        h('div', null, h('button', { class: 'link', type: 'button', onClick: () => api.openFda().catch(() => {}) }, 'Abrir Ajustes')),
-        h('button', { class: 'x', type: 'button', 'aria-label': 'Dispensar aviso', onClick: () => { fdaDismissed = true; try { localStorage.setItem('limpae.fda.dismissed', '1'); } catch (e) { /* ignora */ } renderFoot(); } }, icon('x', 14))));
+        h('b', null, t('Acesso Total ao Disco')), h('span', { class: 'fda-desc' }, t('Conceda para uma análise completa, incluindo a Lixeira.')),
+        h('div', null, h('button', { class: 'link', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes'))),
+        h('button', { class: 'x', type: 'button', 'aria-label': t('Dispensar aviso'), onClick: () => { fdaDismissed = true; try { localStorage.setItem('limpae.fda.dismissed', '1'); } catch (e) { /* ignora */ } renderFoot(); } }, icon('x', 14))));
     }
   }
   mount(foot, kids);
@@ -111,8 +112,8 @@ document.addEventListener('keydown', (e) => {
   const bracket = e.metaKey && !e.ctrlKey && !e.altKey && e.key === '[';
   if (!(esc || bracket) || e.defaultPrevented || !backFn || store.busy) return;
   if (document.querySelector('.modal-back:not(.out), .ctx-menu, .fm-menu:not([hidden])')) return;
-  const t = e.target;
-  if (esc && t instanceof HTMLInputElement && t.value) return;
+  const tgt = e.target;
+  if (esc && tgt instanceof HTMLInputElement && tgt.value) return;
   e.preventDefault();
   backFn();
 });

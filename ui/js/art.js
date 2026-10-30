@@ -1,5 +1,6 @@
 // Ícones SVG (traço) e ilustrações "orb" em CSS. Arte original, sem assets externos.
 import { h, s } from './dom.js';
+import { t } from './i18n.js';
 
 const P = {
   smart: ['M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z', 'M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z'],
@@ -70,18 +71,19 @@ export function orb(mod, size = 200, glyph) {
     h('div', { class: 'orb-body' }), h('div', { class: 'orb-rim' }), h('div', { class: 'orb-gloss' }), g);
 }
 
+// `label` é uma função: MODS é constante de módulo e o idioma só é conhecido depois, então traduz na hora de exibir.
 export const MODS = [
-  { id: 'smart', label: 'Faxina', glyph: 'smart' },
-  { id: 'clean', label: 'Limpeza', glyph: 'clean' },
-  { id: 'trash', label: 'Lixeira', glyph: 'trash' },
-  { id: 'protect', label: 'Proteção', glyph: 'shield' },
-  { id: 'perf', label: 'Desempenho', glyph: 'bolt' },
-  { id: 'apps', label: 'Aplicativos', glyph: 'apps' },
-  { id: 'files', label: 'Meus Arquivos', glyph: 'folder' },
-  { id: 'lens', label: 'Disk Map', glyph: 'lens' },
-  { id: 'cloud', label: 'Nuvem', glyph: 'cloud' },
-  { id: 'tools', label: 'Minhas Ferramentas', glyph: 'tools' },
+  { id: 'smart', label: () => t('Faxina'), glyph: 'smart' },
+  { id: 'clean', label: () => t('Limpeza'), glyph: 'clean' },
+  { id: 'trash', label: () => t('Lixeira'), glyph: 'trash' },
+  { id: 'protect', label: () => t('Proteção'), glyph: 'shield' },
+  { id: 'perf', label: () => t('Desempenho'), glyph: 'bolt' },
+  { id: 'apps', label: () => t('Aplicativos'), glyph: 'apps' },
+  { id: 'files', label: () => t('Meus Arquivos'), glyph: 'folder' },
+  { id: 'lens', label: () => t('Disk Map'), glyph: 'lens' },
+  { id: 'cloud', label: () => t('Nuvem'), glyph: 'cloud' },
+  { id: 'tools', label: () => t('Minhas Ferramentas'), glyph: 'tools' },
   { spacer: true },
-  { id: 'activity', label: 'Minha Atividade', glyph: 'pulse' },
-  { id: 'settings', label: 'Ajustes', glyph: 'gear' },
+  { id: 'activity', label: () => t('Minha Atividade'), glyph: 'pulse' },
+  { id: 'settings', label: () => t('Ajustes'), glyph: 'gear' },
 ];
