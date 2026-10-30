@@ -104,6 +104,8 @@ export default {
   '{n} itens excluídos permanentemente. Não dá para desfazer.': { en: '{n} items deleted permanently. This can’t be undone.', id: '{n} item dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.' },
   'Executar {n} tarefa?': { en: 'Run {n} task?', id: 'Jalankan {n} tugas?' },
   'Executar {n} tarefas?': { en: 'Run {n} tasks?', id: 'Jalankan {n} tugas?' },
+  'Executar {n} tarefa definitivamente?': { en: 'Run {n} task and delete permanently?', id: 'Jalankan {n} tugas dan hapus permanen?' },
+  'Executar {n} tarefas definitivamente?': { en: 'Run {n} tasks and delete permanently?', id: 'Jalankan {n} tugas dan hapus permanen?' },
   'Confira o que vai acontecer:': { en: 'Check what is going to happen:', id: 'Periksa apa yang akan terjadi:' },
   'Executando suas tarefas…': { en: 'Running your tasks…', id: 'Menjalankan tugas Anda…' },
   'Lixeira do Mac': { en: 'Mac Trash', id: 'Tempat Sampah Mac' },
