@@ -1,4 +1,4 @@
-/* ============ Saúde (INC-17) ============ */
+/* ============ Health ============ */
 .act { height: 100%; overflow: auto; padding: 4px 8px 28px; display: flex; flex-direction: column; gap: 18px; }
 .act-grid { display: grid; grid-template-columns: minmax(290px, 1.05fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
 .act-health-box { display: flex; min-width: 0; }
@@ -10,7 +10,7 @@
 .act-card h3 { font-size: 15px; font-weight: 600; }
 .act-card.loading { display: flex; align-items: center; justify-content: center; gap: 10px; flex: 1; min-height: 240px; color: var(--text-2); font-size: 14px; }
 
-/* ---- cartão de saúde ---- */
+/* ---- health card ---- */
 .act-health { --lv1: #2ee6c5; --lv2: #4f8cff; flex: 1; display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden;
   background: radial-gradient(120% 90% at 80% 0%, color-mix(in srgb, var(--lv1) 24%, transparent), transparent 62%), linear-gradient(165deg, rgba(255, 255, 255, .11), rgba(255, 255, 255, .04)); }
 .act-health[data-level="excelente"] { --lv1: #6fd4ff; --lv2: #4f8cff; }
@@ -42,7 +42,7 @@
 .ah-disk.low .ahd-bar i { background: linear-gradient(90deg, #ffb84a, #ff6b6b); }
 .ah-disk.low .ahd-top span { color: #ffb84a; }
 
-/* ---- estatísticas ---- */
+/* ---- statistics ---- */
 .act-stat { display: flex; flex-direction: column; gap: 4px; }
 .as-cap { font-size: 12.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); }
 .as-big { margin-top: 2px; display: flex; align-items: baseline; gap: 6px; line-height: 1.05; }
@@ -73,7 +73,7 @@
 .asp-axis { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-3); }
 .act-spark.empty { justify-content: flex-start; }
 
-/* ---- recomendações ---- */
+/* ---- recommendations ---- */
 .act-h { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
 .rec-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .rec, .rec-ok { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: var(--r-m); background: var(--glass); border: 1px solid var(--line); }

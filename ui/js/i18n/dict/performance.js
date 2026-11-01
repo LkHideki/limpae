@@ -1,6 +1,6 @@
-// Dicionário: chave = texto em português → { en, id }.
+// Dictionary: key = Portuguese text → { en, id }.
 export default {
-  // Abas e rótulos
+  // Tabs and labels
   'Agentes': { en: 'Agents', id: 'Agen' },
   'Itens de login': { en: 'Login Items', id: 'Item Login' },
   'Monitor': { en: 'Monitor', id: 'Monitor' },
@@ -10,7 +10,7 @@ export default {
   'Agentes em segundo plano': { en: 'Background agents', id: 'Agen latar belakang' },
   'Snapshots do Time Machine': { en: 'Time Machine snapshots', id: 'Snapshot Time Machine' },
 
-  // Pressão de memória
+  // Memory pressure
   'normal': { en: 'normal', id: 'normal' },
   'elevada': { en: 'elevated', id: 'tinggi' },
   'crítica': { en: 'critical', id: 'kritis' },
@@ -18,7 +18,7 @@ export default {
   'Memória: pressão {p}': { en: 'Memory pressure: {p}', id: 'Tekanan memori: {p}' },
   'Pressão {p}': { en: 'Pressure: {p}', id: 'Tekanan: {p}' },
 
-  // Assinatura
+  // Signature
   'Sem assinatura válida': { en: 'No valid signature', id: 'Tanpa tanda tangan yang valid' },
   'Programa ausente': { en: 'Program missing', id: 'Program tidak ada' },
   'O programa deste agente não tem assinatura de código.': { en: 'This agent’s program has no code signature.', id: 'Program agen ini tidak memiliki tanda tangan kode.' },
@@ -29,28 +29,28 @@ export default {
   'Assinatura ad hoc': { en: 'Ad hoc signature', id: 'Tanda tangan ad hoc' },
   'Assinatura não verificada': { en: 'Signature not verified', id: 'Tanda tangan belum diverifikasi' },
 
-  // Tempo
+  // Time
   '{n} dia e {h} h': { en: '{n} day and {h} h', id: '{n} hari {h} j' },
   '{n} dias e {h} h': { en: '{n} days and {h} h', id: '{n} hari {h} j' },
   '{h} h {m} min': { en: '{h} h {m} min', id: '{h} j {m} mnt' },
   '{m} min': { en: '{m} min', id: '{m} mnt' },
   'agora': { en: 'now', id: 'sekarang' },
 
-  // Explicação
+  // Explanation
   'Por que não está aqui?': { en: 'Why isn’t it here?', id: 'Mengapa tidak ada di sini?' },
   'Limpar o cache de DNS, reindexar o Spotlight, reparar permissões, liberar espaço purgável e liberar RAM exigem senha de administrador ou já são feitos pelo macOS sozinho. O Limpae só oferece o que funciona sem root e tem efeito real.': {
     en: 'Flushing the DNS cache, reindexing Spotlight, repairing permissions, freeing purgeable space and freeing RAM require an administrator password or are already handled by macOS on its own. Limpae only offers what works without root and has a real effect.',
     id: 'Membersihkan cache DNS, mengindeks ulang Spotlight, memperbaiki izin, mengosongkan ruang yang dapat dibersihkan, dan membebaskan RAM memerlukan kata sandi administrator atau sudah dilakukan sendiri oleh macOS. Limpae hanya menawarkan yang berfungsi tanpa root dan benar-benar berdampak.',
   },
 
-  // Início
+  // Start
   'Veja o que roda sozinho no seu Mac e acompanhe a saúde do sistema.': { en: 'See what runs on its own on your Mac and keep an eye on system health.', id: 'Lihat apa yang berjalan otomatis di Mac Anda dan pantau kesehatan sistem.' },
   'Voltar aos resultados': { en: 'Back to results', id: 'Kembali ke hasil' },
   'Analisar': { en: 'Scan', id: 'Pindai' },
   'Parar': { en: 'Stop', id: 'Berhenti' },
   'Parando': { en: 'Stopping', id: 'Menghentikan' },
 
-  // Análise
+  // Analysis
   'Analisando…': { en: 'Scanning…', id: 'Memindai…' },
   'Verificando assinaturas e o estado de cada item. Isso leva alguns segundos.': { en: 'Checking signatures and the state of each item. This takes a few seconds.', id: 'Memeriksa tanda tangan dan status setiap item. Ini memakan waktu beberapa detik.' },
   'precisa de permissão': { en: 'permission needed', id: 'perlu izin' },
@@ -60,7 +60,7 @@ export default {
   '{n} snapshot': { en: '{n} snapshot', id: '{n} snapshot' },
   '{n} snapshots': { en: '{n} snapshots', id: '{n} snapshot' },
 
-  // Resultados
+  // Results
   '{n} agente em segundo plano': { en: '{n} background agent', id: '{n} agen latar belakang' },
   '{n} agentes em segundo plano': { en: '{n} background agents', id: '{n} agen latar belakang' },
   '{user} do usuário ({active} ativos) e {sys} do sistema.': { en: '{user} user ({active} active) and {sys} system.', id: '{user} milik pengguna ({active} aktif) dan {sys} milik sistem.' },
@@ -90,7 +90,7 @@ export default {
   'Abrir o gerenciador': { en: 'Open the manager', id: 'Buka pengelola' },
   'Verificando…': { en: 'Checking…', id: 'Memeriksa…' },
 
-  // Gerenciador
+  // Manager
   'Seções': { en: 'Sections', id: 'Bagian' },
   'Remover': { en: 'Remove', id: 'Hapus' },
   '{items} · {active} ativos': { en: '{items} · {active} active', id: '{items} · {active} aktif' },
@@ -105,7 +105,7 @@ export default {
   'Nenhum item selecionado': { en: 'No items selected', id: 'Tidak ada item dipilih' },
   'Tudo o que você desativar pode ser reativado.': { en: 'Anything you turn off can be turned back on.', id: 'Apa pun yang Anda nonaktifkan dapat diaktifkan kembali.' },
 
-  // Agentes
+  // Agents
   'Programas que o macOS inicia sozinho em seu nome. Desative o que você não usa; dá para reativar quando quiser.': { en: 'Programs macOS starts on its own on your behalf. Turn off what you don’t use; you can turn it back on anytime.', id: 'Program yang dijalankan macOS secara otomatis atas nama Anda. Nonaktifkan yang tidak Anda gunakan; Anda dapat mengaktifkannya kembali kapan saja.' },
   'Todos': { en: 'All', id: 'Semua' },
   'Pedem atenção': { en: 'Need attention', id: 'Perlu perhatian' },
@@ -132,7 +132,7 @@ export default {
   '{name} ativado.': { en: '{name} turned on.', id: '{name} diaktifkan.' },
   '{name} desativado. Dá para reativar quando quiser.': { en: '{name} turned off. You can turn it back on anytime.', id: '{name} dinonaktifkan. Anda dapat mengaktifkannya kembali kapan saja.' },
 
-  // Remoção
+  // Removal
   'Remover {name}?': { en: 'Remove {name}?', id: 'Hapus {name}?' },
   'Remover {n} agente?': { en: 'Remove {n} agent?', id: 'Hapus {n} agen?' },
   'Remover {n} agentes?': { en: 'Remove {n} agents?', id: 'Hapus {n} agen?' },
@@ -145,7 +145,7 @@ export default {
   '{n} itens removidos.': { en: '{n} items removed.', id: '{n} item dihapus.' },
   'Item': { en: 'Item', id: 'Item' },
 
-  // Itens de login
+  // Login items
   'Apps que abrem sozinhos quando você entra no Mac. Remover um item só tira o app da lista; o app continua instalado.': { en: 'Apps that open on their own when you log in to your Mac. Removing an item only takes the app off the list; the app stays installed.', id: 'App yang terbuka otomatis saat Anda masuk ke Mac. Menghapus item hanya mengeluarkan app dari daftar; app tetap terinstal.' },
   'O macOS precisa liberar o acesso': { en: 'macOS needs to grant access', id: 'macOS perlu memberikan akses' },
   'Para listar os itens de login, o Limpae conversa com o System Events. Abra Ajustes do Sistema › Privacidade e Segurança › Automação, ative o System Events para o Limpae e tente de novo.': { en: 'To list login items, Limpae talks to System Events. Open System Settings › Privacy & Security › Automation, turn on System Events for Limpae, and try again.', id: 'Untuk menampilkan item login, Limpae berkomunikasi dengan System Events. Buka Pengaturan Sistem › Privasi & Keamanan › Otomasi, aktifkan System Events untuk Limpae, lalu coba lagi.' },
@@ -202,7 +202,7 @@ export default {
   'Gerenciador de velocidade': { en: 'Speed manager', id: 'Pengelola kecepatan' },
   'Revise o que roda sozinho e acompanhe o uso do Mac.': { en: 'Review what runs on its own and keep track of how your Mac is being used.', id: 'Tinjau apa yang berjalan otomatis dan pantau penggunaan Mac Anda.' },
 
-  // Textos que chegam prontos do backend (tr)
+  // Texts that arrive ready-made from the backend (tr)
   'Item da Apple': { en: 'Apple item', id: 'Item Apple' },
   'Pertence ao Limpae': { en: 'Belongs to Limpae', id: 'Milik Limpae' },
   'Não foi possível listar os itens de login.': { en: 'Couldn’t list the login items.', id: 'Tidak dapat menampilkan daftar item login.' },

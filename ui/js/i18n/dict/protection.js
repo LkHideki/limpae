@@ -1,4 +1,4 @@
-// Dicionário: chave = texto em português → { en, id }.
+// Dictionary: key = Portuguese text → { en, id }.
 export default {
   '{done} de {total}': { en: '{done} of {total}', id: '{done} dari {total}' },
   '{n} app com acesso à câmera e ao microfone': { en: '{n} app with camera and microphone access', id: '{n} aplikasi dengan akses kamera dan mikrofon' },

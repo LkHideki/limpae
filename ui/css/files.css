@@ -1,6 +1,6 @@
-/* Arquivos: início, resultados em blocos e gerenciador. Usa os tokens de ../styles.css. */
+/* Files: start, block results and manager. Uses the tokens from ../styles.css. */
 
-/* ============ Início ============ */
+/* ============ Start ============ */
 .fl-where { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; max-width: 400px; }
 .fl-lab { font-size: 12.5px; font-weight: 600; letter-spacing: .02em; color: var(--text-3); margin-top: 4px; }
 .fl-select-wrap { position: relative; display: flex; align-items: center; height: 44px; border-radius: 22px; background: rgba(255, 255, 255, .09); border: 1px solid var(--line); color: var(--text-2); transition: background-color .2s, border-color .2s; }
@@ -17,7 +17,7 @@
 .fl-step-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fl-step-sum { color: var(--text-2); font-size: 13px; font-variant-numeric: tabular-nums; }
 
-/* ============ Resultados ============ */
+/* ============ Results ============ */
 .fl-results { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
 .fl-bar { align-self: stretch; display: flex; align-items: center; justify-content: space-between; height: 34px; flex: none; }
 .fl-where-tag { font-size: 12.5px; font-weight: 600; color: var(--text-3); padding: 0 4px; }
@@ -36,7 +36,7 @@
 .fl-tile .btn { align-self: flex-end; margin-top: auto; }
 .fl-tile[data-cat="large"]:not(.none) .btn { background: rgba(255, 255, 255, .2); }
 
-/* ============ Gerenciador ============ */
+/* ============ Manager ============ */
 .fm .rv-head { min-height: 44px; }
 .fm-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 252px minmax(0, 1fr); border-radius: var(--r-l); background: rgba(8, 20, 44, .42); border: 1px solid var(--line); overflow: hidden; -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 .fm-cats { display: flex; flex-direction: column; gap: 2px; padding: 10px; overflow: auto; border-right: 1px solid var(--line); background: rgba(255, 255, 255, .03); }
@@ -56,7 +56,7 @@
 .fm-tools { flex: none; display: flex; align-items: center; gap: 10px; padding-top: 2px; }
 .fm-list { flex: 1; min-height: 0; overflow: auto; }
 
-/* Selecionar ▾ */
+/* Select ▾ */
 .fm-menu-wrap { position: relative; }
 .fm-sel { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px 0 14px; border-radius: 16px; font-size: 13px; background: rgba(255, 255, 255, .1); border: 1px solid var(--line); color: var(--text-2); transition: background-color .2s; }
 .fm-sel:hover { background: rgba(255, 255, 255, .17); }
@@ -67,7 +67,7 @@
 .fm-menu-i { height: 34px; padding: 0 12px; border-radius: 9px; text-align: left; font-size: 13.5px; font-weight: 500; }
 .fm-menu-i:hover, .fm-menu-i:focus-visible { background: rgba(255, 255, 255, .12); }
 
-/* Seções e linhas */
+/* Sections and rows */
 .fm-sec-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; height: 42px; padding: 0 18px; background: rgba(16, 38, 74, .94); border-bottom: 1px solid var(--line); }
 .fm-sec-head b { font-size: 13.5px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fm-sec-head > span:not(.badge) { flex: 1; min-width: 0; text-align: right; font-size: 12.5px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -85,7 +85,7 @@
 .fm-act { flex: none; opacity: 0; transition: opacity .15s; }
 .fm-row:hover .fm-act, .fm-act:focus-visible { opacity: 1; }
 
-/* Duplicados: grupos expansíveis */
+/* Duplicates: expandable groups */
 .fm-set { border-bottom: 1px solid var(--line); }
 .fm-set[data-open="true"] { background: rgba(255, 255, 255, .03); }
 .fm-set-head { width: 100%; display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 18px; text-align: left; transition: background-color .15s; }
@@ -102,7 +102,7 @@
 .fm-set .fm-row { padding-left: 50px; }
 .fm-set .fm-row:last-child { border-bottom: 0; }
 
-/* Imagens parecidas: grade de miniaturas */
+/* Similar images: thumbnail grid */
 .fm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 12px; padding: 14px 18px 18px; }
 .fm-img { position: relative; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1.5px solid rgba(255, 255, 255, .08); overflow: hidden; cursor: pointer; transition: border-color .15s, background-color .15s, transform .15s var(--ease); }
 .fm-img:hover { background: rgba(255, 255, 255, .1); }
@@ -131,7 +131,7 @@
   .fl-tile, .fm-img, .fm-chev { transition: none; }
 }
 
-/* en/id: textos de acesso/modificação mais longos */
+/* en/id: longer access/modified texts */
 .fm .fm-size small { white-space: nowrap; max-width: none; }
 .fm-meta-dir .fm-fname { flex: 0 1 auto; }
 .fm-meta-dir .fm-when { flex: none; white-space: pre; }

@@ -1,14 +1,14 @@
-// Dicionário: chave = texto em português → { en, id }.
-// Textos do backend (perf.rs, health.rs, security*.rs) exibidos via tr(); chaves com {param} casam o texto renderizado.
+// Dictionary: key = Portuguese text → { en, id }.
+// Backend texts (perf.rs, health.rs, security*.rs) shown via tr(); keys with {param} match the rendered text.
 export default {
-  // ---- health.rs: nível de saúde
+  // ---- health.rs: health level
   'Excelente': { en: 'Excellent', id: 'Sangat baik' },
   'Boa': { en: 'Good', id: 'Baik' },
   'Regular': { en: 'Fair', id: 'Cukup' },
   'Requer atenção': { en: 'Needs attention', id: 'Perlu perhatian' },
   'Crítica': { en: 'Critical', id: 'Kritis' },
 
-  // ---- health.rs: fatores
+  // ---- health.rs: factors
   'Disco quase cheio': { en: 'Disk almost full', id: 'Disk hampir penuh' },
   'Pouco espaço livre no disco': { en: 'Low free disk space', id: 'Ruang disk kosong menipis' },
   'Restam {free} de {total} ({pct} %). Libere espaço para o Mac não ficar lento.': {

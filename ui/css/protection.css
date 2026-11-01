@@ -1,7 +1,7 @@
-/* Proteção: resultados em blocos e gerenciador (verificação, permissões, privacidade). Usa os tokens de ../styles.css
-   e reaproveita as classes fm-* (gerenciador) de files.css. */
+/* Security: block results and manager (scan, permissions, privacy). Uses the tokens from ../styles.css
+   and reuses the fm-* (manager) classes from files.css. */
 
-/* ============ Resultados ============ */
+/* ============ Results ============ */
 .pr-results { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
 .pr-tiles { margin-top: 22px; width: 100%; max-width: 900px; flex: 1; min-height: 0; max-height: 440px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 14px; text-align: left; }
 .pr-tile { position: relative; min-height: 0; padding: 18px 20px; border-radius: var(--r-l); overflow: hidden; display: flex; flex-direction: column; background: linear-gradient(160deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .04)); border: 1px solid rgba(255, 255, 255, .13); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); transition: border-color .25s, transform .25s var(--ease); }
@@ -24,12 +24,12 @@
 .pr-tile.main.warn .dot.bad { background: #fff2cf; box-shadow: 0 0 8px rgba(255, 242, 207, .9); }
 .dot.bad { background: var(--warn); box-shadow: 0 0 8px rgba(255, 184, 74, .8); }
 
-/* ============ Gerenciador ============ */
+/* ============ Manager ============ */
 .pr-single { grid-template-columns: minmax(0, 1fr); }
 .pr-manager .rv-extra { display: flex; align-items: center; }
 .fm-cat-ic.pr-ic { background: linear-gradient(150deg, var(--m1), var(--m2)); }
 
-/* Verificação de segurança */
+/* Security scan */
 .pr-check { display: flex; align-items: center; gap: 14px; padding: 12px 18px; min-height: 68px; border-bottom: 1px solid rgba(255, 255, 255, .05); }
 .pr-st { width: 34px; height: 34px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #08301f; background: var(--ok); box-shadow: 0 0 14px rgba(61, 220, 151, .45); }
 .pr-st[data-s="bad"] { background: var(--warn); color: #3d2503; box-shadow: 0 0 14px rgba(255, 184, 74, .45); }
@@ -40,7 +40,7 @@
 .pr-check .btn { flex: none; }
 .pr-note { padding: 14px 18px 18px; font-size: 12.5px; color: var(--text-3); line-height: 1.5; }
 
-/* Permissões */
+/* Permissions */
 .pr-appic { width: 34px; height: 34px; border-radius: 9px; flex: none; display: grid; place-items: center; overflow: hidden; background: rgba(255, 255, 255, .09); color: var(--text-2); font-weight: 700; font-size: 14px; }
 .pr-appic img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .pr-row { position: relative; display: flex; align-items: center; gap: 12px; padding: 0 18px; height: 58px; border-bottom: 1px solid rgba(255, 255, 255, .05); transition: background-color .15s; }
@@ -50,7 +50,7 @@
 .pr-row .pr-nocb { width: 20px; height: 20px; flex: none; }
 .pr-when { flex: none; font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* Privacidade */
+/* Privacy */
 .pr-closed { height: 100%; min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding: 28px; color: var(--text-2); }
 .pr-closed .pr-closed-ic { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; color: #fff; background: linear-gradient(150deg, var(--m1), var(--m2)); opacity: .85; }
 .pr-closed b { font-size: 16px; font-weight: 600; color: var(--text); }

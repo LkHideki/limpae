@@ -1,4 +1,4 @@
-// Dicionário: chave = texto em português → { en, id }.
+// Dictionary: key = Portuguese text → { en, id }.
 export default {
   'Arquivos grandes e antigos': { en: "Large & old files", id: "File besar dan lama" },
   'Duplicados': { en: "Duplicates", id: "Duplikat" },

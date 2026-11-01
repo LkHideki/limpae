@@ -1,6 +1,6 @@
-// Dicionário: chave = texto em português → { en, id }.
+// Dictionary: key = Portuguese text → { en, id }.
 export default {
-  // Módulos da Faxina
+  // Sweep modules
   'Entulho': { en: 'Junk', id: 'Sampah' },
   'Procurando lixo…': { en: 'Looking for junk…', id: 'Mencari sampah…' },
   'Busca de lixo do sistema': { en: 'System junk search', id: 'Pencarian sampah sistem' },
@@ -21,7 +21,7 @@ export default {
   'Procurando duplicados…': { en: 'Looking for duplicates…', id: 'Mencari duplikat…' },
   'Duplicados em Downloads': { en: 'Duplicates in Downloads', id: 'Duplikat di Downloads' },
 
-  // Resumo dos tiles
+  // Tile summary
   'Indisponível': { en: 'Unavailable', id: 'Tidak tersedia' },
   'tente de novo no módulo': { en: 'try again in the module', id: 'coba lagi di modul' },
   '{size} de lixo': { en: '{size} of junk', id: '{size} sampah' },
@@ -61,7 +61,7 @@ export default {
   'Sem duplicados': { en: 'No duplicates', id: 'Tidak ada duplikat' },
   'nenhum arquivo repetido em Downloads': { en: 'no repeated files in Downloads', id: 'tidak ada file berulang di Downloads' },
 
-  // Estados dos tiles
+  // Tile states
   'Esvaziando a Lixeira…': { en: 'Emptying the Trash…', id: 'Mengosongkan Tempat Sampah…' },
   'Limpando lixo…': { en: 'Cleaning junk…', id: 'Membersihkan sampah…' },
   'Aguardando…': { en: 'Waiting…', id: 'Menunggu…' },
@@ -84,7 +84,7 @@ export default {
   'Incluir o esvaziamento da Lixeira (permanente)': { en: 'Include emptying the Trash (permanent)', id: 'Sertakan pengosongan Tempat Sampah (permanen)' },
   'Incluir {name} na execução': { en: 'Include {name} in the run', id: 'Sertakan {name} dalam proses' },
 
-  // Telas
+  // Screens
   'Executar': { en: 'Run', id: 'Jalankan' },
   'Escolher módulos nos Ajustes': { en: 'Choose modules in Settings', id: 'Pilih modul di Pengaturan' },
   'Nenhum módulo está incluído na Faxina.': { en: 'No modules are included in Sweep.', id: 'Tidak ada modul yang disertakan dalam Sapu Bersih.' },
@@ -116,7 +116,7 @@ export default {
   'Recomeçar a análise?': { en: 'Start the scan over?', id: 'Mulai ulang pemindaian?' },
   'Os resultados e as marcações atuais serão descartados. Nada foi removido até agora.': { en: 'The current results and selections will be discarded. Nothing has been removed so far.', id: 'Hasil dan pilihan saat ini akan dibuang. Belum ada yang dihapus sejauh ini.' },
 
-  // Revisão
+  // Review
   'Ações': { en: 'Actions', id: 'Tindakan' },
   'Selecionado: ': { en: 'Selected: ', id: 'Dipilih: ' },
   '{n} item em {cats}': { en: '{n} item in {cats}', id: '{n} item dalam {cats}' },

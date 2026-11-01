@@ -1,8 +1,8 @@
-/* ============ Mapa do Disco e iCloud (INC-14) ============ */
+/* ============ Disk Map and iCloud ============ */
 [data-mod="cloud"] { --m1: #8fd3ff; --m2: #3b82f6; --t1: #2f7be0; --t2: #1f4fb0; --glow: 90, 170, 255; }
 .orb[data-mod="cloud"] { --shape: 46% 54% 42% 58% / 58% 48% 52% 42%; }
 
-/* A barra lateral ganhou um item: rola em vez de empurrar o rodapé em janelas baixas. */
+/* The sidebar gained an item: it scrolls instead of pushing the footer down in short windows. */
 .nav { min-height: 0; overflow-y: auto; scrollbar-width: none; }
 .nav::-webkit-scrollbar { display: none; }
 @media (max-height: 720px) { .nav-item { height: 38px; } .nav { gap: 2px; } }
@@ -10,7 +10,7 @@
 .stage[data-mod="lens"] .ticker, .stage[data-mod="cloud"] .ticker { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lens-count { min-height: 24px; }
 
-/* ---- landing: escolha do local ---- */
+/* ---- landing: location picker ---- */
 .lens-lead { margin: 22px 0 8px; font-size: 13px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; }
 .lens-roots { display: flex; flex-direction: column; gap: 8px; max-height: 190px; overflow: auto; padding: 2px; margin: -2px; }
 .lens-roots-load { display: flex; align-items: center; gap: 10px; color: var(--text-2); font-size: 13.5px; padding: 12px 2px; }
@@ -24,7 +24,7 @@
 .lr-bar { position: absolute; left: 14px; right: 14px; bottom: 7px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .12); overflow: hidden; }
 .lr-bar i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--m1), var(--m2)); }
 
-/* ---- resultado: lista + mapa de bolhas ---- */
+/* ---- result: list + bubble map ---- */
 .lens { --spring: cubic-bezier(.34, 1.56, .64, 1); --lime: #b8f36b; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; outline: none; }
 .lens-top { flex: none; display: flex; align-items: center; height: 32px; margin-top: -6px; }
 .lens-top .btn { gap: 4px; padding-left: 10px; }
@@ -68,7 +68,7 @@
 .ln-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ln-name small { display: block; font-size: 11.5px; font-weight: 400; color: var(--text-3); }
 .ln-size { flex: none; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
-/* Os botões "›" e "⋯" só ocupam espaço sob o mouse ou o foco: o nome fica mais largo no resto do tempo. */
+/* The "›" and "⋯" buttons only take space on hover or focus: the name stays wider the rest of the time. */
 .ln-act { flex: none; width: 0; height: 26px; margin-left: -9px; opacity: 0; overflow: hidden; border-radius: 8px; transition: opacity .15s, width .15s var(--ease), margin .15s var(--ease), background-color .2s, color .2s; }
 .ln-row:hover .ln-act, .ln-row:focus-within .ln-act, .ln-row.ctx-open .ln-act, .ln-row.hot .ln-act { width: 26px; margin-left: 0; opacity: 1; }
 .ln-open svg { transform: rotate(180deg); }
@@ -82,7 +82,7 @@
 .fi svg, .fi-img { width: 100%; height: 100%; display: block; }
 .fi-img { object-fit: contain; -webkit-user-drag: none; user-select: none; }
 
-/* ---- caminho (estilo Finder) ---- */
+/* ---- path (Finder style) ---- */
 .lens-right { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .lens-nav { flex: none; display: flex; align-items: center; gap: 8px; height: 34px; }
 .nav-arrow { width: 32px; height: 32px; border-radius: 10px; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, .09); border: 1px solid var(--line); color: var(--text); transition: background-color .2s, opacity .2s, transform .15s; }
@@ -100,7 +100,7 @@
 .crumb-sep { flex: none; color: var(--text-3); display: grid; place-items: center; }
 .crumb-sep svg { transform: rotate(180deg); }
 
-/* ---- mapa ---- */
+/* ---- map ---- */
 .lens-map { position: relative; flex: 1; min-height: 0; min-width: 0; border-radius: var(--r-l); }
 .lens-map::before { content: ""; position: absolute; inset: 4% 2%; border-radius: 50%; background: radial-gradient(closest-side, rgba(var(--glow), .13), rgba(var(--glow), .04) 55%, transparent); pointer-events: none; }
 .bub-layer { position: absolute; inset: 0; }
@@ -117,7 +117,7 @@
   -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
   box-shadow: 0 0 30px -4px rgba(var(--glow), .3), 0 18px 30px -18px rgba(0, 8, 30, .6), inset 0 2px 1px rgba(255, 255, 255, .26), inset 0 -16px 28px -12px rgba(var(--glow), .24);
   transition: transform .18s var(--ease), border-color .18s, box-shadow .2s; }
-/* Brilho suave no alto à esquerda e véu de destaque (o véu só aparece no hover). */
+/* Soft glow at the top left and a highlight veil (the veil only shows on hover). */
 .bub-body::before { content: ""; position: absolute; left: 13%; top: 6%; width: 50%; height: 27%; border-radius: 50%; transform: rotate(-24deg); background: linear-gradient(180deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, 0)); opacity: .7; pointer-events: none; }
 .bub-body::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 34% 26%, rgba(255, 255, 255, .26), rgba(255, 255, 255, .09) 60%, transparent); opacity: 0; transition: opacity .18s; pointer-events: none; }
 .bub:hover .bub-body, .bub.hot .bub-body, .bub:focus-visible .bub-body { transform: scale(1.04); border-color: rgba(255, 255, 255, .55); box-shadow: 0 0 40px -2px rgba(var(--glow), .5), 0 22px 34px -18px rgba(0, 8, 30, .65), inset 0 2px 1px rgba(255, 255, 255, .34), inset 0 -16px 28px -12px rgba(var(--glow), .3); }
@@ -134,7 +134,7 @@
 .k-small .bub-in .fi, .k-other .bub-in .fi { opacity: .95; }
 .k-other .bub-body { border: 1.5px dashed rgba(255, 255, 255, .5); background: radial-gradient(circle at 34% 24%, rgba(255, 255, 255, .11), rgba(255, 255, 255, .04) 60%, rgba(255, 255, 255, .02)); }
 
-/* Selecionada: anel lime e selo de confirmação. Parcial: anel tracejado. */
+/* Selected: lime ring and confirmation badge. Partial: dashed ring. */
 .bub.sel .bub-body { border-color: var(--lime); background: radial-gradient(circle at 34% 24%, rgba(184, 243, 107, .3), rgba(120, 220, 140, .14) 55%, rgba(60, 200, 150, .08)); box-shadow: 0 0 0 3px rgba(184, 243, 107, .32), 0 0 38px -2px rgba(184, 243, 107, .42), 0 18px 30px -18px rgba(0, 8, 30, .6), inset 0 2px 1px rgba(255, 255, 255, .3); }
 .bub.part .bub-body { border: 1.5px dashed rgba(184, 243, 107, .85); }
 .bub-check { position: absolute; z-index: 3; top: calc(14.6% - 12px); right: calc(14.6% - 12px); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #0a3d2b; background: linear-gradient(150deg, #d6ff95, #7fe0a4); border: 2px solid rgba(255, 255, 255, .85); box-shadow: 0 4px 10px rgba(0, 20, 30, .4); transform: scale(0); opacity: 0; transition: transform .28s var(--spring), opacity .15s; pointer-events: none; }
@@ -144,7 +144,7 @@
 .bub-lock { position: absolute; z-index: 3; bottom: calc(14.6% - 9px); right: calc(14.6% - 9px); width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: rgba(255, 255, 255, .85); background: rgba(8, 20, 44, .6); border: 1px solid rgba(255, 255, 255, .25); pointer-events: none; }
 .t-xs .bub-lock { display: none; }
 
-/* Entrada: bolhas pulam uma a uma (30ms) com mola. `backwards` mantém o hover livre depois da animação. */
+/* Entrance: bubbles pop in one by one (30ms) with a spring. `backwards` keeps hover free after the animation. */
 .bub-layer.enter-in .bub-body, .bub-layer.enter-out .bub-body { animation: bub-pop .62s var(--spring) backwards; animation-delay: calc(var(--i) * 30ms + 30ms); }
 .bub-layer.enter-out .bub-body { animation-name: bub-pop-out; }
 @keyframes bub-pop { from { opacity: 0; transform: scale(.3); } 55% { opacity: 1; } }

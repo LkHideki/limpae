@@ -1,11 +1,11 @@
-/* Movimento global (ver motion.js). Só transform/opacity (box-shadow apenas em hover pontual); respeita
-   prefers-reduced-motion e body.idle. Vem por último no index.html: vence empates de especificidade. */
+/* Global motion (see motion.js). Only transform/opacity (box-shadow only on one-off hover); respects
+   prefers-reduced-motion and body.idle. Loaded last in index.html: wins specificity ties. */
 :root {
-  --mo-spring: cubic-bezier(.3, 1.4, .4, 1);   /* mola com folga visível: toques e indicador */
-  --mo-soft: cubic-bezier(.25, 1.12, .35, 1);  /* mola contida (overshoot ~2%): cartões, diálogos, avisos */
+  --mo-spring: cubic-bezier(.3, 1.4, .4, 1);   /* spring with visible overshoot: taps and indicator */
+  --mo-soft: cubic-bezier(.25, 1.12, .35, 1);  /* restrained spring (~2% overshoot): cards, dialogs, notices */
 }
 
-/* ============ Indicador deslizante do menu ============ */
+/* ============ Sliding menu indicator ============ */
 .nav { position: relative; }
 .nav-item { position: relative; z-index: 1; }
 .nav-pill {
@@ -15,10 +15,10 @@
   transition: transform .46s var(--mo-spring), opacity .2s var(--ease);
 }
 .nav-pill.snap { transition: none; }
-/* Com a pílula ativa, o fundo do item atual passa para ela (sem duplicar o realce). */
+/* With the pill active, the current item's background moves to it (no duplicated highlight). */
 .nav.has-pill .nav-item[aria-current="page"] { background: transparent; box-shadow: none; }
 
-/* ============ Toque: afunda rápido, volta com mola ============ */
+/* ============ Tap: sinks quickly, springs back ============ */
 .btn { transition: background-color .2s, transform .38s var(--mo-spring), box-shadow .2s, opacity .2s; }
 .btn:active:not(:disabled) { transform: scale(.97); transition: transform .09s var(--ease), background-color .2s, box-shadow .2s, opacity .2s; }
 .go { transition: transform .4s var(--mo-spring), box-shadow .3s, filter .2s; }
@@ -34,24 +34,24 @@
 .switch { transition: background-color .22s var(--ease), transform .38s var(--mo-spring); }
 .switch:active { transform: scale(.97); transition: transform .09s var(--ease), background-color .22s var(--ease); }
 
-/* ============ Cartões interativos: sobem 2px (já definido por tela) com sombra mais funda ============ */
+/* ============ Interactive cards: lift 2px (already set per screen) with a deeper shadow ============ */
 .fl-tile, .cl-tile, .pf-tile, .pr-tile { transition: border-color .25s, transform .34s var(--mo-soft), box-shadow .34s var(--ease), opacity .25s; }
 .tl-tile { transition: border-color .25s, transform .34s var(--mo-soft), box-shadow .34s var(--ease), background-color .25s; }
 .fl-tile:not(.none):hover, .cl-tile:hover, .pf-tile:hover, .pr-tile:hover { box-shadow: 0 20px 36px -18px rgba(0, 0, 0, .55); }
 .tl-tile:hover { box-shadow: 0 24px 42px -20px rgba(0, 0, 0, .7); }
 .cl-tile-n { font-variant-numeric: tabular-nums; }
 
-/* ============ Diálogos: mola contida na entrada, saída mais curta ============ */
+/* ============ Dialogs: restrained spring on enter, shorter exit ============ */
 .modal-back.in .modal { animation-duration: .44s; animation-timing-function: var(--mo-soft); }
 .modal-back.out .modal { animation-duration: .16s; }
 .modal-back.out { transition-duration: .18s; }
 
-/* ============ Avisos: descem do topo; a saída é uma transição (a entrada não segura o estado final) ============ */
+/* ============ Notices: drop from the top; the exit is a transition (the entrance does not hold the final state) ============ */
 @keyframes mo-toast-in { from { opacity: 0; transform: translate3d(0, -16px, 0) scale(.97); } to { opacity: 1; transform: none; } }
 .toast { animation: mo-toast-in .44s var(--mo-soft) backwards; }
 .toast.out { opacity: 0; transform: translate3d(0, -10px, 0) scale(.98); transition: opacity .18s ease-in, transform .18s ease-in; }
 
-/* ============ Celebração: anel de luz + faíscas, numa camada fixa que se remove sozinha ============ */
+/* ============ Celebration: light ring + sparks, on a fixed layer that removes itself ============ */
 .mo-fx { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 40; pointer-events: none; }
 .mo-ring, .mo-bloom { position: absolute; left: 0; top: 0; width: var(--d); height: var(--d); margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2); border-radius: 50%; }
 .mo-ring { border: 1.5px solid rgba(var(--glow), .75); box-shadow: 0 0 16px rgba(var(--glow), .35), inset 0 0 12px rgba(var(--glow), .18); animation: ring-out .9s var(--ease) both; }
@@ -70,7 +70,7 @@ body.idle .mo-fx { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .nav-pill { transition: none; }
-  /* As regras acima vêm depois das de cada tela e venceriam o reduced-motion delas: reafirma aqui. */
+  /* The rules above come after each screen's own and would override its reduced-motion: reasserted here. */
   .fl-tile, .cl-tile, .pf-tile, .pr-tile, .tl-tile { transition: none; }
   .btn, .go, .chip, .seg button, .nav-item, .cb, .switch { transition-duration: .01s; }
   .btn:active:not(:disabled), .go:active:not(:disabled), .chip:active, .seg button:active, .nav-item:active, .cb:active:not(:disabled), .switch:active { transform: none; }

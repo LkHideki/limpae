@@ -1,7 +1,7 @@
-// Dicionário: chave = texto em português → { en, id }.
+// Dictionary: key = Portuguese text → { en, id }.
 export default {
   'Atualizar||update': { en: 'Update', id: 'Perbarui' },
-  // ---- landing / análise
+  // ---- landing / analysis
   'Desinstale apps por completo, acompanhe atualizações e limpe o que sobrou deles.': { en: 'Uninstall apps completely, keep track of updates, and clean up what they leave behind.', id: 'Hapus aplikasi sepenuhnya, pantau pembaruan, dan bersihkan sisa-sisanya.' },
   'Desinstalação completa, com os restos': { en: 'Complete uninstall, leftovers included', id: 'Penghapusan instalasi penuh, termasuk sisa file' },
   'Atualizações de apps fora da App Store': { en: 'Updates for apps outside the App Store', id: 'Pembaruan untuk aplikasi di luar App Store' },
@@ -11,12 +11,12 @@ export default {
   'Analisando aplicativos…': { en: 'Scanning applications…', id: 'Memindai aplikasi…' },
   'Listando apps, procurando atualizações, restos e instaladores.': { en: 'Listing apps and looking for updates, leftovers, and installers.', id: 'Mencantumkan aplikasi serta mencari pembaruan, sisa file, dan penginstal.' },
 
-  // ---- datas relativas
+  // ---- relative dates
   'nunca aberto': { en: 'never opened', id: 'belum pernah dibuka' },
   'aberto {when}': { en: 'opened {when}', id: 'dibuka {when}' },
   'aberto hoje': { en: 'opened today', id: 'dibuka hari ini' },
 
-  // ---- resultados
+  // ---- results
   '{n} atualização disponível': { en: '{n} update available', id: '{n} pembaruan tersedia' },
   '{n} atualizações disponíveis': { en: '{n} updates available', id: '{n} pembaruan tersedia' },
   'Mantenha seus apps em dia com os recursos e correções mais recentes.': { en: 'Keep your apps up to date with the latest features and fixes.', id: 'Jaga agar aplikasi Anda tetap mutakhir dengan fitur dan perbaikan terbaru.' },
@@ -45,7 +45,7 @@ export default {
   'Encontramos {n} apps no seu Mac.': { en: 'We found {n} apps on your Mac.', id: 'Kami menemukan {n} aplikasi di Mac Anda.' },
   'Gerenciar meus aplicativos': { en: 'Manage my applications', id: 'Kelola aplikasi saya' },
 
-  // ---- atualizações
+  // ---- updates
   'Abrir {n} página de atualização?': { en: 'Open {n} update page?', id: 'Buka {n} halaman pembaruan?' },
   'Abrir {n} páginas de atualização?': { en: 'Open {n} update pages?', id: 'Buka {n} halaman pembaruan?' },
   'Cada página abre no navegador padrão.': { en: 'Each page opens in your default browser.', id: 'Setiap halaman terbuka di browser default Anda.' },
@@ -55,7 +55,7 @@ export default {
   'Abrindo a página da atualização.': { en: 'Opening the update page.', id: 'Membuka halaman pembaruan.' },
   'Abrindo {n} páginas de atualização.': { en: 'Opening {n} update pages.', id: 'Membuka {n} halaman pembaruan.' },
 
-  // ---- remover restos / instaladores
+  // ---- remove leftovers / installers
   '{n} instalador vai para o Lixo': { en: '{n} installer will go to the Trash', id: '{n} penginstal akan dipindahkan ke Tempat Sampah' },
   '{n} instaladores vão para o Lixo': { en: '{n} installers will go to the Trash', id: '{n} penginstal akan dipindahkan ke Tempat Sampah' },
   '{n} resto de app vai para o Lixo': { en: '{n} app leftover will go to the Trash', id: '{n} sisa aplikasi akan dipindahkan ke Tempat Sampah' },
@@ -73,13 +73,13 @@ export default {
   '{n} resto de app removido': { en: '{n} app leftover removed', id: '{n} sisa aplikasi dihapus' },
   '{n} restos de apps removidos': { en: '{n} app leftovers removed', id: '{n} sisa aplikasi dihapus' },
 
-  // ---- concluído
+  // ---- done
   'Pronto!': { en: 'Done!', id: 'Selesai!' },
   '{size} apagados definitivamente.': { en: '{size} permanently deleted.', id: '{size} dihapus permanen.' },
   '{size} movidos para o Lixo. Esvazie a Lixeira para liberar o espaço.': { en: '{size} moved to the Trash. Empty the Trash to free up the space.', id: '{size} dipindahkan ke Tempat Sampah. Kosongkan Tempat Sampah untuk melepaskan ruang.' },
   'Gerenciar mais': { en: 'Manage more', id: 'Kelola lainnya' },
 
-  // ---- gerenciador
+  // ---- manager
   'Seções': { en: 'Sections', id: 'Bagian' },
   'Gerenciador de Aplicativos': { en: 'App Manager', id: 'Pengelola Aplikasi' },
   'Buscar': { en: 'Search', id: 'Cari' },
@@ -126,7 +126,7 @@ export default {
   'Calculando restos…': { en: 'Calculating leftovers…', id: 'Menghitung sisa file…' },
   'Desinstalar': { en: 'Uninstall', id: 'Copot Instalasi' },
 
-  // ---- desinstalação
+  // ---- uninstall
   'Desinstalar {name}?': { en: 'Uninstall {name}?', id: 'Copot instalasi {name}?' },
   'Desinstalar {n} apps?': { en: 'Uninstall {n} apps?', id: 'Copot instalasi {n} aplikasi?' },
   'Os apps e os itens selecionados vão para o Lixo': { en: 'The apps and selected items will go to the Trash', id: 'Aplikasi dan item yang dipilih akan dipindahkan ke Tempat Sampah' },
@@ -142,7 +142,7 @@ export default {
   '{n} aplicativo desinstalado': { en: '{n} application uninstalled', id: '{n} aplikasi dicopot instalasinya' },
   '{n} aplicativos desinstalados': { en: '{n} applications uninstalled', id: '{n} aplikasi dicopot instalasinya' },
 
-  // ---- atualizador
+  // ---- updater
   'Acompanhe as versões mais recentes dos seus apps.': { en: 'Keep track of the latest versions of your apps.', id: 'Pantau versi terbaru aplikasi Anda.' },
   'Nenhum app corresponde à busca.': { en: 'No apps match your search.', id: 'Tidak ada aplikasi yang cocok dengan pencarian.' },
   'Todos os apps com fonte de atualização estão em dia.': { en: 'All apps with an update source are up to date.', id: 'Semua aplikasi dengan sumber pembaruan sudah mutakhir.' },
@@ -161,7 +161,7 @@ export default {
   '{n} atualizações selecionadas': { en: '{n} updates selected', id: '{n} pembaruan dipilih' },
   'Nenhuma atualização selecionada': { en: 'No updates selected', id: 'Tidak ada pembaruan yang dipilih' },
 
-  // ---- restos e instaladores
+  // ---- leftovers and installers
   'Dados de apps que já foram removidos e instaladores que podem ser baixados de novo.': { en: 'Data from apps that were already removed, and installers that can be downloaded again.', id: 'Data dari aplikasi yang sudah dihapus, dan penginstal yang dapat diunduh lagi.' },
   'Restos de apps': { en: 'App leftovers', id: 'Sisa aplikasi' },
   'Instaladores': { en: 'Installers', id: 'Penginstal' },
@@ -175,7 +175,7 @@ export default {
   '{n} item selecionado': { en: '{n} item selected', id: '{n} item dipilih' },
   '{n} itens selecionados': { en: '{n} items selected', id: '{n} item dipilih' },
 
-  // ---- textos fixos do backend (Rust, apps.rs / apps_extra.rs)
+  // ---- fixed backend texts (Rust, apps.rs / apps_extra.rs)
   'Suporte do app': { en: 'App support', id: 'Dukungan aplikasi' },
   'Caches': { en: 'Caches', id: 'Cache' },
   'Preferências': { en: 'Preferences', id: 'Preferensi' },
