@@ -12,7 +12,7 @@ Native Rust engine, system WebKit, a hand-built interface. About 7 MB on disk.
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24c8db?style=flat-square&logo=tauri&logoColor=white)
 ![UI](https://img.shields.io/badge/UI-vanilla%20JS-f7df1e?style=flat-square&logo=javascript&logoColor=black)
 ![Languages](https://img.shields.io/badge/languages-EN%20%C2%B7%20PT--BR%20%C2%B7%20ID-4c6ef5?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-2f9e44?style=flat-square)
+![License](https://img.shields.io/badge/license-Unlicense-2f9e44?style=flat-square)
 
 </div>
 
@@ -25,7 +25,7 @@ No antivirus and no telemetry. Limpae makes no network requests of its own; ever
 <div align="center">
 
 <img src="docs/screenshots/smart.jpg" width="49%" alt="Sweep results"> <img src="docs/screenshots/lens.jpg" width="49%" alt="Disk Map bubble map">
-<img src="docs/screenshots/apps.jpg" width="49%" alt="Application manager"> <img src="docs/screenshots/protect.jpg" width="49%" alt="Protection">
+<img src="docs/screenshots/apps.jpg" width="49%" alt="App manager"> <img src="docs/screenshots/protect.jpg" width="49%" alt="Security">
 
 <sub>Screenshots use sample data.</sub>
 
@@ -37,11 +37,11 @@ No antivirus and no telemetry. Limpae makes no network requests of its own; ever
 
 - **Sweep.** One scan across six modules, one pre-selected review, one button. Only safe junk is pre-selected; your own files never are.
 - **Disk Map.** An interactive bubble map of what is using your disk, with Finder-style navigation, Quick Look and reveal-in-Finder.
-- **Cleanup.** User caches and logs, Xcode and package-manager caches, AI tool leftovers, broken preferences and login items, iOS backups, Mail attachments, and Trash bins on external volumes.
-- **Application manager.** Uninstall apps together with the leftovers in `~/Library`, find orphaned leftovers, installers, unused apps and available updates.
-- **My Files.** Large and old files, exact duplicates, similar images (best copy pre-marked) and a per-app view of Downloads.
-- **Protection, without an antivirus.** Security posture checks (Gatekeeper, SIP, FileVault, firewall, XProtect age, updates), app permissions you can review and revoke, and privacy traces.
-- **Performance.** Background agents and login items with code-signature checks, a live system monitor and Time Machine snapshot thinning.
+- **Junk.** User caches and logs, Xcode and package-manager caches, AI tool leftovers, broken preferences and login items, iOS backups, Mail attachments, and Trash bins on external volumes.
+- **App manager.** Uninstall apps together with the leftovers in `~/Library`, find orphaned leftovers, installers, unused apps and available updates.
+- **Files.** Large and old files, exact duplicates, similar images (best copy pre-marked) and a per-app view of Downloads.
+- **Security, without an antivirus.** Security posture checks (Gatekeeper, SIP, FileVault, firewall, XProtect age, updates), app permissions you can review and revoke, and privacy traces.
+- **Speed.** Background agents and login items with code-signature checks, a live system monitor and Time Machine snapshot thinning.
 - **Menu bar extra.** Health, free space, memory pressure and Trash size at a glance, as a native menu that costs nothing while closed.
 - **Calm by default.** Elegant motion that pauses when the window is idle, glass-like synthesized sounds (no audio files) and Esc / ⌘[ to go back.
 - **Three languages.** English (default), Brazilian Portuguese and Bahasa Indonesia, switchable in Settings.
@@ -50,15 +50,15 @@ No antivirus and no telemetry. Limpae makes no network requests of its own; ever
 
 | Module | What it does |
 | --- | --- |
-| **Sweep** | Scans Cleanup, Trash, Protection, Performance, Applications and My Files in one pass and removes the pre-selected junk. |
-| **Cleanup** | System and app junk, grouped and sized, with per-item review. |
+| **Sweep** | Scans Junk, Trash, Security, Speed, Apps and Files in one pass and removes the pre-selected junk. |
+| **Junk** | System and app junk, grouped and sized, with per-item review. |
 | **Trash** | Shows what is in every Trash (including external volumes) and empties it with confirmation. |
-| **Protection** | Security posture, app permissions (TCC) and privacy traces. Read-only checks; fixes open the right Settings pane. |
-| **Performance** | Background agents, login items, live monitor, snapshots. |
-| **Applications** | Uninstaller, updater, leftovers, installers, vendor view. |
-| **My Files** | Large and old files, duplicates, similar images, Downloads. |
-| **Disk Map** | Visual disk map. |
-| **Cloud** | Evict local copies of files that are already in iCloud. |
+| **Security** | Security posture, app permissions (TCC) and privacy traces. Read-only checks; fixes open the right Settings pane. |
+| **Speed** | Background agents, login items, live monitor, snapshots. |
+| **Apps** | Uninstaller, updater, leftovers, installers, vendor view. |
+| **Files** | Large and old files, duplicates, similar images, Downloads. |
+| **Disk Map** | Visual map of what uses your disk. |
+| **iCloud** | Evict local copies of files that are already in iCloud. |
 | **Toolbox** | Every tool in one place, with favorites and a screen cleaning mode. |
 | **Health** | Mac health score with recommendations. |
 
@@ -81,7 +81,7 @@ Deleting files is the dangerous part of a cleaner, so the engine is conservative
 - Language and universal-binary stripping, because it breaks code signatures.
 - System caches, because they need root.
 - "Antimalware" without a signature database.
-- `~/Library/Containers` in Cleanup, because it triggers privacy alerts.
+- `~/Library/Containers` in Junk, because it triggers privacy alerts.
 
 ## Install
 
@@ -158,4 +158,4 @@ The `ui/` folder is served as is, so UI changes need no build step; reload the w
 
 Branding, artwork and sounds are original to Limpae.
 
-Released under the MIT license.
+Released into the public domain under [The Unlicense](LICENSE): use, copy, modify and redistribute it for any purpose, with or without credit.
