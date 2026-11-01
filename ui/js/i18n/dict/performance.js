@@ -5,7 +5,7 @@ export default {
   'Itens de login': { en: 'Login Items', id: 'Item Login' },
   'Monitor': { en: 'Monitor', id: 'Monitor' },
   'Snapshots': { en: 'Snapshots', id: 'Snapshot' },
-  'Desempenho': { en: 'Performance', id: 'Kinerja' },
+  'Velocidade': { en: 'Speed', id: 'Kecepatan' },
   'Monitor do sistema': { en: 'System monitor', id: 'Monitor sistem' },
   'Agentes em segundo plano': { en: 'Background agents', id: 'Agen latar belakang' },
   'Snapshots do Time Machine': { en: 'Time Machine snapshots', id: 'Snapshot Time Machine' },
@@ -84,7 +84,7 @@ export default {
   'Cópias temporárias do disco que o macOS guarda e apaga sozinho.': { en: 'Temporary disk copies that macOS keeps and deletes on its own.', id: 'Salinan sementara disk yang disimpan dan dihapus sendiri oleh macOS.' },
   'Não há cópias temporárias ocupando espaço agora.': { en: 'No temporary copies are taking up space right now.', id: 'Tidak ada salinan sementara yang memakai ruang saat ini.' },
   'Resultados': { en: 'Results', id: 'Hasil' },
-  'Recomeçar': { en: 'Start Over', id: 'Mulai Ulang' },
+  'Recomeçar': { en: 'Scan Again', id: 'Pindai Lagi' },
   'Veja o que roda no seu Mac.': { en: 'See what runs on your Mac.', id: 'Lihat apa yang berjalan di Mac Anda.' },
   'Nada é alterado sem a sua escolha. O que você desativar pode ser reativado, e o que remover vai para o Lixo.': { en: 'Nothing changes without your say-so. Anything you turn off can be turned back on, and anything you remove goes to the Trash.', id: 'Tidak ada yang diubah tanpa persetujuan Anda. Apa pun yang Anda nonaktifkan dapat diaktifkan kembali, dan apa pun yang Anda hapus akan masuk ke Tempat Sampah.' },
   'Abrir o gerenciador': { en: 'Open the manager', id: 'Buka pengelola' },
@@ -199,7 +199,7 @@ export default {
   '{n} snapshot removido.': { en: '{n} snapshot removed.', id: '{n} snapshot dihapus.' },
   '{n} snapshots removidos.': { en: '{n} snapshots removed.', id: '{n} snapshot dihapus.' },
   'Nenhum snapshot foi removido.': { en: 'No snapshots were removed.', id: 'Tidak ada snapshot yang dihapus.' },
-  'Gerenciador de desempenho': { en: 'Performance manager', id: 'Pengelola kinerja' },
+  'Gerenciador de velocidade': { en: 'Speed manager', id: 'Pengelola kecepatan' },
   'Revise o que roda sozinho e acompanhe o uso do Mac.': { en: 'Review what runs on its own and keep track of how your Mac is being used.', id: 'Tinjau apa yang berjalan otomatis dan pantau penggunaan Mac Anda.' },
 
   // Textos que chegam prontos do backend (tr)

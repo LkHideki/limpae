@@ -221,7 +221,7 @@ export function enter(ctx) {
       }));
     };
     drawRoots();
-    st.show(h('h1', { class: 'h1' }, 'Disk Map'),
+    st.show(h('h1', { class: 'h1' }, t('Mapa do Disco')),
       h('p', { class: 'sub' }, t('Veja o que ocupa espaço no Mac em um mapa de bolhas e escolha o que mover para o Lixo.')),
       h('p', { class: 'lens-lead' }, t('Analisar')), pick,
       S.cur && S.phase === 'idle' && S.hasMap ? h('div', { class: 'row-actions', style: 'margin-top:18px' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.phase = 'map'; render(); } }, t('Voltar ao mapa'))) : null);
@@ -560,7 +560,7 @@ export function enter(ctx) {
     selLabel = h('div', { class: 'lens-sel', 'aria-live': 'polite' });
     reviewBtn = h('button', { class: 'btn primary lens-review', type: 'button', disabled: true, onClick: review }, t('Revisar e Remover'));
 
-    const el = h('section', { class: 'lens', dataset: { mod: 'lens' }, 'aria-label': 'Disk Map', tabindex: '-1' },
+    const el = h('section', { class: 'lens', dataset: { mod: 'lens' }, 'aria-label': t('Mapa do Disco'), tabindex: '-1' },
       h('div', { class: 'lens-top' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('lens')) { S.phase = 'idle'; S.hasMap = true; st = null; render(); } } }, icon('back', 14), t('Recomeçar'))),
       h('div', { class: 'lens-body' },
         h('aside', { class: 'lens-left' }, volCard, listCard),
@@ -623,7 +623,7 @@ export function enter(ctx) {
     const { result, sel } = S.review;
     const back = () => { S.phase = 'map'; render(); };
     const rv = createReview({
-      result, sel, mod: 'lens', title: 'Disk Map',
+      result, sel, mod: 'lens', title: t('Mapa do Disco'),
       subtitle: `${t('Revisar e Remover')} · ${plural(result.groups.reduce((a, g) => a + g.items.length, 0), 'item', 'itens')} · ${fmtBytes(result.total)}`,
       actionLabel: t('Mover para o Lixo'), showAge: true, emptyText: t('Nada selecionado.'),
       onBack: back, onAction: () => move(),

@@ -50,7 +50,7 @@ export function enter(ctx) {
 
   function renderIdle() {
     C.phase = 'idle';
-    st.show(h('h1', { class: 'h1' }, t('Limpeza')), h('p', { class: 'sub' }, t('Libere espaço removendo o que o Mac acumulou sem você perceber.')),
+    st.show(h('h1', { class: 'h1' }, t('Entulho')), h('p', { class: 'sub' }, t('Libere espaço removendo o que o Mac acumulou sem você perceber.')),
       features('clean', [['box', t('Lixo do sistema: caches, registros, Xcode e backups antigos')], ['chip', t('Lixo de IA e modelos locais')], ['mail', t('Anexos do Mail')]]));
     ctx.setDock({ label: t('Analisar'), mod: 'clean', onClick: scan });
   }
@@ -96,7 +96,7 @@ export function enter(ctx) {
       return { tl, gs, total: gs.reduce((a, g) => a + g.total, 0), pre, preBytes: pre.reduce((a, i) => a + i.size, 0) };
     }).filter(Boolean);
     const review = (gid) => { focusGid = gid; C.phase = 'review'; render(); };
-    mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'clean' }, 'aria-label': t('Resultados da Limpeza') },
+    mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'clean' }, 'aria-label': t('Resultados do Entulho') },
       h('h2', { class: 'fl-title' }, t('Encontramos {size} de lixo no seu Mac.', { size: fmtBytes(r.total) })),
       h('p', { class: 'sub fl-sub' }, sel.bytes !== r.total ? t('{size} pré-selecionados para limpar.', { size: fmtBytes(sel.bytes) }) : t('Itens seguros de remover já vêm selecionados.')),
       h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => review(null) }, t('Revisar todo o lixo')),
@@ -117,7 +117,7 @@ export function enter(ctx) {
     ctx.setDock(null);
     const back = () => { C.phase = 'summary'; render(); };
     const rv = createReview({
-      result: store.junk, sel: store.junkSel, mod: 'clean', title: t('Limpeza'), subtitle: t('Revisar detalhes · escolha o que será removido.'),
+      result: store.junk, sel: store.junkSel, mod: 'clean', title: t('Entulho'), subtitle: t('Revisar detalhes · escolha o que será removido.'),
       actionLabel: t('Limpar'), gid: focusGid, onBack: back, onAction: () => clean(),
     });
     mount(ctx.root, rv.el);

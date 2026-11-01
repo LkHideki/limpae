@@ -1,4 +1,4 @@
-// Meus Arquivos (Files): arquivos grandes e antigos, duplicados, imagens parecidas e downloads.
+// Arquivos: arquivos grandes e antigos, duplicados, imagens parecidas e downloads.
 // Nada vem pré-selecionado; a ação é mover para o Lixo; a interface só envia ids do registro, nunca caminhos.
 // Nomes e caminhos vêm do disco (não confiáveis): só textContent / createElement.
 import { play } from '../sound.js';
@@ -173,7 +173,7 @@ export function enter(ctx) {
   ctx.onCleanup(teardown);
 
   // Sweep entrega os duplicados de Downloads (fase "review"): abre o gerenciador só com essa categoria, sem nada
-  // marcado. "Voltar" devolve ao Faxina.
+  // marcado. "Voltar" devolve à Faxina.
   if (store.filesFrom && F.phase === 'review' && (!S.res || S.res.fromRef !== store.filesFrom)) {
     S.res = { large: null, dups: store.filesFrom, sim: null, dl: null, loc: 0, locName: 'Downloads', minMb: store.largeMb, full: false, largeRef: null, ownsStore: false, fromRef: store.filesFrom, fromSmart: true };
     S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.limits = new Map(); S.thumbs = new Map(); S.cat = 'dups'; S.q = ''; S.show = 'all';
@@ -203,7 +203,7 @@ export function enter(ctx) {
     const select = h('select', { class: 'fl-select', 'aria-label': t('Local para analisar'), onChange: (e) => { S.loc = Number(e.target.value); } },
       (S.locs || [{ index: 0, name: HOME_NAME, free: 0, total: 0 }]).map((l) => h('option', { value: l.index, selected: l.index === S.loc }, l.total ? t('{name} · {free} livres', { name: locLabel(l.name), free: fmtBytes(l.free) }) : locLabel(l.name))));
     const feats = [['folder', t('Arquivos grandes e antigos')], ['copy', t('Duplicados')], ['image', t('Imagens parecidas')], ['download', t('Downloads')]];
-    st.show(h('h1', { class: 'h1' }, t('Meus Arquivos')),
+    st.show(h('h1', { class: 'h1' }, t('Arquivos')),
       h('p', { class: 'sub' }, t('Organize seus arquivos e reduza a bagunça em poucos cliques.')),
       h('ul', { class: 'feats' }, feats.map(([ic, txt]) => h('li', null, h('span', { class: 'feat-chip' }, fi(ic, 17)), txt))),
       h('div', { class: 'fl-where' },
@@ -548,7 +548,7 @@ export function enter(ctx) {
       h('input', { type: 'search', placeholder: t('Buscar'), 'aria-label': t('Buscar arquivos'), value: S.q, spellcheck: 'false', onInput: (e) => { S.q = e.target.value; renderList(); } }));
     const sortSeg = segmented([{ value: 'size', label: t('Tamanho') }, { value: 'name', label: t('Nome') }], S.sort, (v) => { S.sort = v; renderList(); }, t('Ordenar por'));
     const el = h('section', { class: 'review fm enter', dataset: { mod: 'files' }, 'aria-label': t('Gerenciador de arquivos') },
-      managerBar({ title: t('Meus Arquivos'), subtitle: locLabel(S.res.locName), onBack: back, controls: [search, sortSeg] }),
+      managerBar({ title: t('Arquivos'), subtitle: locLabel(S.res.locName), onBack: back, controls: [search, sortSeg] }),
       h('div', { class: 'fm-body' }, catsEl, h('div', { class: 'fm-pane' }, headEl, listEl)),
       h('div', { class: 'rv-foot' }, selEl, actionBtn));
     mount(ctx.root, el);

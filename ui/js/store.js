@@ -1,6 +1,6 @@
 // Estado compartilhado entre módulos. Seleção fica no cliente; só ids selecionados vão para `remove`.
 export const store = {
-  rev: 0,            // incrementa quando dados mudam fora do Faxina (invalida seus resultados)
+  rev: 0,            // incrementa quando dados mudam fora da Faxina (invalida seus resultados)
   busy: false,
   disk: null,
   junk: null, junkSel: new Set(),
@@ -11,10 +11,10 @@ export const store = {
   cleanup: { phase: 'idle', freed: 0, failed: 0 },
   trashUi: { phase: 'idle', freed: 0 },
   files: { phase: 'idle', moved: 0 },
-  filesFrom: null,   // resultado de duplicados em Downloads entregue pelo Faxina (revisão em Meus Arquivos)
+  filesFrom: null,   // resultado de duplicados em Downloads entregue pela Faxina (revisão em Arquivos)
   icons: new Map(),
   settings: null,
-  openSection: null,   // dica de seção para o módulo de destino (Minhas Ferramentas); o módulo pode ler e limpar
+  openSection: null,   // dica de seção para o módulo de destino (Ferramentas); o módulo pode ler e limpar
 };
 
 export const bump = () => { store.rev++; };

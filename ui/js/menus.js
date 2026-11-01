@@ -1,4 +1,4 @@
-// Menu de contexto compartilhado pelos gerenciadores (Aplicativos, Meus Arquivos, Proteção, Desempenho).
+// Menu de contexto compartilhado pelos gerenciadores (Aplicativos, Arquivos, Proteção, Desempenho).
 // Reaproveita o menu acessível de review.js; a interface só manda o id, o backend resolve o caminho.
 import { h } from './dom.js';
 import { icon } from './art.js';

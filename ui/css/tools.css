@@ -1,4 +1,4 @@
-/* Minhas Ferramentas + Modo de limpeza de tela */
+/* Ferramentas + Modo de limpeza de tela */
 [data-mod="tools"] { --m1: #d9b0ff; --m2: #8b5cf6; --t1: #7a3fe0; --t2: #4f23a8; --glow: 170, 115, 255; }
 
 .tools { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0 -32px -24px; padding: 0 32px 24px; overflow: auto; }

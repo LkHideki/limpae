@@ -1,4 +1,4 @@
-// Minhas Ferramentas: grade pesquisável das ferramentas do app, com favoritos e o Modo de limpeza de tela.
+// Ferramentas: grade pesquisável das ferramentas do app, com favoritos e o Modo de limpeza de tela.
 import { h, s, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { store } from '../store.js';
@@ -36,8 +36,8 @@ const getTools = () => [
   { id: 'updater', name: t('Atualizador'), desc: t('Acompanhe as versões mais recentes dos seus apps.'), ic: 'refresh', mod: 'apps', to: 'apps' },
   { id: 'leftovers', name: t('Restos de apps'), desc: t('Encontre o que sobrou de apps que já foram removidos.'), ic: 'unlink', mod: 'apps', to: 'apps' },
   { id: 'installers', name: t('Instaladores'), desc: t('Arquivos .dmg e .pkg que já cumpriram o papel.'), ic: 'box', mod: 'apps', to: 'apps' },
-  { id: 'lens', name: t('Disk Map'), desc: t('Um mapa visual do que ocupa espaço no disco.'), ic: 'lens', mod: 'lens', to: 'lens' },
-  { id: 'cloud', name: t('Nuvem (iCloud)'), desc: t('Libere espaço tirando do Mac cópias que já estão no iCloud.'), ic: 'cloud', mod: 'cloud', to: 'cloud' },
+  { id: 'lens', name: t('Mapa do Disco'), desc: t('Um mapa visual do que ocupa espaço no disco.'), ic: 'lens', mod: 'lens', to: 'lens' },
+  { id: 'cloud', name: t('iCloud'), desc: t('Libere espaço tirando do Mac cópias que já estão no iCloud.'), ic: 'cloud', mod: 'cloud', to: 'cloud' },
   { id: 'security', name: t('Verificação de segurança'), desc: t('Gatekeeper, FileVault, firewall e outros ajustes de proteção.'), ic: 'shield', mod: 'protect', to: 'protect' },
   { id: 'perms', name: t('Permissões de apps'), desc: t('Veja e revogue o que cada app pode acessar no Mac.'), ic: 'lock', mod: 'protect', to: 'protect' },
   { id: 'privacy', name: t('Privacidade'), desc: t('Históricos e rastros de uso que ficam registrados.'), ic: 'eye', mod: 'protect', to: 'protect' },
@@ -138,7 +138,7 @@ export function enter(ctx) {
   const body = h('div', { class: 'tl-body' });
   const root = h('section', { class: 'tools enter', dataset: { mod: 'tools' } },
     h('header', { class: 'tl-head' },
-      h('div', { class: 'tl-title' }, h('h1', { class: 'h2' }, t('Minhas Ferramentas')), h('p', { class: 'tl-sub' }, t('Ferramentas rápidas para tarefas pontuais: limpe, proteja e cuide do seu Mac em poucos cliques.'))),
+      h('div', { class: 'tl-title' }, h('h1', { class: 'h2' }, t('Ferramentas')), h('p', { class: 'tl-sub' }, t('Ferramentas rápidas para tarefas pontuais: limpe, proteja e cuide do seu Mac em poucos cliques.'))),
       h('label', { class: 'search' }, icon('search', 16), search)),
     body);
   mount(ctx.root, root);

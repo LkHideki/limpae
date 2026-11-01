@@ -1,6 +1,6 @@
 // Faxina: landing -> varredura sequencial (bento) -> resultados -> execução -> conclusão.
 // Roda só os módulos ligados em Ajustes (store.settings.smartCare; ausente = ligado). Só Limpeza e Lixeira executam algo;
-// Proteção, Desempenho, Aplicativos e Meus Arquivos são somente revisão.
+// Proteção, Desempenho, Aplicativos e Arquivos são somente revisão.
 import { play } from '../sound.js';
 import { h, mount, sleep } from '../dom.js';
 import { orb, icon } from '../art.js';
@@ -14,12 +14,12 @@ import { removeGroups, stopDock } from '../actions.js';
 // key = chave em settings.smartCare; tasks = valores de `task` do evento scan-progress; run = executa algo ao "Executar".
 // Textos como getters: o idioma só é conhecido depois que o módulo carrega, e a chave precisa ficar literal.
 const MODS = [
-  { id: 'clean', key: 'junk', mod: 'clean', get title() { return t('Limpeza'); }, get verb() { return t('Procurando lixo…'); }, glyph: 'clean', tasks: ['junk'], run: true, get feat() { return ['search', t('Busca de lixo do sistema')]; } },
+  { id: 'clean', key: 'junk', mod: 'clean', get title() { return t('Entulho'); }, get verb() { return t('Procurando lixo…'); }, glyph: 'clean', tasks: ['junk'], run: true, get feat() { return ['search', t('Busca de lixo do sistema')]; } },
   { id: 'trash', key: 'trash', mod: 'trash', get title() { return t('Lixeira'); }, get verb() { return t('Verificando a Lixeira…'); }, glyph: 'trash', tasks: ['trash'], run: true, get feat() { return ['trash', t('Verificação da Lixeira')]; } },
-  { id: 'protect', key: 'protection', mod: 'protect', get title() { return t('Proteção'); }, get verb() { return t('Verificando a segurança…'); }, glyph: 'shield', tasks: [], get feat() { return ['shield', t('Verificação de segurança do Mac')]; } },
-  { id: 'perf', key: 'performance', mod: 'perf', get title() { return t('Desempenho'); }, get verb() { return t('Analisando o desempenho…'); }, glyph: 'bolt', tasks: ['perf'], get feat() { return ['bolt', t('Agentes e itens de login')]; } },
+  { id: 'protect', key: 'protection', mod: 'protect', get title() { return t('Segurança'); }, get verb() { return t('Verificando a segurança…'); }, glyph: 'shield', tasks: [], get feat() { return ['shield', t('Verificação de segurança do Mac')]; } },
+  { id: 'perf', key: 'performance', mod: 'perf', get title() { return t('Velocidade'); }, get verb() { return t('Analisando o desempenho…'); }, glyph: 'bolt', tasks: ['perf'], get feat() { return ['bolt', t('Agentes e itens de login')]; } },
   { id: 'apps', key: 'apps', mod: 'apps', get title() { return t('Aplicativos'); }, get verb() { return t('Verificando atualizações…'); }, glyph: 'apps', tasks: ['apps', 'apps_overview'], get feat() { return ['apps', t('Atualizações e apps sem uso')]; } },
-  { id: 'files', key: 'files', mod: 'files', get title() { return t('Meus Arquivos'); }, get verb() { return t('Procurando duplicados…'); }, glyph: 'folder', tasks: ['duplicates'], get feat() { return ['folder', t('Duplicados em Downloads')]; } },
+  { id: 'files', key: 'files', mod: 'files', get title() { return t('Arquivos'); }, get verb() { return t('Procurando duplicados…'); }, glyph: 'folder', tasks: ['duplicates'], get feat() { return ['folder', t('Duplicados em Downloads')]; } },
 ];
 const byId = (id) => MODS.find((m) => m.id === id);
 // Cópias que sobrariam depois de remover tudo menos o original sugerido de cada conjunto (só para o resumo).
@@ -81,7 +81,7 @@ export function enter(ctx) {
       return a.updates ? { num: () => tn(a.updates, '{n} atualização', '{n} atualizações'), sub: un, review: true }
         : { num: () => t('Tudo atualizado'), sub: un, sm: true, review: true };
     }
-    // Meus Arquivos: só revisão. Arquivos do usuário nunca vêm marcados nem entram na execução.
+    // Arquivos: só revisão. Arquivos do usuário nunca vêm marcados nem entram na execução.
     const d = reclaim(store.filesFrom);
     return d.n ? { num: () => tn(d.n, '{n} duplicado', '{n} duplicados'), sub: () => t('{size} em Downloads', { size: fmtBytes(d.bytes) }), review: true }
       : { num: () => t('Sem duplicados'), sub: () => t('nenhum arquivo repetido em Downloads'), sm: true };
@@ -222,7 +222,7 @@ export function enter(ctx) {
     const items = list.length
       ? [features('smart', list.map((m) => m.feat)),
         h('div', { class: 'row-actions sc-scope' }, h('button', { class: 'link', type: 'button', onClick: () => ctx.nav('settings') }, t('Escolher módulos nos Ajustes')))]
-      : [h('p', { class: 'sub' }, t('Nenhum módulo está incluído no Faxina.')),
+      : [h('p', { class: 'sub' }, t('Nenhum módulo está incluído na Faxina.')),
         h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: () => ctx.nav('settings') }, icon('gear', 15), t('Abrir Ajustes')))];
     st.show(h('h1', { class: 'h1' }, t('Faxina')), list.length ? h('p', { class: 'sub' }, t('Manutenção rápida que cuida do essencial.')) : null, ...items);
     mount(root, st.el);
@@ -296,7 +296,7 @@ export function enter(ctx) {
     bento.dataset.phase = 'results';
     mods().forEach((m) => paint(m, 'done'));
     const any = plan().length > 0 || mods().some((m) => checkable(m));
-    setHead(any ? t('Suas tarefas estão prontas. Veja o que encontramos:') : t('Análise concluída. Veja o que encontramos:'),
+    setHead(any ? t('Faxina pronta. Veja o que encontramos:') : t('Análise concluída. Veja o que encontramos:'),
       h('button', { class: 'btn sm ghost left', type: 'button', onClick: confirmRestart }, icon('restart', 14), t('Recomeçar')));
     ctx.reserveDock(true);
     updateDock();
@@ -334,7 +334,7 @@ export function enter(ctx) {
       return parts.join(' · ') + '.';
     };
     let cleanRow = null;
-    if (d.clean) { cleanRow = row('clean', 'clean', t('Limpeza'), d.clean.bytes, cleanDetail(false)); nodes.push(cleanRow.node); }
+    if (d.clean) { cleanRow = row('clean', 'clean', t('Entulho'), d.clean.bytes, cleanDetail(false)); nodes.push(cleanRow.node); }
     if (d.trash) {
       const tRow = row('trash', 'trash', d.trash.vols > 1 ? t('Lixeiras') : t('Lixeira'), d.trash.bytes,
         tn(d.trash.count, '{n} item excluído permanentemente. Não dá para desfazer.', '{n} itens excluídos permanentemente. Não dá para desfazer.'), true);

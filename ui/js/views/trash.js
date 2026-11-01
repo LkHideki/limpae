@@ -29,7 +29,7 @@ export function enter(ctx) {
     st.busy(false);
   }
 
-  // Marcação: tudo, por padrão. Recalculada quando o resultado muda (nova leitura, ou a feita pelo Faxina).
+  // Marcação: tudo, por padrão. Recalculada quando o resultado muda (nova leitura, ou a feita pela Faxina).
   function selection() {
     const r = store.trash;
     if (store.trashSelRef !== r) {

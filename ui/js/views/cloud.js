@@ -1,4 +1,4 @@
-// Nuvem (iCloud Drive): lista arquivos baixados no Mac e remove só a cópia local ("desincronizar").
+// iCloud (iCloud Drive): lista arquivos baixados no Mac e remove só a cópia local ("desincronizar").
 // O arquivo continua no iCloud e baixa de novo quando é aberto. Nada aqui apaga dados da nuvem.
 import { play } from '../sound.js';
 import { h, mount } from '../dom.js';
@@ -111,7 +111,7 @@ export function enter(ctx) {
       h('div', { class: 'cl-tile-act' },
         h('button', { class: 'btn sm', type: 'button', onClick: () => { C.phase = 'review'; render(); } }, t('Revisar')),
         h('button', { class: 'btn sm primary', type: 'button', onClick: async () => { C.sel = new Set(list.map((i) => i.id)); if (!(await evict())) C.sel = new Set(); } }, t('Liberar do Mac'))));
-    mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'cloud' }, 'aria-label': t('Resultados da Nuvem') },
+    mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'cloud' }, 'aria-label': t('Resultados do iCloud') },
       h('h2', { class: 'fl-title' }, t('{size} de arquivos do iCloud neste Mac.', { size: fmtBytes(C.result.total) })),
       h('p', { class: 'sub fl-sub' }, t('Continuam guardados no iCloud e baixam de novo quando você abrir. Nada vem marcado.')),
       h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => { C.phase = 'review'; render(); } }, t('Revisar todos os arquivos')),
@@ -127,7 +127,7 @@ export function enter(ctx) {
     const n = countItems(C.result);
     const back = () => { C.phase = 'summary'; render(); };
     const rv = createReview({
-      result: C.result, sel: C.sel, mod: 'cloud', title: t('Nuvem'),
+      result: C.result, sel: C.sel, mod: 'cloud', title: t('iCloud'),
       subtitle: t('{files} do iCloud neste Mac · {size} ocupados · continuam no iCloud', { files: plural(n, 'arquivo', 'arquivos'), size: fmtBytes(C.result.total) }),
       actionLabel: t('Liberar do Mac'), showAge: true, emptyText: t('Nenhum arquivo baixado.'), quickLook: false,
       onBack: back, onAction: () => evict(),

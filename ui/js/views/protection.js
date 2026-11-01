@@ -162,7 +162,7 @@ export function enter(ctx) {
   // ---------- Início ----------
   function renderIdle() {
     S.phase = 'idle';
-    st.show(h('h1', { class: 'h1' }, t('Proteção')),
+    st.show(h('h1', { class: 'h1' }, t('Segurança')),
       h('p', { class: 'sub' }, t('Confira a segurança do seu Mac, o que cada app pode acessar e o que fica registrado sobre o seu uso.')),
       features('protect', [['shield', t('Verificação de segurança')], ['lock', t('Permissões de apps')], ['eye', t('Privacidade')]]),
       S.checks ? h('div', { class: 'row-actions', style: 'margin-top:18px' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.phase = 'results'; render(); } }, t('Voltar aos resultados'))) : null);
@@ -270,8 +270,8 @@ export function enter(ctx) {
         h('button', { class: 'btn sm', type: 'button', onClick: () => open('privacy') }, t('Revisar')),
         S.psel.size ? h('button', { class: 'btn sm primary', type: 'button', onClick: removePrivacy }, t('Remover')) : null) : null);
 
-    mount(ctx.root, h('section', { class: 'pr-results enter', dataset: { mod: 'protect' }, 'aria-label': t('Resultados da Proteção') },
-      h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('protect')) { S.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar')), h('span', { class: 'fl-where-tag' }, t('Proteção'))),
+    mount(ctx.root, h('section', { class: 'pr-results enter', dataset: { mod: 'protect' }, 'aria-label': t('Resultados da Segurança') },
+      h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('protect')) { S.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar')), h('span', { class: 'fl-where-tag' }, t('Segurança'))),
       h('h2', { class: 'fl-title' }, protectedMac && !unk ? t('Seu Mac está protegido.') : bad ? tn(bad, '{n} ponto precisa da sua atenção.', '{n} pontos precisam da sua atenção.') : t('Análise concluída.')),
       h('p', { class: 'sub fl-sub' }, t('Revise cada área. Nada é alterado nem removido sem a sua confirmação.')),
       h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => open('checks') }, t('Revisar tudo')),
@@ -295,7 +295,7 @@ export function enter(ctx) {
     const areaSeg = h('div', { class: 'rv-extra' });
 
     function paintAreas() {
-      mount(areaSeg, segmented(areas(), S.area, (v) => { S.area = v; renderReview(); }, t('Área de proteção')));
+      mount(areaSeg, segmented(areas(), S.area, (v) => { S.area = v; renderReview(); }, t('Área de segurança')));
     }
 
     function pane(title, desc, tools) {
@@ -514,8 +514,8 @@ export function enter(ctx) {
     else if (S.area === 'perms') viewPerms();
     else viewPrivacy();
     const subtitle = { checks: t('Verificação de segurança'), perms: t('Permissões de apps'), privacy: t('Privacidade') }[S.area];
-    mount(ctx.root, h('section', { class: 'review fm pr-manager enter', dataset: { mod: 'protect' }, 'aria-label': t('Gerenciador de proteção') },
-      managerBar({ title: t('Proteção'), subtitle, onBack: back, controls: [areaSeg] }),
+    mount(ctx.root, h('section', { class: 'review fm pr-manager enter', dataset: { mod: 'protect' }, 'aria-label': t('Gerenciador de segurança') },
+      managerBar({ title: t('Segurança'), subtitle, onBack: back, controls: [areaSeg] }),
       bodyEl,
       h('div', { class: 'rv-foot' }, selEl, actionBtn)));
     ctx.onBack(back);
