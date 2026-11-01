@@ -1,4 +1,4 @@
-// Dicionário: chave = texto em português → { en, id }.
+// Dictionary: key = Portuguese text → { en, id }.
 export default {
   'item': { en: 'item', id: 'item' },
   'itens': { en: 'items', id: 'item' },

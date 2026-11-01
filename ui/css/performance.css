@@ -1,7 +1,7 @@
-/* Desempenho: início, resultados em blocos, gerenciador e monitor ao vivo. Usa os tokens de ../styles.css e reaproveita
-   o esqueleto do gerenciador (`.fm-*`, definido em files.css) para manter a mesma linguagem visual dos outros módulos. */
+/* Speed: start, block results, manager and live monitor. Uses the tokens from ../styles.css and reuses
+   the manager skeleton (`.fm-*`, defined in files.css) to keep the same visual language as the other modules. */
 
-/* ============ Início e análise ============ */
+/* ============ Start and analysis ============ */
 .pf-steps { list-style: none; margin-top: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 380px; }
 .pf-step { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 12px; border-radius: 12px; background: rgba(255, 255, 255, .08); font-size: 14px; font-weight: 500; }
 .pf-step[data-st="run"] { opacity: .8; }
@@ -20,7 +20,7 @@
 .pf-why-res { text-align: left; align-self: center; margin-top: 14px; flex: none; }
 .pf-why-nav { margin: auto 6px 6px; padding: 10px 6px 0; border-top: 1px solid var(--line); max-width: none; }
 
-/* ============ Resultados ============ */
+/* ============ Results ============ */
 .pf-results { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
 .pf-bar { align-self: stretch; display: flex; align-items: center; height: 34px; flex: none; }
 .pf-title { margin-top: 8px; font-size: 30px; font-weight: 300; letter-spacing: -.015em; line-height: 1.15; max-width: 640px; }
@@ -37,7 +37,7 @@
 .pf-tile-warn { margin-top: 10px; align-self: flex-start; }
 .pf-tile .btn { align-self: flex-end; margin-top: auto; }
 
-/* ============ Pílulas, interruptor e linhas ============ */
+/* ============ Pills, switch and rows ============ */
 .pf-pill { display: inline-flex; align-items: center; gap: 5px; flex: none; height: 20px; padding: 0 8px; border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; background: rgba(255, 255, 255, .1); color: var(--text-2); border: 1px solid rgba(255, 255, 255, .14); }
 .pf-pill.ok { background: rgba(61, 220, 151, .16); color: #8bf0c3; border-color: rgba(61, 220, 151, .38); }
 .pf-pill.warn { background: rgba(255, 184, 74, .16); color: #ffd08a; border-color: rgba(255, 184, 74, .4); }

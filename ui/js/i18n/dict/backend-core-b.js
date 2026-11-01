@@ -1,7 +1,7 @@
-// Dicionário: chave = texto em português → { en, id }.
-// Textos que chegam prontos do Rust (apps, apps_extra, cloud, lens, trashes, running); casados por `tr()`.
+// Dictionary: key = Portuguese text → { en, id }.
+// Texts that arrive ready-made from Rust (apps, apps_extra, cloud, lens, trashes, running); matched by `tr()`.
 export default {
-  // apps.rs: rótulos de restos
+  // apps.rs: leftover labels
   'Suporte do app': { en: 'App support', id: 'Dukungan aplikasi' },
   'Caches': { en: 'Caches', id: 'Cache' },
   'Preferências': { en: 'Preferences', id: 'Preferensi' },
@@ -15,7 +15,7 @@ export default {
   'Agente de inicialização': { en: 'Launch agent', id: 'Agen peluncur' },
   'Preferências deste Mac': { en: 'Preferences for this Mac', id: 'Preferensi untuk Mac ini' },
   'Contêiner compartilhado': { en: 'Shared container', id: 'Kontainer bersama' },
-  // apps.rs: motivos de evidência fraca
+  // apps.rs: weak-evidence reasons
   'Correspondência pelo nome': { en: 'Matched by name', id: 'Cocok berdasarkan nama' },
   'Mesmo prefixo do app, sem confirmação': { en: 'Same prefix as the app, not confirmed', id: 'Prefiks sama dengan aplikasi, belum dikonfirmasi' },
   'O agente executa um programa fora do app': { en: 'The agent runs a program outside the app', id: 'Agen menjalankan program di luar aplikasi' },

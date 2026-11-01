@@ -1,7 +1,7 @@
-// Dicionário: chave = texto em português → { en, id }.
-// Textos que chegam prontos do backend (limpa-core: junk, large, clutter, remove, guard). Usados via `tr`.
+// Dictionary: key = Portuguese text → { en, id }.
+// Texts that arrive ready-made from the backend (limpa-core: junk, large, clutter, remove, guard). Used via `tr`.
 export default {
-  // junk.rs — grupos de lixo
+  // junk.rs — junk groups
   'Cache do usuário': { en: 'User cache', id: 'Cache pengguna' },
   'Arquivos temporários que os apps recriam automaticamente.': { en: 'Temporary files that apps recreate automatically.', id: 'File sementara yang dibuat ulang otomatis oleh app.' },
   'Logs do usuário': { en: 'User logs', id: 'Log pengguna' },
@@ -21,7 +21,7 @@ export default {
   'Anexos do Mail': { en: 'Mail attachments', id: 'Lampiran Mail' },
   'Cópias de anexos que o Mail baixa de novo quando você os abre.': { en: 'Attachment copies that Mail downloads again when you open them.', id: 'Salinan lampiran yang diunduh ulang oleh Mail saat Anda membukanya.' },
 
-  // junk.rs — notas de item
+  // junk.rs — item notes
   'Modelo local; baixe de novo se precisar': { en: 'Local model; download it again if needed', id: 'Model lokal; unduh ulang jika diperlukan' },
   'Necessário para símbolos de depuração': { en: 'Needed for debug symbols', id: 'Diperlukan untuk simbol debug' },
   'Backup mais recente': { en: 'Most recent backup', id: 'Cadangan terbaru' },
@@ -31,7 +31,7 @@ export default {
   'App em execução': { en: 'App is running', id: 'App sedang berjalan' },
   'Executável ausente: {path}': { en: 'Missing executable: {path}', id: 'File eksekusi tidak ditemukan: {path}' },
 
-  // large.rs — categorias de arquivos grandes
+  // large.rs — large-file categories
   'Vídeos': { en: 'Videos', id: 'Video' },
   'Filmes e gravações que costumam ocupar muito espaço.': { en: 'Movies and recordings that tend to take up a lot of space.', id: 'Film dan rekaman yang biasanya memakan banyak ruang.' },
   'Arquivos compactados': { en: 'Compressed files', id: 'File terkompresi' },
@@ -43,7 +43,7 @@ export default {
   'Outros': { en: 'Other', id: 'Lainnya' },
   'Outros arquivos grandes na sua pasta pessoal.': { en: 'Other large files in your home folder.', id: 'File besar lainnya di folder pribadi Anda.' },
 
-  // clutter.rs — duplicados, parecidas, downloads, volumes
+  // clutter.rs — duplicates, similar images, downloads, volumes
   'Original sugerido': { en: 'Suggested original', id: 'Asli yang disarankan' },
   'Melhor qualidade': { en: 'Best quality', id: 'Kualitas terbaik' },
   '{n} cópias · {size} cada': { en: '{n} copies · {size} each', id: '{n} salinan · masing-masing {size}' },
@@ -52,7 +52,7 @@ export default {
   '{n} arquivos': { en: '{n} files', id: '{n} file' },
   'Pasta pessoal': { en: 'Home folder', id: 'Folder rumah' },
 
-  // remove.rs — erros e Lixeira
+  // remove.rs — errors and Trash
   'autorização cancelada; o item continua no lugar': { en: 'authorization canceled; the item stays in place', id: 'otorisasi dibatalkan; item tetap di tempatnya' },
   'cancelado; o item continua no lugar': { en: 'canceled; the item was left in place', id: 'dibatalkan; item tetap di tempatnya' },
   'sem permissão: o item pertence ao sistema ou a outro usuário': { en: 'no permission: the item belongs to the system or another user', id: 'tidak ada izin: item milik sistem atau pengguna lain' },
@@ -63,7 +63,7 @@ export default {
   'Lixeira': { en: 'Trash', id: 'Tempat Sampah' },
   'Itens que você já descartou. Esvaziar apaga definitivamente.': { en: 'Items you have already discarded. Emptying deletes them permanently.', id: 'Item yang sudah Anda buang. Mengosongkan akan menghapusnya secara permanen.' },
 
-  // guard.rs — motivos de recusa
+  // guard.rs — refusal reasons
   'caminho não é absoluto': { en: 'path is not absolute', id: 'path bukan path absolut' },
   "caminho contém '..' ou '.'": { en: 'path contains \'..\' or \'.\'', id: 'path mengandung \'..\' atau \'.\'' },
   'item não existe mais': { en: 'item no longer exists', id: 'item sudah tidak ada' },

@@ -1,6 +1,6 @@
-// Dicionário: chave = texto em português → { en, id }. Textos que o backend (Rust) devolve prontos em português.
+// Dictionary: key = Portuguese text → { en, id }. Texts the backend (Rust) returns ready-made in Portuguese.
 export default {
-  // erros e avisos gerais (commands.rs, cmd_*.rs, registry.rs, state.rs)
+  // general errors and notices (commands.rs, cmd_*.rs, registry.rs, state.rs)
   'Varredura cancelada.': { en: 'Scan canceled.', id: 'Pemindaian dibatalkan.' },
   'App não encontrado. Atualize a lista de apps.': { en: 'App not found. Refresh the app list.', id: 'Aplikasi tidak ditemukan. Muat ulang daftar aplikasi.' },
   'mantido porque o app não pôde ser removido': { en: 'kept because the app could not be removed', id: 'dipertahankan karena aplikasi tidak dapat dihapus' },
@@ -27,10 +27,10 @@ export default {
   'Nenhuma atualização conhecida para este app. Analise de novo.': { en: 'No known update for this app. Scan again.', id: 'Tidak ada pembaruan yang diketahui untuk aplikasi ini. Pindai lagi.' },
   'O endereço da atualização não é seguro.': { en: 'The update address is not secure.', id: 'Alamat pembaruan tidak aman.' },
 
-  // Visualização Rápida (cmd_cleanup.rs, cmd_lens.rs)
+  // Quick Look (cmd_cleanup.rs, cmd_lens.rs)
   'Não foi possível abrir a Visualização Rápida: {e}': { en: 'Couldn’t open Quick Look: {e}', id: 'Tidak dapat membuka Quick Look: {e}' },
 
-  // locais (cmd_clutter.rs)
+  // locations (cmd_clutter.rs)
   'Local desconhecido. Atualize a lista de locais.': { en: 'Unknown location. Refresh the list of locations.', id: 'Lokasi tidak dikenal. Muat ulang daftar lokasi.' },
   'O local escolhido não está mais disponível.': { en: 'The chosen location is no longer available.', id: 'Lokasi yang dipilih sudah tidak tersedia.' },
 
@@ -45,7 +45,7 @@ export default {
   'Serão movidos para o Lixo; dá para restaurá-los de lá.': { en: 'They will be moved to the Trash, and you can restore them from there.', id: 'Item akan dipindahkan ke Tempat Sampah dan dapat dipulihkan dari sana.' },
   'Não foi possível ler o iCloud Drive: {e}': { en: 'Couldn’t read iCloud Drive: {e}', id: 'Tidak dapat membaca iCloud Drive: {e}' },
 
-  // desempenho (cmd_perf.rs)
+  // speed (cmd_perf.rs)
   'Agentes em segundo plano': { en: 'Background agents', id: 'Agen latar belakang' },
   'Agentes de inicialização do usuário.': { en: 'User launch agents.', id: 'Agen peluncuran pengguna.' },
   'Não foi possível listar os itens de login.': { en: 'Couldn’t list the login items.', id: 'Tidak dapat menampilkan daftar item login.' },
@@ -56,14 +56,14 @@ export default {
   'Não foi possível alterar o agente: {e}.': { en: 'Couldn’t change the agent: {e}.', id: 'Tidak dapat mengubah agen: {e}.' },
   'item de login desconhecido; analise de novo': { en: 'unknown login item; scan again', id: 'item login tidak dikenal; pindai lagi' },
 
-  // proteção (cmd_security.rs)
+  // security (cmd_security.rs)
   'Esta verificação não tem um painel nos Ajustes do Sistema.': { en: 'This check has no pane in System Settings.', id: 'Pemeriksaan ini tidak memiliki panel di Pengaturan Sistem.' },
   'permissão desconhecida; atualize a lista': { en: 'unknown permission; refresh the list', id: 'izin tidak dikenal; muat ulang daftar' },
   'Não foi possível ler as permissões dos apps: {why}': { en: 'Couldn’t read the apps\' permissions: {why}', id: 'Tidak dapat membaca izin aplikasi: {why}' },
   'o {name} está aberto; feche-o e tente de novo': { en: '{name} is open; quit it and try again', id: '{name} sedang terbuka; tutup lalu coba lagi' },
   'navegador': { en: 'browser', id: 'peramban' },
 
-  // registro (registry.rs)
+  // registry (registry.rs)
   'item desconhecido': { en: 'unknown item', id: 'item tidak dikenal' },
   'restos de app só podem ser removidos pela desinstalação do app': { en: 'app leftovers can only be removed by uninstalling the app', id: 'sisa aplikasi hanya dapat dihapus melalui penghapusan instalasi aplikasi' },
   'item não pertence a este app': { en: 'item does not belong to this app', id: 'item bukan milik aplikasi ini' },

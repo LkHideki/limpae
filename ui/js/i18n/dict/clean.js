@@ -1,6 +1,6 @@
-// Dicionário: chave = texto em português → { en, id }.
+// Dictionary: key = Portuguese text → { en, id }.
 export default {
-  // ---- Limpeza (cleanup.js) ----
+  // ---- Junk (cleanup.js) ----
   'Lixo do sistema': { en: 'System junk', id: 'Sampah sistem' },
   'Caches, registros, Xcode, ferramentas de desenvolvimento e backups antigos.': { en: 'Caches, logs, Xcode, developer tools and old backups.', id: 'Cache, log, Xcode, alat pengembang, dan cadangan lama.' },
   'Lixo de IA': { en: 'AI junk', id: 'Sampah AI' },
@@ -53,7 +53,7 @@ export default {
   'Revisar itens restantes': { en: 'Review Remaining Items', id: 'Tinjau Item yang Tersisa' },
   'Concluir': { en: 'Done', id: 'Selesai' },
 
-  // ---- Lixeira (trash.js) ----
+  // ---- Trash (trash.js) ----
   'Verificando…': { en: 'Checking…', id: 'Memeriksa…' },
   'Lendo o conteúdo da Lixeira.': { en: 'Reading the contents of the Trash.', id: 'Membaca isi Tempat Sampah.' },
   'Lixeira': { en: 'Trash', id: 'Tempat Sampah' },
@@ -143,7 +143,7 @@ export default {
   'liberados neste Mac': { en: 'freed on this Mac', id: 'dibebaskan di Mac ini' },
   'Os arquivos continuam no iCloud e baixam de novo quando você abrir.': { en: 'The files stay in iCloud and download again when you open them.', id: 'File tetap ada di iCloud dan diunduh ulang saat Anda membukanya.' },
 
-  // ---- Backend: nomes de grupos (junk.rs, trashes.rs, cloud.rs) ----
+  // ---- Backend: group names (junk.rs, trashes.rs, cloud.rs) ----
   'Lixeira do Mac': { en: 'Mac Trash', id: 'Tempat Sampah Mac' },
   'Lixeira de {name}': { en: 'Trash on {name}', id: 'Tempat Sampah di {name}' },
   'Itens descartados neste volume. Esvaziar apaga definitivamente.': { en: 'Items discarded on this volume. Emptying deletes them permanently.', id: 'Item yang dibuang di volume ini. Mengosongkan akan menghapusnya secara permanen.' },

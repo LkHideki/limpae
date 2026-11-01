@@ -1,5 +1,5 @@
-// Dicionário: chave = texto em português da interface (ou devolvido pelo backend) → { en, id }. Um arquivo por dono;
-// chaves repetidas devem ter as mesmas traduções (scripts/check-i18n.mjs confere).
+// Dictionary: key = Portuguese UI text (or returned by the backend) → { en, id }. One file per owner;
+// repeated keys must have the same translations (scripts/check-i18n.mjs checks this).
 import shell from './shell.js';
 import smart from './smart.js';
 import clean from './clean.js';

@@ -1,4 +1,4 @@
-// Dicionário: chave = texto em português → { en, id }.
+// Dictionary: key = Portuguese text → { en, id }.
 export default {
   'modificado {when}': { en: 'modified {when}', id: 'diubah {when}' },
   'modificado hoje': { en: 'modified today', id: 'diubah hari ini' },
