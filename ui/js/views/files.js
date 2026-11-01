@@ -1,6 +1,6 @@
-// Arquivos: arquivos grandes e antigos, duplicados, imagens parecidas e downloads.
-// Nada vem pré-selecionado; a ação é mover para o Lixo; a interface só envia ids do registro, nunca caminhos.
-// Nomes e caminhos vêm do disco (não confiáveis): só textContent / createElement.
+// Files: large and old files, duplicates, similar images and downloads.
+// Nothing comes preselected; the action is move to Trash; the UI only sends registry ids, never paths.
+// Names and paths come from disk (untrusted): only textContent / createElement.
 import { play } from '../sound.js';
 import { t, tn, tr, lazyIntl, cmp } from '../i18n.js';
 import { h, s, mount, mid } from '../dom.js';
@@ -17,7 +17,7 @@ const CHUNK = 60;
 const SETS_CHUNK = 40;
 const REMOVE_BATCH = 100;
 
-// Ícones locais (art.js pertence a outro módulo): mesmo traço dos demais.
+// Local icons (art.js belongs to another module): same stroke as the others.
 const PATHS = {
   copy: ['M8.5 8.5h10v11h-10z', 'M5.5 15.5v-10h10'],
   image: ['M4.5 5.5h15v13h-15z', 'M4.5 16l4.6-4.6 3.6 3.6 2.4-2.4 4.4 4.4', 'M9 9.4h.01'],
@@ -47,20 +47,20 @@ function itemIcon(name, size = 16) {
 }
 
 const CATS = [
-  { id: 'large', label: 'Grandes e antigos', ic: 'folder', desc: 'Arquivos pesados que talvez você não use mais. Nada é removido sem a sua escolha.' }, // i18n-ignore (chave; traduzida ao exibir)
-  { id: 'dups', label: 'Duplicados', ic: 'copy', desc: 'Cópias idênticas de arquivos, em pastas diferentes, que ocupam espaço à toa. Acima de 100 KB.' }, // i18n-ignore (chave; traduzida ao exibir)
-  { id: 'sim', label: 'Imagens parecidas', ic: 'image', desc: 'Fotos quase iguais. O ponto verde marca a melhor cópia para manter. Acima de 100 KB.' }, // i18n-ignore (chave; traduzida ao exibir)
-  { id: 'dl', label: 'Downloads', ic: 'download', desc: 'Arquivos da pasta Downloads, agrupados pelo app que os baixou.' }, // i18n-ignore (chave; traduzida ao exibir)
+  { id: 'large', label: 'Grandes e antigos', ic: 'folder', desc: 'Arquivos pesados que talvez você não use mais. Nada é removido sem a sua escolha.' }, // i18n-ignore (key; translated on display)
+  { id: 'dups', label: 'Duplicados', ic: 'copy', desc: 'Cópias idênticas de arquivos, em pastas diferentes, que ocupam espaço à toa. Acima de 100 KB.' }, // i18n-ignore (key; translated on display)
+  { id: 'sim', label: 'Imagens parecidas', ic: 'image', desc: 'Fotos quase iguais. O ponto verde marca a melhor cópia para manter. Acima de 100 KB.' }, // i18n-ignore (key; translated on display)
+  { id: 'dl', label: 'Downloads', ic: 'download', desc: 'Arquivos da pasta Downloads, agrupados pelo app que os baixou.' }, // i18n-ignore (key; translated on display)
 ];
-// Modos de "Selecionar" por categoria: [id, rótulo]. Os rótulos Inteligente/Tudo/Nada/Parcial valem em todo o app.
-const SELECT_MODES = { // i18n-ignore (chave; traduzida ao exibir)
-  dups: [['smart', 'Inteligente'], ['oldest', 'Mais antigos'], ['newest', 'Mais novos'], ['none', 'Nada']], // i18n-ignore (chave; traduzida ao exibir)
-  sim: [['smart', 'Inteligente'], ['smallest', 'Menores'], ['largest', 'Maiores'], ['none', 'Nada']], // i18n-ignore (chave; traduzida ao exibir)
-  large: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (chave; traduzida ao exibir)
-  dl: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (chave; traduzida ao exibir)
+// "Select" modes per category: [id, label]. The Smart/All/None/Partial labels apply across the whole app.
+const SELECT_MODES = { // i18n-ignore (key; translated on display)
+  dups: [['smart', 'Inteligente'], ['oldest', 'Mais antigos'], ['newest', 'Mais novos'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
+  sim: [['smart', 'Inteligente'], ['smallest', 'Menores'], ['largest', 'Maiores'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
+  large: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
+  dl: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
 };
-// Filtro "Mostrar" dos duplicados, por tipo de arquivo.
-const SHOW = [['all', 'Todos os arquivos'], ['apps', 'Aplicativos'], ['archives', 'Compactados'], ['pictures', 'Imagens'], ['other', 'Outros']]; // i18n-ignore (chave; traduzida ao exibir)
+// "Show" filter for duplicates, by file type.
+const SHOW = [['all', 'Todos os arquivos'], ['apps', 'Aplicativos'], ['archives', 'Compactados'], ['pictures', 'Imagens'], ['other', 'Outros']]; // i18n-ignore (key; translated on display)
 const SHOW_EXT = { apps: ['app', 'dmg', 'pkg', 'mpkg', 'ipa', 'xip', 'iso'], archives: EXT_KIND.archive, pictures: EXT_KIND.image };
 const extOf = (name) => (name.includes('.') ? name.split('.').pop().toLowerCase() : '');
 const showKind = (name) => { const e = extOf(name); return Object.keys(SHOW_EXT).find((k) => SHOW_EXT[k].includes(e)) || 'other'; };
@@ -69,7 +69,7 @@ const tilde = (p) => String(p || '').replace(/^\/Users\/[^/]+/, '~');
 
 const dtf = lazyIntl('DateTimeFormat', { day: '2-digit', month: '2-digit', year: 'numeric' });
 const rtf = lazyIntl('RelativeTimeFormat', { numeric: 'always' });
-const HOME_NAME = 'Pasta pessoal'; // i18n-ignore (nome do local que vem do backend)
+const HOME_NAME = 'Pasta pessoal'; // i18n-ignore (name of the location that comes from the backend)
 const locLabel = (n) => (n === HOME_NAME ? t('Pasta pessoal') : n);
 const fmtDate = (sec) => (sec ? dtf.format(new Date(sec * 1000)) : '—');
 function accessText(sec) {
@@ -81,12 +81,12 @@ function accessText(sec) {
   return t('acessado hoje');
 }
 
-// Estado que sobrevive à troca de módulo (a view é recriada a cada entrada).
+// State that survives module switch (the view is recreated on every entry).
 const S = {
   locs: null, loc: 0,
-  res: null,            // { large, dups, sim, dl, loc, locName, minMb, full }; cada um é um ScanResult ou null
-  lsel: new Set(),      // seleção de Grandes e antigos
-  sel: new Set(),       // seleção de duplicados, parecidas e downloads (ids são únicos)
+  res: null,            // { large, dups, sim, dl, loc, locName, minMb, full }; each one is a ScanResult or null
+  lsel: new Set(),      // selection of Large and old
+  sel: new Set(),       // selection of duplicates, similar images and downloads (ids are unique)
   cat: 'large', view: 'kind', open: new Set(), limits: new Map(), thumbs: new Map(),
   q: '', sort: 'size', show: 'all',
 };
@@ -98,7 +98,7 @@ const selOf = (c) => (c === 'large' ? S.lsel : S.sel);
 const countOf = (c) => (resOf(c) ? countItems(resOf(c)) : 0);
 const keeperOf = (g) => g.items.find((i) => i.note) || g.items[0];
 
-// Cópias que sobrariam depois de remover tudo menos o original sugerido.
+// Copies that would remain after removing everything but the suggested original.
 function reclaim(result) {
   let n = 0, bytes = 0;
   if (result) for (const g of result.groups) { const k = keeperOf(g); for (const i of g.items) if (i !== k) { n++; bytes += i.size; } }
@@ -117,8 +117,8 @@ function groupState(items, sel) {
   return n === 0 ? 'off' : n === items.length ? 'on' : 'mixed';
 }
 
-// Ids que cada modo de "Selecionar" marcaria na categoria. Em duplicados/parecidas sempre sobra pelo menos uma
-// cópia de cada grupo fora da seleção.
+// Ids that each "Select" mode would check in the category. In duplicates/similar images, at least one
+// copy of each group always stays out of the selection.
 function pickIds(cat, mode) {
   const out = new Set();
   const result = resOf(cat);
@@ -137,7 +137,7 @@ function applySelect(cat, mode) {
   for (const g of resOf(cat).groups) for (const i of g.items) sel.delete(i.id);
   for (const id of pickIds(cat, mode)) sel.add(id);
 }
-// Modo que a seleção atual da categoria reproduz; 'part' quando não bate com nenhum.
+// Mode that the category's current selection reproduces; 'part' when it matches none.
 function modeOf(cat) {
   const sel = selOf(cat);
   const have = new Set();
@@ -149,7 +149,7 @@ function modeOf(cat) {
   return 'part';
 }
 
-// Grandes e antigos: subgrupos por tipo (do backend), tamanho ou data de acesso.
+// Large and old: subgroups by type (from the backend), size or access date.
 function largeSections(result, view) {
   if (view === 'kind') return result.groups.map((g) => ({ id: g.id, title: tr(g.title), items: g.items }));
   const all = result.groups.flatMap((g) => g.items);
@@ -172,8 +172,8 @@ export function enter(ctx) {
   const teardown = () => { listeners.splice(0).forEach((f) => f()); };
   ctx.onCleanup(teardown);
 
-  // Sweep entrega os duplicados de Downloads (fase "review"): abre o gerenciador só com essa categoria, sem nada
-  // marcado. "Voltar" devolve à Faxina.
+  // Sweep hands over the Downloads duplicates ("review" phase): opens the manager with only that category, with nothing
+  // checked. "Back" returns to Sweep.
   if (store.filesFrom && F.phase === 'review' && (!S.res || S.res.fromRef !== store.filesFrom)) {
     S.res = { large: null, dups: store.filesFrom, sim: null, dl: null, loc: 0, locName: 'Downloads', minMb: store.largeMb, full: false, largeRef: null, ownsStore: false, fromRef: store.filesFrom, fromSmart: true };
     S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.limits = new Map(); S.thumbs = new Map(); S.cat = 'dups'; S.q = ''; S.show = 'all';
@@ -197,7 +197,7 @@ export function enter(ctx) {
     return renderIdle();
   }
 
-  // ---------- Início ----------
+  // ---------- Start ----------
   function renderIdle() {
     F.phase = 'idle';
     const select = h('select', { class: 'fl-select', 'aria-label': t('Local para analisar'), onChange: (e) => { S.loc = Number(e.target.value); } },
@@ -218,7 +218,7 @@ export function enter(ctx) {
     }
   }
 
-  // ---------- Análise ----------
+  // ---------- Scan ----------
   async function scan() {
     const loc = S.loc, mb = store.largeMb;
     const home = loc === 0;
@@ -277,7 +277,7 @@ export function enter(ctx) {
     render();
   }
 
-  // ---------- Resultados (blocos) ----------
+  // ---------- Results (blocks) ----------
   function renderResults() {
     st = null;
     ctx.reserveDock(false);
@@ -299,7 +299,7 @@ export function enter(ctx) {
       },
       {
         cat: 'dl', ic: 'download', n: r.dl ? countOf('dl') : 0, label: t('Downloads'),
-        title: dlTop ? (dlTop.title === 'Outros' ? t('{size} em outros downloads', { size: fmtBytes(dlTop.total) }) : t('{size} de downloads do {app}', { size: fmtBytes(dlTop.total), app: dlTop.title })) : t('Downloads'), // i18n-ignore (compara com o rótulo do backend)
+        title: dlTop ? (dlTop.title === 'Outros' ? t('{size} em outros downloads', { size: fmtBytes(dlTop.total) }) : t('{size} de downloads do {app}', { size: fmtBytes(dlTop.total), app: dlTop.title })) : t('Downloads'), // i18n-ignore (compares with the backend label)
         sub: dlTop ? (r.dl.groups.length > 1 ? t('{files} · e mais {sources}', { files: plural(dlTop.items.length, 'arquivo', 'arquivos'), sources: plural(r.dl.groups.length - 1, 'origem', 'origens') }) : plural(dlTop.items.length, 'arquivo', 'arquivos')) : '',
         empty: r.dl ? t('A pasta Downloads está vazia.') : t('Os Downloads são analisados só na pasta pessoal.'),
       },
@@ -324,8 +324,8 @@ export function enter(ctx) {
 
   function open(cat) { S.cat = cat; F.phase = 'review'; render(); }
 
-  // ---------- Gerenciador ----------
-  // Tira ids de todas as categorias (depois de remover ou ignorar); um conjunto de cópias com um item só deixa de existir.
+  // ---------- Manager ----------
+  // Removes ids from all categories (after removing or ignoring); a set of copies with a single item ceases to exist.
   function prune(okIds) {
     for (const c of CATS) {
       const r = resOf(c.id);
@@ -402,11 +402,11 @@ export function enter(ctx) {
       renderList();
     }
 
-    // Remove o item da revisão (já está na lista de ignorados no backend).
+    // Removes the item from the review (it is already on the ignored list in the backend).
     function dropItem(it) { prune(new Set([it.id])); refresh(); }
 
-    // ---- linhas e seções ----
-    // opts.dir: linha de uma cópia (o nome é o mesmo em todas): mostra a pasta, que é o que as diferencia.
+    // ---- rows and sections ----
+    // opts.dir: row of one copy (the name is the same in all of them): shows the folder, which is what tells them apart.
     function fileRow(it, sel, opts = {}) {
       const cb = checkbox(sel.has(it.id) ? 'on' : 'off', () => toggle(), t('Selecionar {name}', { name: it.name }));
       const toggle = () => { sel.has(it.id) ? sel.delete(it.id) : sel.add(it.id); refresh(); };
@@ -485,7 +485,7 @@ export function enter(ctx) {
         })));
     }
 
-    // ---- miniaturas: carregadas só quando visíveis, 3 por vez ----
+    // ---- thumbnails: loaded only when visible, 3 at a time ----
     function loadThumb(card, img, ph, id) {
       const apply = (url) => { if (url) { img.src = url; img.hidden = false; ph.hidden = true; } };
       card._thumb = { id, apply };
@@ -558,7 +558,7 @@ export function enter(ctx) {
     renderFoot();
   }
 
-  // ---------- Remoção ----------
+  // ---------- Removal ----------
   async function move() {
     const picked = [];
     for (const c of CATS) { const r = resOf(c.id); if (r) for (const g of r.groups) for (const i of g.items) if (selOf(c.id).has(i.id)) picked.push(i); }

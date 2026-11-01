@@ -1,4 +1,4 @@
-// Helpers de DOM. Nomes de arquivos vêm do disco (não confiáveis): só textContent / createElement.
+// DOM helpers. File names come from disk (untrusted): only textContent / createElement.
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 function applyProps(el, props) {
@@ -48,7 +48,7 @@ export function mount(el, ...kids) {
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Caminho com reticências no meio: o início encolhe, o final (nome do arquivo) permanece.
+// Path with an ellipsis in the middle: the start shrinks, the end (file name) stays.
 export function mid(text, tail = 24) {
   const t = text || '';
   let cut = Math.max(0, t.length - tail);

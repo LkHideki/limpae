@@ -1,4 +1,4 @@
-// Shell: sidebar, rodapé de disco, roteador e contexto entregue às views.
+// Shell: sidebar, disk footer, router and the context handed to the views.
 import { h, mount, clear } from './dom.js';
 import { icon, MODS } from './art.js';
 import { api, onProgress, setNotifier } from './api.js';
@@ -28,9 +28,9 @@ const go = createGo(document.getElementById('dock'));
 const navEl = document.getElementById('nav');
 const foot = document.getElementById('sb-foot');
 let current = null, cleanups = [], alive = false;
-let backFn = null; // "Voltar" do gerenciador montado agora (Esc e ⌘[ chamam o mesmo)
+let backFn = null; // "Back" of the manager mounted right now (Esc and ⌘[ call the same one)
 let fdaDismissed = false;
-try { fdaDismissed = localStorage.getItem('limpae.fda.dismissed') === '1'; } catch (e) { /* storage indisponível */ }
+try { fdaDismissed = localStorage.getItem('limpae.fda.dismissed') === '1'; } catch (e) { /* storage unavailable */ }
 
 setNotifier((msg) => toast(tr(msg)));
 window.addEventListener('unhandledrejection', (e) => { if (!(e.reason && e.reason.reported)) toast(tr(String((e.reason && e.reason.message) || e.reason || t('Erro inesperado')))); });
@@ -49,7 +49,7 @@ const ctx = {
   reserveDock: (b) => view.classList.toggle('has-dock', b),
   onProgress: (cb) => { cleanups.push(onProgress(cb)); },
   onCleanup: (fn) => { cleanups.push(fn); },
-  // Registra (ou limpa, com null) a ação "Voltar" da tela atual; só gerenciadores registram.
+  // Registers (or clears, with null) the current screen's "Back" action; only managers register.
   onBack: (fn) => { backFn = typeof fn === 'function' ? fn : null; },
   refreshDisk,
 };
@@ -57,7 +57,7 @@ const ctx = {
 function navigate(id, force = false) {
   if (!VIEWS[id] || (store.busy && !force && id !== current)) return;
   if (store.busy && id !== current && !force) return;
-  cleanups.forEach((f) => { try { f(); } catch (e) { /* ignora */ } });
+  cleanups.forEach((f) => { try { f(); } catch (e) { /* ignore */ } });
   cleanups = [];
   alive = false;
   backFn = null;
@@ -90,25 +90,25 @@ function renderFoot() {
       kids.push(h('div', { class: 'fda-banner' },
         h('b', null, t('Acesso Total ao Disco')), h('span', { class: 'fda-desc' }, t('Conceda para uma análise completa, incluindo a Lixeira.')),
         h('div', null, h('button', { class: 'link', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes'))),
-        h('button', { class: 'x', type: 'button', 'aria-label': t('Dispensar aviso'), onClick: () => { fdaDismissed = true; try { localStorage.setItem('limpae.fda.dismissed', '1'); } catch (e) { /* ignora */ } renderFoot(); } }, icon('x', 14))));
+        h('button', { class: 'x', type: 'button', 'aria-label': t('Dispensar aviso'), onClick: () => { fdaDismissed = true; try { localStorage.setItem('limpae.fda.dismissed', '1'); } catch (e) { /* ignore */ } renderFoot(); } }, icon('x', 14))));
     }
   }
   mount(foot, kids);
 }
 
 async function refreshDisk() {
-  try { store.disk = await api.disk(); } catch (e) { /* sem info de disco */ }
+  try { store.disk = await api.disk(); } catch (e) { /* no disk info */ }
   renderFoot();
 }
 
-// Pedido do menu da barra de menus ("Faxina…", "Esvaziar Lixeira…", "Ajustes…"). Respeita o
-// bloqueio de operação em andamento: sem `force`, uma limpeza ou análise nunca é interrompida por um clique ali.
+// Request from the menu bar menu ("Sweep…", "Empty Trash…", "Settings…"). Respects the
+// in-progress operation lock: without `force`, a cleanup or scan is never interrupted by a click there.
 try {
   Promise.resolve(window.__TAURI__.event.listen('navigate', (e) => navigate(String(e.payload)))).catch(() => {});
-} catch (e) { /* sem eventos do shell (preview no navegador) */ }
+} catch (e) { /* no shell events (browser preview) */ }
 
-// Esc (ou ⌘[) sai do gerenciador aberto, como o "Voltar" do topo. Não age com menu, diálogo ou operação em andamento,
-// nem enquanto a busca tem texto (o primeiro Esc limpa o campo).
+// Esc (or ⌘[) leaves the open manager, like the top "Back". Does nothing with a menu, dialog or operation in progress,
+// nor while the search has text (the first Esc clears the field).
 document.addEventListener('keydown', (e) => {
   const esc = e.key === 'Escape' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey;
   const bracket = e.metaKey && !e.ctrlKey && !e.altKey && e.key === '[';
@@ -120,17 +120,17 @@ document.addEventListener('keydown', (e) => {
   backFn();
 });
 
-// Pausa animações contínuas quando a janela não está em uso (ver body.idle no CSS).
+// Pauses continuous animations when the window is not in use (see body.idle in the CSS).
 const syncIdle = () => document.body.classList.toggle('idle', document.hidden || !document.hasFocus());
 window.addEventListener('blur', syncIdle);
 window.addEventListener('focus', syncIdle);
 document.addEventListener('visibilitychange', syncIdle);
 syncIdle();
 
-// Troca de idioma em Ajustes: refaz menu, rodapé e a tela atual no novo idioma.
+// Language switch in Settings: rebuilds the menu, footer and current screen in the new language.
 onLang(() => { buildNav(); renderFoot(); if (current) navigate(current, true); });
 
-// O idioma precisa estar definido antes da primeira pintura (o padrão é inglês; a leitura dos ajustes é local e rápida).
+// The language must be set before the first paint (the default is English; reading the settings is local and fast).
 api.settings().catch(() => null).then((st) => {
   if (st) { store.settings = st; setSoundEnabled(st.sounds); }
   applyLangSetting(st && st.language);

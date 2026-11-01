@@ -1,6 +1,6 @@
-// Faxina: landing -> varredura sequencial (bento) -> resultados -> execução -> conclusão.
-// Roda só os módulos ligados em Ajustes (store.settings.smartCare; ausente = ligado). Só Limpeza e Lixeira executam algo;
-// Proteção, Desempenho, Aplicativos e Arquivos são somente revisão.
+// Sweep: landing -> sequential scan (bento) -> results -> execution -> done.
+// Runs only the modules turned on in Settings (store.settings.smartCare; missing = on). Only Junk and Trash execute anything;
+// Security, Speed, Apps and Files are review-only.
 import { play } from '../sound.js';
 import { h, mount, sleep } from '../dom.js';
 import { orb, icon } from '../art.js';
@@ -11,8 +11,8 @@ import { t, tn, tr } from '../i18n.js';
 import { confirmDialog, failuresSheet, stage, features, checkbox } from '../ui.js';
 import { removeGroups, stopDock } from '../actions.js';
 
-// key = chave em settings.smartCare; tasks = valores de `task` do evento scan-progress; run = executa algo ao "Executar".
-// Textos como getters: o idioma só é conhecido depois que o módulo carrega, e a chave precisa ficar literal.
+// key = key in settings.smartCare; tasks = values of `task` from the scan-progress event; run = executes something on "Run".
+// Texts as getters: the language is only known after the module is loaded, and the key must stay literal.
 const MODS = [
   { id: 'clean', key: 'junk', mod: 'clean', get title() { return t('Entulho'); }, get verb() { return t('Procurando lixo…'); }, glyph: 'clean', tasks: ['junk'], run: true, get feat() { return ['search', t('Busca de lixo do sistema')]; } },
   { id: 'trash', key: 'trash', mod: 'trash', get title() { return t('Lixeira'); }, get verb() { return t('Verificando a Lixeira…'); }, glyph: 'trash', tasks: ['trash'], run: true, get feat() { return ['trash', t('Verificação da Lixeira')]; } },
@@ -22,7 +22,7 @@ const MODS = [
   { id: 'files', key: 'files', mod: 'files', get title() { return t('Arquivos'); }, get verb() { return t('Procurando duplicados…'); }, glyph: 'folder', tasks: ['duplicates'], get feat() { return ['folder', t('Duplicados em Downloads')]; } },
 ];
 const byId = (id) => MODS.find((m) => m.id === id);
-// Cópias que sobrariam depois de remover tudo menos o original sugerido de cada conjunto (só para o resumo).
+// Copies that would remain after removing everything but the suggested original of each set (for the summary only).
 function reclaim(result) {
   let n = 0, bytes = 0;
   if (result) for (const g of result.groups) { const keep = g.items.find((i) => i.note) || g.items[0]; for (const i of g.items) if (i !== keep) { n++; bytes += i.size; } }
@@ -47,8 +47,8 @@ export function enter(ctx) {
   };
   const mods = () => S.mods.map(byId).filter(Boolean);
 
-  // ---------- resumo de cada módulo (texto do tile) ----------
-  // {num, sub, sm: número em corpo menor, review: mostra "Revisar", act: tem algo executável}
+  // ---------- summary of each module (tile text) ----------
+  // {num, sub, sm: number in smaller type, review: shows "Review", act: has something executable}
   function summarize(m) {
     if (S.err[m.id]) return { num: () => t('Indisponível'), sub: () => t('tente de novo no módulo'), sm: true, review: true };
     if (m.id === 'clean') {
@@ -81,18 +81,18 @@ export function enter(ctx) {
       return a.updates ? { num: () => tn(a.updates, '{n} atualização', '{n} atualizações'), sub: un, review: true }
         : { num: () => t('Tudo atualizado'), sub: un, sm: true, review: true };
     }
-    // Arquivos: só revisão. Arquivos do usuário nunca vêm marcados nem entram na execução.
+    // Files: review only. User files never come checked nor enter the execution.
     const d = reclaim(store.filesFrom);
     return d.n ? { num: () => tn(d.n, '{n} duplicado', '{n} duplicados'), sub: () => t('{size} em Downloads', { size: fmtBytes(d.bytes) }), review: true }
       : { num: () => t('Sem duplicados'), sub: () => t('nenhum arquivo repetido em Downloads'), sm: true };
   }
-  // Depois da análise vale o retrato tirado nela: a Lixeira e o lixo mudam durante a execução.
+  // After the scan, the snapshot taken then applies: Trash and junk change during execution.
   const info = (m) => S.snap[m.id] || summarize(m);
   const checkable = (m) => !!m.run && !!info(m).act;
   const included = (m) => checkable(m) && !!S.inc[m.id];
 
-  // ---------- pintura dos tiles ----------
-  // st: wait | hot | found | done | clean (executando) | queue (aguardando execução) | off (fora da execução) | final
+  // ---------- tile painting ----------
+  // st: wait | hot | found | done | clean (running) | queue (waiting for execution) | off (outside the execution) | final
   function paint(m, st) {
     const e = els[m.id];
     const sm = info(m);
@@ -115,7 +115,7 @@ export function enter(ctx) {
       main = h('div', { class: 't-main' }, num(sm.num(), sm.sm), sub(line));
     } else if (st === 'final') {
       if (o === 'cleaned' || o === 'emptied' || o === 'partial') {
-        // "Liberado" é só o que foi apagado de vez; o que foi para o Lixo aparece à parte.
+        // "Freed" is only what was deleted for good; what went to Trash appears separately.
         const freed = S.freed[m.id] || 0, trashed = (S.trashed && S.trashed[m.id]) || 0;
         const headline = m.id === 'trash' ? t('{size} da Lixeira', { size: fmtBytes(freed) }) : freed || !trashed ? t('{size} de lixo', { size: fmtBytes(freed) }) : t('{size} no Lixo', { size: fmtBytes(trashed) });
         const isTrash = m.id === 'trash';
@@ -144,7 +144,7 @@ export function enter(ctx) {
     rows.forEach((r) => r.classList.toggle('hot', !!r.querySelector('.tile.hot')));
   }
 
-  // "Revisar": leva ao módulo com o resultado já carregado (store).
+  // "Review": takes you to the module with the result already loaded (store).
   function go(m) {
     if (m.id === 'clean') store.cleanup.phase = store.junk && store.junk.groups.length ? 'review' : 'idle';
     else if (m.id === 'files') store.files.phase = store.filesFrom && store.filesFrom.groups.length ? 'review' : 'idle';
@@ -153,8 +153,8 @@ export function enter(ctx) {
     ctx.nav(m.id);
   }
 
-  // Entrega ao módulo Aplicativos o resultado da análise (mesma forma de `newState()` em apps.js, v2; se mudar, o
-  // módulo descarta o estado e abre na tela inicial).
+  // Hands the Apps module the scan result (same shape as `newState()` in apps.js, v2; if it changes, the
+  // module discards the state and opens on the start screen).
   function primeApps() {
     const a = S.apps;
     if (!a || !store.apps) return;
@@ -250,7 +250,7 @@ export function enter(ctx) {
   }
 
   async function run() {
-    if (!store.settings) { try { store.settings = await api.settings(); } catch (e) { /* segue com todos os módulos */ } }
+    if (!store.settings) { try { store.settings = await api.settings(); } catch (e) { /* continues with all modules */ } }
     const list = enabled();
     if (!list.length) return renderIdle();
     cancelled = false;
@@ -285,7 +285,7 @@ export function enter(ctx) {
     S.phase = 'results'; S.rev = store.rev;
     S.snap = {};
     for (const m of list) S.snap[m.id] = summarize(m);
-    // Sem dado para executar, o tile não entra no plano.
+    // With no data to execute, the tile does not enter the plan.
     for (const id of ['clean', 'trash']) if (S.mods.includes(id) && !checkable(byId(id))) S.inc[id] = false;
     const failedAll = list.every((m) => S.err[m.id]);
     play(failedAll ? 'error' : 'found');
@@ -303,7 +303,7 @@ export function enter(ctx) {
   }
 
   // ---------- execute ----------
-  // Resumo do que a confirmação vai dizer, a partir do que está marcado agora.
+  // Summary of what the confirmation will say, from what is checked right now.
   function describe() {
     const out = { clean: null, trash: null };
     if (included(byId('clean'))) {
@@ -357,7 +357,7 @@ export function enter(ctx) {
       permanentChoice: movedAny, permanentDefault: !!(store.settings && store.settings.permanentDelete),
       trashCount: movedAny ? d.clean.moved : null,
     });
-    // O corpo do diálogo some quando "Apagar definitivamente" está ligado; o resumo fica fora dele e acompanha a chave.
+    // The dialog body disappears when "Delete permanently" is on; the summary stays outside it and follows the switch.
     const card = Array.from(document.querySelectorAll('#modal-root .modal')).pop();
     if (card) {
       const body = card.querySelector('.body');
@@ -418,7 +418,7 @@ export function enter(ctx) {
       paint(m, 'final');
     }
     stopped = stopped || sd.stopped();
-    // O Lixo e a Lixeira mudaram: a Lixeira é lida de novo ao abrir o módulo.
+    // The Trash contents changed: the Trash module reads them again when opened.
     store.trash = null;
     S.phase = 'done'; S.rev = store.rev;
     S.stopped = stopped;
@@ -434,7 +434,7 @@ export function enter(ctx) {
   function renderDone() {
     bento.dataset.phase = 'done';
     mods().forEach((m) => paint(m, 'final'));
-    // O título diz o que de fato aconteceu: falhas e pontos ainda abertos não viram "ótima forma".
+    // The title says what actually happened: failures and still-open items do not become "great shape".
     const outs = Object.values(S.out);
     const failed = outs.some((o) => o === 'failed' || o === 'partial');
     const sm = S.sum || {};
@@ -445,7 +445,7 @@ export function enter(ctx) {
           : t('Muito bem! Seu Mac está em ótima forma.');
     setHead(head);
     ctx.setDock(null);
-    // Rodapé: "Ver log" (link) e "Concluir" (volta ao início, sem confirmar: nada fica pendente).
+    // Footer: "View log" (link) and "Done" (back to start, without confirming: nothing is left pending).
     root.append(h('div', { class: 'bento-foot center enter' },
       h('button', { class: 'btn sm ghost', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 14), t('Ver log')),
       h('button', { class: 'btn primary', type: 'button', onClick: restart }, t('Concluir'))));

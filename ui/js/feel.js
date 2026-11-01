@@ -1,10 +1,10 @@
-// Feedback sonoro dos gestos (cliques, chaves, menus, diálogos, toasts), por delegação de eventos: nenhuma view precisa chamar play().
+// Sound feedback for gestures (clicks, switches, menus, dialogs, toasts), via event delegation: no view needs to call play().
 import { play, lastPlayedAt } from './sound.js';
 
 const later = (fn) => setTimeout(fn, 0);
 
-// A view altera o estado no handler do próprio elemento, depois da captura: lê o resultado já assentado.
-// Se o elemento foi recriado no render, deduz pelo estado anterior.
+// The view changes state in the element's own handler, after capture: reads the already-settled result.
+// If the element was recreated on render, infers from the previous state.
 function afterCheckbox(el, prev) {
   later(() => {
     const st = el.isConnected ? el.dataset.state : (prev === 'on' ? 'off' : 'on');
@@ -14,17 +14,17 @@ function afterCheckbox(el, prev) {
 function afterSwitch(el, prev) {
   const t0 = performance.now();
   later(() => {
-    if (lastPlayedAt() >= t0) return; // a view já respondeu (ex.: confirmação ao ligar os sons)
+    if (lastPlayedAt() >= t0) return; // the view already responded (e.g. confirmation when turning sounds on)
     const on = el.isConnected ? el.getAttribute('aria-checked') === 'true' : prev !== 'true';
     play(on ? 'switch-on' : 'switch-off');
   });
 }
-// Botão primário: só toca se a view não tocou nada logo após o clique (análises já têm 'start').
+// Primary button: only plays if the view played nothing right after the click (scans already have 'start').
 function afterPrimary() {
   const t0 = performance.now();
   later(() => { if (lastPlayedAt() < t0) play('pop'); });
 }
-// Menu abre de forma síncrona no clique/contexto; confere se surgiu um novo.
+// Menu opens synchronously on click/context; checks whether a new one appeared.
 function afterMenuOpener() {
   const before = document.querySelector('.ctx-menu');
   later(() => { const now = document.querySelector('.ctx-menu'); if (now && now !== before) play('menu'); });
@@ -44,13 +44,13 @@ document.addEventListener('click', (e) => {
   if (opener) return afterMenuOpener();
   const sel = el.closest('.chip, .seg button');
   if (sel) { if (sel.getAttribute('aria-pressed') !== 'true') play('tick'); return; }
-  // Botões do diálogo ficam com o som de fechar.
+  // Dialog buttons get the close sound.
   if (el.closest('.btn.primary, .go') && !el.closest('.modal')) afterPrimary();
 }, true);
 
 document.addEventListener('contextmenu', afterMenuOpener, true);
 
-// Diálogos: abre/fecha (a classe 'out' marca o fechamento, antes de o nó sair).
+// Dialogs: open/close (the 'out' class marks closing, before the node is removed).
 const modalRoot = document.getElementById('modal-root');
 if (modalRoot) {
   const closed = new WeakSet();
@@ -67,7 +67,7 @@ if (modalRoot) {
   }).observe(modalRoot, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 }
 
-// Toasts: sucesso → ok; erro → err (o limitador silencia se a view já tocou 'error').
+// Toasts: success → ok; error → err (the limiter stays silent if the view already played 'error').
 const toastRoot = document.getElementById('toast-root');
 if (toastRoot) {
   new MutationObserver((list) => {

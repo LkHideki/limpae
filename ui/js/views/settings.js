@@ -1,4 +1,4 @@
-// Ajustes: sons, escopo da Faxina e lista de ignorados.
+// Settings: sounds, Sweep scope and ignored list.
 import { h, mount, mid } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
@@ -7,7 +7,7 @@ import { checkbox, toast, segmented } from '../ui.js';
 import { setSoundEnabled, play } from '../sound.js';
 import { t, applyLangSetting, LANGS } from '../i18n.js';
 
-// Função: o idioma só é conhecido depois de carregar o módulo.
+// Function: the language is only known after the module is loaded.
 const scopeList = () => [
   ['junk', t('Entulho')], ['trash', t('Lixeira')], ['protection', t('Segurança')],
   ['performance', t('Velocidade')], ['apps', t('Aplicativos')], ['files', t('Arquivos')],
@@ -25,7 +25,7 @@ export function enter(ctx) {
     try { await api.saveSettings(s); } catch (e) { s = store.settings = prev; setSoundEnabled(prev.sounds); render(); }
   }
 
-  // O checkbox não muda sozinho de estado: aplica o novo valor no próprio botão (mantém o foco) antes de salvar.
+  // The checkbox does not change state by itself: applies the new value on the button itself (keeps focus) before saving.
   const toggle = (label, hint, on, onChange) => {
     const cb = checkbox(on ? 'on' : 'off', (st) => { const v = st !== 'on'; cb.set(v ? 'on' : 'off'); onChange(v); }, label);
     return h('div', { class: 'set-row' },
@@ -60,7 +60,7 @@ export function enter(ctx) {
   }
 
   async function unignore(p) {
-    try { await api.unignore(p); ignored = ignored.filter((x) => x !== p); render(); } catch (e) { /* toast já exibido */ }
+    try { await api.unignore(p); ignored = ignored.filter((x) => x !== p); render(); } catch (e) { /* toast already shown */ }
   }
 
   async function load() {

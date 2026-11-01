@@ -1,6 +1,6 @@
-// Desempenho: agentes em segundo plano, itens de login, monitor do sistema e snapshots do Time Machine.
-// A interface só envia ids; rótulos, caminhos e nomes ficam no backend. Nomes e caminhos vêm do disco
-// (não confiáveis): só textContent / createElement. Tudo o que é desativado pode ser reativado; remover vai ao Lixo.
+// Speed: background agents, login items, system monitor and Time Machine snapshots.
+// The UI only sends ids; labels, paths and names stay in the backend. Names and paths come from disk
+// (untrusted): only textContent / createElement. Everything that is disabled can be re-enabled; removing goes to Trash.
 import { play } from '../sound.js';
 import { h, s, mount, mid } from '../dom.js';
 import { icon } from '../art.js';
@@ -19,7 +19,7 @@ const tabs = () => [
 const HIST = 60;
 const SYS_STEP = 30;
 const TICK_MS = 2000;
-// A decisão fica nos ids estáveis (normal/warning/…); o texto é traduzido só na hora de exibir.
+// The decision rests on stable ids (normal/warning/…); the text is translated only at display time.
 const pressureLabel = (k) => ({ normal: t('normal'), warning: t('elevada'), critical: t('crítica') })[k] || t('indisponível');
 const signaturePill = (k) => ({ unsigned: t('Sem assinatura válida'), invalid: t('Sem assinatura válida'), missing: t('Programa ausente') })[k];
 const signatureHint = (k) => ({
@@ -28,7 +28,7 @@ const signatureHint = (k) => ({
   missing: t('O programa que este agente executa não existe mais no disco.'),
 })[k];
 
-// Estado que sobrevive à troca de módulo (a view é recriada a cada entrada).
+// State that survives module switch (the view is recreated on every entry).
 const S = { phase: 'idle', res: null, tab: 'agents', filter: 'all', sysLimit: SYS_STEP, icons: new Map(), hist: [], sel: new Set(), lsel: new Set(), note: null };
 
 const dtf = lazyIntl('DateTimeFormat', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -56,7 +56,7 @@ const userAgents = () => S.res.agents.filter((a) => a.scope === 'user');
 const systemAgents = () => S.res.agents.filter((a) => a.scope !== 'user');
 const loginCount = () => S.res.login.items.length;
 
-// Ícones dos apps donos, em fila curta para não disputar o disco com a análise.
+// Icons of the owner apps, in a short queue so they do not compete with the scan for the disk.
 const iconQueue = [];
 let iconBusy = 0;
 function applyIcon(slot, url) {
@@ -98,7 +98,7 @@ export function enter(ctx) {
     st.busy(false);
   }
 
-  // ---------- Início ----------
+  // ---------- Start ----------
   function renderIdle() {
     st = null;
     S.phase = 'idle';
@@ -111,7 +111,7 @@ export function enter(ctx) {
     ctx.setDock({ label: t('Analisar'), mod: 'perf', onClick: scan });
   }
 
-  // ---------- Análise ----------
+  // ---------- Scan ----------
   async function scan() {
     cancelled = false;
     S.phase = 'scanning';
@@ -132,7 +132,7 @@ export function enter(ctx) {
     ctx.onProgress((p) => { if (p.task === 'perf') ticker.textContent = p.path || ''; });
     ctx.setDock({ label: t('Parar'), busy: true, mod: 'perf', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'perf' }); api.cancel().catch(() => {}); } });
     let res = null;
-    try { res = await api.perfScan(); } catch (e) { /* o aviso já foi exibido por api.call */ }
+    try { res = await api.perfScan(); } catch (e) { /* the warning was already shown by api.call */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     if (!res || cancelled) { if (!cancelled) play('error'); S.phase = S.res ? 'results' : 'idle'; return render(); }
@@ -154,7 +154,7 @@ export function enter(ctx) {
     render();
   }
 
-  // ---------- Resultados ----------
+  // ---------- Results ----------
   function renderResults() {
     st = null;
     ctx.reserveDock(false);
@@ -208,13 +208,13 @@ export function enter(ctx) {
   async function refreshAll(btn) {
     if (btn) { btn.disabled = true; btn.textContent = t('Verificando…'); }
     let res = null;
-    try { res = await api.perfScan(); } catch (e) { /* aviso já exibido */ }
+    try { res = await api.perfScan(); } catch (e) { /* warning already shown */ }
     if (!ctx.alive) return;
     if (res) { S.res = res; S.icons = new Map(); S.sysLimit = SYS_STEP; S.sel = new Set(); S.lsel = new Set(); }
     render();
   }
 
-  // ---------- Gerenciador ----------
+  // ---------- Manager ----------
   function renderManager() {
     st = null;
     ctx.reserveDock(false);
@@ -238,7 +238,7 @@ export function enter(ctx) {
         h('span', { class: 'fm-cat-ic' }, icon(tab.ic, 17)),
         h('span', { class: 'fm-cat-t' }, h('b', null, tab.label), h('span', null, summary(tab.id))))), whyNote('pf-why-nav'));
     }
-    // Rodapé: seleção + "Remover" nas abas de agentes e itens de login; aviso do que acabou de acontecer (com "Ver log").
+    // Footer: selection + "Remove" in the agents and login items tabs; notice of what just happened (with "View log").
     const selOfTab = () => (S.tab === 'agents' ? S.sel : S.tab === 'login' ? S.lsel : null);
     function renderFoot() {
       const flagged = S.res.agents.filter((a) => a.flagged).length;
@@ -262,7 +262,7 @@ export function enter(ctx) {
       bodyEl.scrollTop = 0;
     }
 
-    // --- Agentes ---
+    // --- Agents ---
     function paneAgents() {
       mount(headEl,
         h('div', { class: 'fm-pane-t' }, h('h3', null, t('Agentes em segundo plano')), h('p', null, t('Programas que o macOS inicia sozinho em seu nome. Desative o que você não usa; dá para reativar quando quiser.'))),
@@ -308,7 +308,7 @@ export function enter(ctx) {
           h('div', { class: 'fm-meta pf-meta' }, h('span', { class: 'pf-label', title: a.label }, a.label), a.program ? mid(a.program, 26) : h('span', null, t('Sem programa'))),
           facts.length ? h('div', { class: 'pf-facts' }, facts.join(' · ')) : null),
         h('div', { class: 'pf-actions' }, actions));
-      // Botão direito (agentes do usuário, registrados no backend): Mostrar no Finder. Os do sistema são só leitura.
+      // Right click (user agents, registered in the backend): Show in Finder. The system ones are read-only.
       if (manageable) attachMenu(row, () => ({ id: a.id, name: agentName(a), quickLook: false, ignore: false, select: { on: S.sel.has(a.id), toggle: flip } }));
       return row;
     }
@@ -327,7 +327,7 @@ export function enter(ctx) {
       row.replaceWith(agentRow(a));
       renderNav();
     }
-    // Remove o que está marcado na aba aberta (agentes ou itens de login), com confirmação.
+    // Removes what is checked in the open tab (agents or login items), with confirmation.
     async function removeSelected() {
       const agents = S.tab === 'agents';
       const sel = agents ? S.sel : S.lsel;
@@ -365,7 +365,7 @@ export function enter(ctx) {
       }
     }
 
-    // --- Itens de login ---
+    // --- Login items ---
     function paneLogin() {
       const L = S.res.login;
       mount(headEl, h('div', { class: 'fm-pane-t' }, h('h3', null, t('Itens de login')), h('p', null, t('Apps que abrem sozinhos quando você entra no Mac. Remover um item só tira o app da lista; o app continua instalado.'))));
@@ -405,7 +405,7 @@ export function enter(ctx) {
         try {
           const m = await api.perfMonitor();
           if (ctx.alive && S.tab === 'monitor' && monitorUi) monitorUi.update(m);
-        } catch (e) { /* próxima leitura tenta de novo */ } finally { ticking = false; }
+        } catch (e) { /* the next reading tries again */ } finally { ticking = false; }
       };
       tick();
       timer = setInterval(tick, TICK_MS);
@@ -459,7 +459,7 @@ export function enter(ctx) {
   render();
 }
 
-// Painel do monitor: monta uma vez e só atualiza textos e atributos a cada leitura (sem recriar o DOM).
+// Monitor panel: mounts once and only updates texts and attributes on each reading (without recreating the DOM).
 function buildMonitor() {
   const R = 52, C = 2 * Math.PI * R;
   const arc = (k) => s('circle', { class: 'pf-arc ' + k, cx: 70, cy: 70, r: R, fill: 'none', 'stroke-width': 14, transform: 'rotate(-90 70 70)', 'stroke-dasharray': `0 ${C}`, 'stroke-dashoffset': 0 });

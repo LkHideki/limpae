@@ -1,5 +1,5 @@
-// Aplicativos: landing -> análise -> resultados (tiles) -> Gerenciador (Desinstalador / Atualizador / Restos) -> conclusão.
-// A UI só envia ids. Apps, restos e instaladores vão para o Lixo; atualizações abrem a página do fornecedor.
+// Apps: landing -> scan -> results (tiles) -> Manager (Uninstaller / Updater / Leftovers) -> done.
+// The UI only sends ids. Apps, leftovers and installers go to Trash; updates open the vendor's page.
 import { play } from '../sound.js';
 import { h, mount, mid, sleep } from '../dom.js';
 import { icon, orb, groupIcon } from '../art.js';
@@ -11,12 +11,12 @@ import { checkbox, confirmDialog, failuresSheet, stage, features, toast, manager
 import { removeGroups, stopDock } from '../actions.js';
 import { attachMenu, selectMenuButton } from '../menus.js';
 
-const NAME_MATCH = 'Correspondência pelo nome'; // i18n-ignore (valor do backend, só comparação)
+const NAME_MATCH = 'Correspondência pelo nome'; // i18n-ignore (backend value, comparison only)
 const UNUSED_DAYS = 180;
 const DEFAULT_DIR = { size: 'desc', name: 'asc', last: 'desc' };
 const rtf = lazyIntl('RelativeTimeFormat', { numeric: 'always' });
 
-// ---------- ícones sob demanda ----------
+// ---------- on-demand icons ----------
 const queue = [];
 let active = 0;
 function setIcon(box, url) {
@@ -35,7 +35,7 @@ function lazyIcon(app, box) {
   queue.push([app, box]); pump();
 }
 
-// ---------- estado (sobrevive à troca de módulo) ----------
+// ---------- state (survives module switch) ----------
 function newState() {
   return {
     v: 2, phase: 'idle', over: null, meta: new Map(), appsRef: null,
@@ -58,7 +58,7 @@ function lastText(sec) {
 
 const hostOf = (url) => { try { return new URL(url).host; } catch (e) { return ''; } };
 
-// Ícone por tipo de resto (rótulo vindo do backend).
+// Icon by leftover type (label coming from the backend).
 const KIND_ICON = {
   'Suporte do app': 'folder', Caches: 'box', 'Preferências': 'prefs', 'Preferências deste Mac': 'prefs', 'Contêiner do app': 'archive', // i18n-ignore
   'Contêiner compartilhado': 'apps', 'Scripts do app': 'code', 'Estado das janelas': 'restart', 'Armazenamento web': 'disk', // i18n-ignore
@@ -76,7 +76,7 @@ export function enter(ctx) {
   queue.length = 0;
   const root = ctx.root;
   let cancelled = false;
-  let M = null; // referências do Gerenciador montado
+  let M = null; // references of the mounted Manager
 
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); lazyIcon(e.target._app, e.target); } }), { rootMargin: '120px' });
   ctx.onCleanup(() => io.disconnect());
@@ -101,7 +101,7 @@ export function enter(ctx) {
     return b;
   };
 
-  // ---------- dados ----------
+  // ---------- data ----------
   function resetData() {
     U.lo.clear(); U.sel.clear(); U.open.clear(); U.upSel.clear(); U.upFocus = null; U.meta = new Map(); U.over = null;
     U.group = 'all'; U.q = ''; U.appsRef = store.apps;
@@ -117,7 +117,7 @@ export function enter(ctx) {
     U.upFocus = U.over.updates[0] ? U.over.updates[0].appId : null;
   }
 
-  // ---------- roteamento ----------
+  // ---------- routing ----------
   function render() {
     M = null;
     ctx.onBack(null);
@@ -151,7 +151,7 @@ export function enter(ctx) {
     return st;
   }
 
-  // Abre o Gerenciador sem a análise de atualizações/restos (só lista os apps).
+  // Opens the Manager without the updates/leftovers scan (only lists the apps).
   async function openDirect() {
     if (store.apps && U.appsRef === store.apps && U.meta.size) { U.phase = 'manager'; U.pane = 'uninstaller'; render(); return; }
     ctx.setBusy(true);
@@ -164,7 +164,7 @@ export function enter(ctx) {
       resetData();
       applyMeta(await api.appMeta().catch(() => []));
       ok = true;
-    } catch (e) { /* erro já exibido em toast */ }
+    } catch (e) { /* error already shown in a toast */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     U.phase = ok ? 'manager' : 'idle';
@@ -172,7 +172,7 @@ export function enter(ctx) {
     render();
   }
 
-  // ---------- análise ----------
+  // ---------- scan ----------
   async function scan() {
     cancelled = false;
     U.phase = 'scan';
@@ -188,7 +188,7 @@ export function enter(ctx) {
       const ov = await api.appsOverview();
       const meta = await api.appMeta().catch(() => []);
       if (!cancelled) { applyOverview(ov); applyMeta(meta); ok = true; }
-    } catch (e) { /* erro já exibido em toast */ }
+    } catch (e) { /* error already shown in a toast */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     U.phase = ok ? 'results' : 'idle';
@@ -196,7 +196,7 @@ export function enter(ctx) {
     render();
   }
 
-  // ---------- resultados (tiles) ----------
+  // ---------- results (tiles) ----------
   function tile({ mod, glyph, title, sub, body, actions }) {
     return h('div', { class: 'ax-tile', dataset: { mod } },
       h('div', { class: 'ax-orb' }, orb(mod, 76, glyph)),
@@ -265,7 +265,7 @@ export function enter(ctx) {
       h('div', { class: 'ax-tiles' }, tUpdates, tUnused, tLeft, tInst)));
   }
 
-  // ---------- atualizações (somente abre a página; nada é instalado) ----------
+  // ---------- updates (only opens the page; nothing is installed) ----------
   async function openUpdates(ids) {
     if (!ids.length) return;
     if (ids.length > 3) {
@@ -278,13 +278,13 @@ export function enter(ctx) {
     }
     let opened = 0;
     for (const id of ids) {
-      try { await api.openUpdate(id); opened++; } catch (e) { /* toast já exibido */ }
+      try { await api.openUpdate(id); opened++; } catch (e) { /* toast already shown */ }
       await sleep(350);
     }
     if (opened && ctx.alive) toast(opened === 1 ? t('Abrindo a página da atualização.') : t('Abrindo {n} páginas de atualização.', { n: fmtNum(opened) }), 'ok');
   }
 
-  // ---------- restos e instaladores: remover ----------
+  // ---------- leftovers and installers: remove ----------
   async function removeResult(kind) {
     const res = kind === 'installers' ? U.over.installers : U.over.leftovers;
     const sel = kind === 'installers' ? U.instSel : U.leftSel;
@@ -332,7 +332,7 @@ export function enter(ctx) {
     if (r.failures.length) failuresSheet(r.failures);
   }
 
-  // ---------- concluído ----------
+  // ---------- done ----------
   function renderDone() {
     const d = U.done;
     const st = stage('apps', 'check', 260);
@@ -350,7 +350,7 @@ export function enter(ctx) {
   }
 
   // =====================================================================================================
-  // Gerenciador de Aplicativos
+  // Apps Manager
   // =====================================================================================================
   const NAV = ['uninstaller', 'updater', 'leftovers'];
 
@@ -420,7 +420,7 @@ export function enter(ctx) {
   const noScan = (what) => h('div', { class: 'rv-empty am-noscan' }, h('div', null, h('p', null, what),
     h('button', { class: 'btn sm primary', type: 'button', style: 'margin-top:12px', onClick: scan }, t('Analisar'))));
 
-  // ---------- Desinstalador ----------
+  // ---------- Uninstaller ----------
   function inGroup(a, g) {
     if (g === 'all') return true;
     if (g === 'unused') return isUnused(a);
@@ -468,7 +468,7 @@ export function enter(ctx) {
       h('div', { class: 'am-gh' }, t('Fornecedores')), vlist.map(([v, n]) => row('vendor:' + v, otherLabel(v), n)));
   }
 
-  // Restos de um app (carregados sob demanda, no máximo 2 análises ao mesmo tempo).
+  // Leftovers of an app (loaded on demand, at most 2 scans at the same time).
   let loActive = 0;
   const loWait = [];
   function loSlot() {
@@ -559,7 +559,7 @@ export function enter(ctx) {
       paintRes(a, node);
     };
     const sub = [otherLabel(vendorOf(a)), lastText(m.lastUsed)].filter(Boolean).join(' · ');
-    // Clicar na linha seleciona; a seta expande os arquivos relacionados. App aberto não seleciona.
+    // Clicking the row selects it; the arrow expands the related files. An open app is not selected.
     const rowEl = h('div', { class: 'am-row', onClick: () => (a.running ? toggleOpen() : toggleApp(a, cb)) },
         cb, iconBox(a, true),
         h('div', { class: 'rv-main' },
@@ -568,7 +568,7 @@ export function enter(ctx) {
         h('span', { class: 'rv-size' }, fmtBytes(a.size)),
         h('button', { class: 'am-chev', type: 'button', 'aria-label': t('Arquivos relacionados de {name}', { name: a.name }), 'aria-expanded': String(U.open.has(a.id)), onClick: (e) => { e.stopPropagation(); toggleOpen(); } }, icon('back', 14)));
     const node = h('div', { class: 'am-item', dataset: { app: String(a.id) } }, rowEl, h('div', { class: 'am-res', hidden: true }));
-    // Botão direito: Abrir, Mostrar no Finder e Ignorar (e Selecionar quando o app pode ser desinstalado).
+    // Right click: Open, Show in Finder and Ignore (and Select when the app can be uninstalled).
     attachMenu(rowEl, () => ({
       id: a.id, name: a.name, openApp: true, quickLook: false,
       select: a.running ? null : { on: U.sel.has(a.id), toggle: () => toggleApp(a, cb) },
@@ -583,7 +583,7 @@ export function enter(ctx) {
     return node;
   }
 
-  // "Selecionar: Tudo/Nada/Parcial ▾" da barra da lista (refeito quando a seleção muda).
+  // "Select: All/None/Partial ▾" in the list bar (rebuilt when the selection changes).
   function selBtn() {
     const selectable = visibleApps().filter((a) => !a.running);
     const nSel = selectable.filter((a) => U.sel.has(a.id)).length;
@@ -620,7 +620,7 @@ export function enter(ctx) {
       h('button', { class: 'btn primary', type: 'button', disabled: none, onClick: uninstallSelected }, icon('trash', 16), t('Desinstalar')));
   }
 
-  // ---------- desinstalação em lote ----------
+  // ---------- batch uninstall ----------
   async function uninstallSelected() {
     const list = selectedApps().filter((a) => !a.running);
     if (!list.length) return;
@@ -662,7 +662,7 @@ export function enter(ctx) {
       const lo = U.lo.get(app.id);
       const names = new Map([[app.id, { name: app.name, path: app.path }], ...(lo && lo.result ? lo.result.groups.flatMap((g) => g.items.map((i) => [i.id, { name: tr(i.name), path: i.path }])) : [])]);
       let res = null;
-      try { res = await api.uninstall(app.id, lo ? [...lo.sel] : [], permanent); } catch (e) { /* toast já exibido */ }
+      try { res = await api.uninstall(app.id, lo ? [...lo.sel] : [], permanent); } catch (e) { /* toast already shown */ }
       finished++;
       let appOk = false;
       if (res) {
@@ -694,7 +694,7 @@ export function enter(ctx) {
     if (failures.length) failuresSheet(failures);
   }
 
-  // ---------- Atualizador ----------
+  // ---------- Updater ----------
   function visibleUpdates() {
     const q = U.q.trim().toLowerCase();
     const map = byId();
@@ -743,7 +743,7 @@ export function enter(ctx) {
       h('button', { class: 'btn primary', type: 'button', disabled: !ids.length, onClick: () => openUpdates(ids) }, icon('refresh', 16), t('Atualizar||update')));
   }
 
-  // ---------- Restos e instaladores ----------
+  // ---------- Leftovers and installers ----------
   const restosRes = () => (U.restGroup === 'installers' ? U.over.installers : U.over.leftovers);
   const restosSel = () => (U.restGroup === 'installers' ? U.instSel : U.leftSel);
 
@@ -775,7 +775,7 @@ export function enter(ctx) {
       for (const it of items) {
         const cb = checkbox(sel.has(it.id) ? 'on' : 'off', () => toggle(), t('Selecionar {name}', { name: it.name }));
         const toggle = () => { if (sel.has(it.id)) sel.delete(it.id); else sel.add(it.id); cb.set(sel.has(it.id) ? 'on' : 'off'); gcb.set(state()); paintFoot(); };
-        // Por que um item não vem marcado (ou o que ele é) fica à vista: selo curto ao lado do nome, nota longa em linha própria.
+        // Why an item is not checked (or what it is) stays in view: short badge next to the name, long note on its own line.
         const longNote = !!it.note && it.note.length > 30;
         const row = h('div', { class: 'rv-item am-it' + (longNote ? ' has-note' : ''), onClick: toggle }, cb, // i18n-ignore
           h('div', { class: 'rv-ic' }, icon(U.restGroup === 'installers' ? 'disk' : groupIcon('leftovers'), 16)),

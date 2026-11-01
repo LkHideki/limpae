@@ -1,5 +1,5 @@
-// Feedback sonoro das ações principais, sintetizado com WebAudio (sem arquivos de áudio, nada de rede).
-// Cadeia: vozes → (seco + reverb gerado) → compressor → saída. Sinos com parciais inarmônicos soam como vidro.
+// Sound feedback for the main actions, synthesized with WebAudio (no audio files, nothing over the network).
+// Chain: voices → (dry + generated reverb) → compressor → output. Bells with inharmonic partials sound like glass.
 let ac = null, bus = null, enabled = true;
 
 export const setSoundEnabled = (b) => { enabled = !!b; };
@@ -37,7 +37,7 @@ function env(a, g, s, peak, attack, dur) {
   g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
 }
 
-// Sino de vidro: parciais 1 / 2,76 / 5,4 / 8,9 com decaimentos cada vez mais curtos.
+// Glass bell: partials 1 / 2.76 / 5.4 / 8.9 with increasingly shorter decays.
 function bell(a, f, t0, { gain = 0.08, dur = 1.1, pan = 0 } = {}) {
   const s = a.currentTime + t0, p = a.createStereoPanner();
   p.pan.value = pan; p.connect(bus);
@@ -61,7 +61,7 @@ function tone(a, f, t0, { f2, dur = 0.3, type = 'sine', gain = 0.06, pan = 0, lp
   o.start(s); o.stop(s + dur + 0.05);
 }
 
-// Sopro de ar filtrado que atravessa o estéreo; `up` sobe o filtro (limpeza), senão desce.
+// Puff of filtered air crossing the stereo field; `up` raises the filter (cleanup), otherwise it lowers it.
 function whoosh(a, t0, { dur = 0.7, gain = 0.07, up = true, from = -0.8, to = 0.8 } = {}) {
   const n = Math.floor(a.sampleRate * dur), buf = a.createBuffer(1, n, a.sampleRate), d = buf.getChannelData(0);
   for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
@@ -79,53 +79,53 @@ function whoosh(a, t0, { dur = 0.7, gain = 0.07, up = true, from = -0.8, to = 0.
 }
 
 const SOUNDS = {
-  // Início da análise: sopro suave que sobe e um toque de vidro.
+  // Scan start: soft puff that rises, plus a glass tap.
   start: (a) => { whoosh(a, 0, { dur: 0.55, gain: 0.035, from: -0.3, to: 0.3 }); tone(a, 784, 0.05, { f2: 1175, dur: 0.45, gain: 0.03 }); bell(a, 1568, 0.32, { gain: 0.035, dur: 0.9 }); },
-  // Resultados prontos: arpejo de três sinos.
+  // Results ready: arpeggio of three bells.
   found: (a) => { bell(a, 1047, 0, { gain: 0.07, pan: -0.25 }); bell(a, 1319, 0.08, { gain: 0.06 }); bell(a, 1568, 0.16, { gain: 0.06, pan: 0.25, dur: 1.4 }); },
-  // Limpeza concluída: varrida estéreo + arpejo ascendente cintilante.
+  // Cleanup finished: stereo sweep + sparkling ascending arpeggio.
   clean: (a) => {
     whoosh(a, 0, { dur: 0.75, gain: 0.08 });
     [1047, 1319, 1568, 2093, 2637].forEach((f, i) => bell(a, f, 0.34 + i * 0.065, { gain: 0.055 - i * 0.006, pan: -0.5 + i * 0.25, dur: 1.2 }));
     bell(a, 3136, 0.78, { gain: 0.025, dur: 1.6 });
   },
-  // Parar: dois tons descendentes, abafados.
+  // Stop: two descending, muffled tones.
   stop: (a) => { tone(a, 784, 0, { dur: 0.18, type: 'triangle', gain: 0.05, lp: 2400 }); tone(a, 523, 0.12, { dur: 0.32, type: 'triangle', gain: 0.05, lp: 2000 }); },
-  // Erro: batida grave e curta, sem susto.
+  // Error: low, short thump, no scare.
   error: (a) => { tone(a, 233, 0, { dur: 0.16, type: 'triangle', gain: 0.07, lp: 900 }); tone(a, 175, 0.13, { dur: 0.3, type: 'triangle', gain: 0.07, lp: 800 }); },
 
-  // Gestos: curtíssimos (<250 ms), baixos, nunca no hover.
-  // Marcar: vidro agudo e seco; desmarcar: toque fosco e mais grave.
+  // Gestures: very short (<250 ms), quiet, never on hover.
+  // Check: crisp, dry glass; uncheck: dull, lower tap.
   tick: (a) => bell(a, 1976, 0, { gain: 0.03, dur: 0.16 }),
   untick: (a) => tone(a, 660, 0, { dur: 0.09, type: 'triangle', gain: 0.035, lp: 1500 }),
-  // Chaves: subida curta ao ligar, descida abafada ao desligar.
+  // Switches: short rise when turned on, muffled fall when turned off.
   'switch-on': (a) => { tone(a, 520, 0, { f2: 780, dur: 0.14, gain: 0.04 }); bell(a, 1568, 0.05, { gain: 0.025, dur: 0.2 }); },
   'switch-off': (a) => tone(a, 659, 0, { f2: 440, dur: 0.14, type: 'triangle', gain: 0.04, lp: 1800 }),
-  // Troca de módulo: sopro bem baixo e um toque.
+  // Module switch: very quiet puff and a tap.
   nav: (a) => { whoosh(a, 0, { dur: 0.16, gain: 0.012, from: -0.15, to: 0.15 }); bell(a, 1175, 0.03, { gain: 0.03, dur: 0.22 }); },
-  // Pressionar botão primário.
+  // Pressing the primary button.
   pop: (a) => { tone(a, 392, 0, { f2: 587, dur: 0.09, gain: 0.04, lp: 2200 }); bell(a, 1047, 0, { gain: 0.02, dur: 0.15 }); },
-  // Diálogo: abre com leve subida, fecha com descida.
+  // Dialog: opens with a slight rise, closes with a fall.
   open: (a) => { tone(a, 440, 0, { f2: 660, dur: 0.18, gain: 0.03 }); bell(a, 1319, 0.05, { gain: 0.025, dur: 0.18 }); },
   close: (a) => tone(a, 587, 0, { f2: 392, dur: 0.16, type: 'triangle', gain: 0.03, lp: 1800 }),
-  // Diálogo destrutivo: dois tons graves e suaves, sem susto.
+  // Destructive dialog: two soft low tones, no scare.
   warn: (a) => { tone(a, 247, 0, { dur: 0.12, gain: 0.04, lp: 700 }); tone(a, 196, 0.09, { dur: 0.16, gain: 0.04, lp: 600 }); },
-  // Menu abrindo: tique mínimo.
+  // Menu opening: minimal tick.
   menu: (a) => bell(a, 2093, 0, { gain: 0.018, dur: 0.09 }),
-  // Toasts: sucesso com dois sinos; erro é um 'error' mais macio.
+  // Toasts: success with two bells; error is a softer 'error'.
   ok: (a) => { bell(a, 1319, 0, { gain: 0.045, dur: 0.5, pan: -0.15 }); bell(a, 1760, 0.09, { gain: 0.04, dur: 0.7, pan: 0.15 }); },
   err: (a) => { tone(a, 247, 0, { dur: 0.14, type: 'triangle', gain: 0.045, lp: 700 }); tone(a, 196, 0.1, { dur: 0.24, type: 'triangle', gain: 0.045, lp: 650 }); },
 };
 
-// Duração aproximada (ms) de cada voz, para contar as ativas sem acompanhar cada nó.
+// Approximate duration (ms) of each voice, to count the active ones without tracking each node.
 const LIFE = { start: 1500, found: 1600, clean: 2700, stop: 600, error: 600, tick: 250, untick: 200, 'switch-on': 350, 'switch-off': 300, nav: 350, pop: 250, open: 350, close: 250, warn: 350, menu: 200, ok: 900, err: 450 };
-// Toast que acompanha um som de resultado já tocado não soa de novo.
+// A toast that accompanies an already-played result sound does not sound again.
 const DUCK = { ok: ['clean', 'found'], err: ['error'] };
 const MIN_GAP = 40, DUCK_MS = 400, MAX_VOICES = 6;
 const last = new Map();
 let active = 0, lastAt = 0;
 
-// Instante (performance.now) do último som que de fato tocou; feel.js usa para não somar o 'pop' a um som da view.
+// Instant (performance.now) of the last sound that actually played; feel.js uses it to avoid adding the 'pop' to a view's sound.
 export const lastPlayedAt = () => lastAt;
 
 export function play(name) {
@@ -141,5 +141,5 @@ export function play(name) {
     SOUNDS[name](a);
     last.set(name, now); lastAt = now; active++;
     setTimeout(() => { active = Math.max(0, active - 1); }, LIFE[name] || 800);
-  } catch (e) { /* som é opcional */ }
+  } catch (e) { /* sound is optional */ }
 }

@@ -1,4 +1,4 @@
-// Remoção em lotes por grupo (para mostrar progresso), consolidando falhas por item.
+// Batch removal by group (to show progress), consolidating failures per item.
 import { api } from './api.js';
 import { t } from './i18n.js';
 
@@ -9,13 +9,13 @@ export function outcomesToFailures(outcomes, byId) {
   });
 }
 
-// onGroup(group, status, info) com status: run | done | fail.
-// info.freed = bytes tratados no grupo (liberados + enviados ao Lixo); info.trashed = a parte que só foi ao Lixo.
-// opts.permanent: apaga em vez de mandar ao Lixo; opts.stopped(): interrompe entre grupos (o backend também
-// interrompe entre itens via cancel_scan).
-// Resultado: `freed` = bytes realmente liberados (apagados de vez); `trashed` = bytes que só foram para o Lixo
-// (o espaço volta quando a Lixeira for esvaziada); `handled` = os dois somados. O resultado por item não diz o que
-// aconteceu: deriva-se da flag `trash` do item e da escolha "Apagar definitivamente".
+// onGroup(group, status, info) with status: run | done | fail.
+// info.freed = bytes handled in the group (freed + sent to Trash); info.trashed = the part that only went to Trash.
+// opts.permanent: deletes instead of sending to Trash; opts.stopped(): stops between groups (the backend also
+// stops between items via cancel_scan).
+// Result: `freed` = bytes actually freed (deleted for good); `trashed` = bytes that only went to Trash
+// (the space returns once Trash is emptied); `handled` = both combined. The per-item result does not say what
+// happened: it is derived from the item's `trash` flag and the "Delete permanently" choice.
 export async function removeGroups(result, sel, onGroup = () => {}, opts = {}) {
   const okIds = new Set();
   const failures = [];
@@ -24,7 +24,7 @@ export async function removeGroups(result, sel, onGroup = () => {}, opts = {}) {
   for (const g of groups) {
     const items = g.items.filter((i) => sel.has(i.id));
     if (opts.stopped && opts.stopped()) {
-      failures.push(...items.map((i) => ({ id: i.id, name: i.name, path: i.path, error: 'cancelado; o item continua no lugar' /* i18n-ignore: chave de tr() em failuresSheet */ })));
+      failures.push(...items.map((i) => ({ id: i.id, name: i.name, path: i.path, error: 'cancelado; o item continua no lugar' /* i18n-ignore: key of tr() in failuresSheet */ })));
       onGroup(g, 'fail', { freed: 0, trashed: 0, done, total: groups.length, failed: items.length });
       continue;
     }
@@ -54,8 +54,8 @@ export async function removeGroups(result, sel, onGroup = () => {}, opts = {}) {
   return { okIds, failures, freed, trashed, handled: freed + trashed };
 }
 
-// Botão redondo "Parar" com o anel de progresso durante uma remoção: progress(p) atualiza o anel e
-// stopped() diz se o usuário parou (o backend também para entre itens via cancel_scan).
+// Round "Stop" button with the progress ring during a removal: progress(p) updates the ring and
+// stopped() tells whether the user stopped (the backend also stops between items via cancel_scan).
 export function stopDock(ctx, mod) {
   let stop = false, last = 0;
   const paint = () => ctx.setDock({ label: stop ? t('Parando') : t('Parar'), busy: true, progress: last, mod, disabled: stop,

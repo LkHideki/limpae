@@ -1,4 +1,4 @@
-// Formatação no idioma da interface. Unidades decimais como o Finder (1 GB = 1e9 bytes).
+// Formatting in the interface language. Decimal units like Finder (1 GB = 1e9 bytes).
 import { t, lazyIntl } from './i18n.js';
 
 const nf0 = lazyIntl('NumberFormat', { maximumFractionDigits: 0 });

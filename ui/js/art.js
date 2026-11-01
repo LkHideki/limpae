@@ -1,4 +1,4 @@
-// Ícones SVG (traço) e ilustrações "orb" em CSS. Arte original, sem assets externos.
+// SVG icons (stroke) and CSS "orb" illustrations. Original artwork, no external assets.
 import { h, s } from './dom.js';
 import { t } from './i18n.js';
 
@@ -52,7 +52,7 @@ export function icon(name, size = 18, cls = '') {
     ...P[name].map((d) => s('path', { d })));
 }
 
-// Ícone por id de grupo (junk/large/lixeira); cai em "folder". Lixeiras de volumes externos têm id "trash:<volume>".
+// Icon by group id (junk/large/trash); falls back to "folder". Trash of external volumes have id "trash:<volume>".
 const GROUP_ICON = {
   user_caches: 'box', user_logs: 'log', xcode: 'hammer', dev_caches: 'code', ai_clutter: 'chip', broken_prefs: 'prefs',
   broken_login_items: 'unlink', ios_backups: 'phone', mail_attachments: 'mail', video: 'video', archive: 'archive',
@@ -63,7 +63,7 @@ export const groupIcon = (id) => {
   return P[GROUP_ICON[key]] ? GROUP_ICON[key] : 'folder';
 };
 
-// Orb: bolha glossy em camadas de gradiente radial + glifo; `mod` escolhe paleta/forma via CSS.
+// Orb: glossy bubble in layered radial gradient + glyph; `mod` picks palette/shape via CSS.
 export function orb(mod, size = 200, glyph) {
   const g = icon(glyph || mod, 24, 'orb-glyph');
   g.removeAttribute('width'); g.removeAttribute('height');
@@ -71,7 +71,7 @@ export function orb(mod, size = 200, glyph) {
     h('div', { class: 'orb-body' }), h('div', { class: 'orb-rim' }), h('div', { class: 'orb-gloss' }), g);
 }
 
-// `label` é uma função: MODS é constante de módulo e o idioma só é conhecido depois, então traduz na hora de exibir.
+// `label` is a function: MODS is a module constant and the language is only known later, so it is translated at display time.
 export const MODS = [
   { id: 'smart', label: () => t('Faxina'), glyph: 'smart' },
   { id: 'clean', label: () => t('Entulho'), glyph: 'clean' },

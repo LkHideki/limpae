@@ -1,5 +1,5 @@
-// iCloud (iCloud Drive): lista arquivos baixados no Mac e remove só a cópia local ("desincronizar").
-// O arquivo continua no iCloud e baixa de novo quando é aberto. Nada aqui apaga dados da nuvem.
+// iCloud (iCloud Drive): lists files downloaded to the Mac and removes only the local copy ("unsync").
+// The file stays in iCloud and downloads again when opened. Nothing here deletes cloud data.
 import { play } from '../sound.js';
 import { h, mount } from '../dom.js';
 import { icon } from '../art.js';
@@ -11,11 +11,11 @@ import { outcomesToFailures } from '../actions.js';
 import { createReview } from './review.js';
 import { t } from '../i18n.js';
 
-const MARK = '\u0001'; // marcador {b} onde entra o trecho em negrito
+const MARK = '\u0001'; // {b} marker where the bold fragment goes
 const withNode = (s, node) => { const [a, b = ''] = s.split(MARK); return [a, node, b]; };
 
 const BATCH = 8;
-// Sessão do módulo: sobrevive à troca de aba.
+// Module session: survives switching tabs.
 const C = { phase: 'idle', result: null, sel: new Set(), freed: 0 };
 
 export function enter(ctx) {
@@ -65,7 +65,7 @@ export function enter(ctx) {
     try {
       const r = await api.cloudScan();
       if (!cancelled) { C.result = r; C.sel = new Set(); ok = true; }
-    } catch (e) { /* toast já exibido */ }
+    } catch (e) { /* toast already shown */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     C.phase = ok ? 'summary' : 'idle';
@@ -93,8 +93,8 @@ export function enter(ctx) {
     ctx.setDock(null);
   }
 
-  // Resumo: o total baixado e os arquivos grandes, cada um com Revisar e Liberar do Mac.
-  // Nada vem marcado: "Liberar do Mac" num bloco marca só aquele bloco e pede confirmação.
+  // Summary: the total downloaded and the large files, each with Review and Free from Mac.
+  // Nothing comes checked: "Free from Mac" on a block checks only that block and asks for confirmation.
   const BIG = 100e6;
   function renderSummary() {
     st = null;
@@ -151,7 +151,7 @@ export function enter(ctx) {
     st = null; ensureStage(); st.busy(true);
     const line = h('p', { class: 'sub' }, t('{done} de {total}', { done: 0, total: count }));
     st.show(h('h1', { class: 'h1' }, t('Liberando do Mac…')), line);
-    ctx.setDock(null); // a operação não pode ser interrompida entre lotes pelo backend: sem botão que pareça Parar
+    ctx.setDock(null); // the operation cannot be interrupted between batches by the backend: no button that looks like Stop
 
     const items = C.result.groups.flatMap((g) => g.items).filter((i) => C.sel.has(i.id));
     const byId = new Map(items.map((i) => [i.id, i]));

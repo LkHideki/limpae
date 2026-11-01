@@ -1,20 +1,20 @@
-// Estado compartilhado entre módulos. Seleção fica no cliente; só ids selecionados vão para `remove`.
+// State shared between modules. Selection lives on the client; only selected ids go to `remove`.
 export const store = {
-  rev: 0,            // incrementa quando dados mudam fora da Faxina (invalida seus resultados)
+  rev: 0,            // increments when data changes outside Sweep (invalidates its results)
   busy: false,
   disk: null,
   junk: null, junkSel: new Set(),
-  trash: null, trashSel: new Set(), trashSelRef: null,   // trashSel = itens marcados para esvaziar (tudo, por padrão)
+  trash: null, trashSel: new Set(), trashSelRef: null,   // trashSel = items marked for emptying (all, by default)
   apps: null,
   large: null, largeMb: 500, largeSel: new Set(),
   smart: { phase: 'idle', rev: 0, tiles: {}, freed: {}, trashed: {}, mods: [], inc: {}, sum: {}, snap: {}, out: {}, apps: null, stopped: false },
   cleanup: { phase: 'idle', freed: 0, failed: 0 },
   trashUi: { phase: 'idle', freed: 0 },
   files: { phase: 'idle', moved: 0 },
-  filesFrom: null,   // resultado de duplicados em Downloads entregue pela Faxina (revisão em Arquivos)
+  filesFrom: null,   // duplicates result in Downloads handed over by Sweep (review in Files)
   icons: new Map(),
   settings: null,
-  openSection: null,   // dica de seção para o módulo de destino (Ferramentas); o módulo pode ler e limpar
+  openSection: null,   // section hint for the destination module (Toolbox); the module may read and clear it
 };
 
 export const bump = () => { store.rev++; };

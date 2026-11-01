@@ -1,4 +1,4 @@
-// Ferramentas: grade pesquisável das ferramentas do app, com favoritos e o Modo de limpeza de tela.
+// Toolbox: searchable grid of the app's tools, with favorites and Screen Cleaning Mode.
 import { h, s, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { store } from '../store.js';
@@ -6,7 +6,7 @@ import { t } from '../i18n.js';
 
 const FAV_KEY = 'limpae.tools.fav';
 
-// Ícones que o conjunto principal não tem; os demais vêm de art.js.
+// Icons that the main set lacks; the rest come from art.js.
 const PATHS = {
   copy: ['M8.5 8.5h10v11h-10z', 'M5.5 15.5v-10h10'],
   image: ['M4.5 5.5h15v13h-15z', 'M4.5 16l4.6-4.6 3.6 3.6 2.4-2.4 4.4 4.4', 'M9 9.4h.01'],
@@ -21,8 +21,8 @@ function ti(name, size = 18, cls = '') {
     ...PATHS[name].map((d) => s('path', { d })));
 }
 
-// getTools: função porque o idioma só é conhecido depois de carregar o módulo.
-// to = id do módulo (ctx.nav); `mod` dá a cor do tile. Sem seção interna: os módulos não leem dica de seção.
+// getTools: a function because the language is only known after the module is loaded.
+// to = module id (ctx.nav); `mod` gives the tile color. No internal section: the modules do not read a section hint.
 const getTools = () => [
   { id: 'junk', name: t('Lixo do sistema'), desc: t('Caches, registros e restos que os apps recriam sozinhos.'), ic: 'clean', mod: 'clean', to: 'clean' },
   { id: 'trash', name: t('Lixeira'), desc: t('Veja o que há na Lixeira e esvazie de uma vez.'), ic: 'trash', mod: 'trash', to: 'trash' },
@@ -55,17 +55,17 @@ function loadFavs() {
   } catch (e) { return []; }
 }
 function saveFavs(list) {
-  try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch (e) { /* armazenamento indisponível: vale só nesta sessão */ }
+  try { localStorage.setItem(FAV_KEY, JSON.stringify(list)); } catch (e) { /* storage unavailable: applies only to this session */ }
 }
-// ---------- Modo de limpeza de tela ----------
-// Sobreposição preta em tela cheia que engole teclado e mouse; sai segurando Esc por 2 s. Atalhos do sistema
-// (Cmd+Q, Cmd+Tab, Mission Control) são tratados pelo macOS antes da página e continuam funcionando.
+// ---------- Screen Cleaning Mode ----------
+// Full-screen black overlay that swallows keyboard and mouse; exit by holding Esc for 2 s. System shortcuts
+// (Cmd+Q, Cmd+Tab, Mission Control) are handled by macOS before the page and keep working.
 const HOLD_MS = 2000;
 const BLOCK = ['keydown', 'keyup', 'keypress', 'beforeinput', 'input', 'mousedown', 'mouseup', 'mousemove', 'click', 'dblclick', 'auxclick', 'contextmenu',
   'wheel', 'pointerdown', 'pointerup', 'pointermove', 'touchstart', 'touchmove', 'touchend', 'dragstart', 'selectstart', 'copy', 'cut', 'paste'];
 
-// Pede tela cheia pela API da janela do Tauri (precisa da permissão core:window:allow-set-fullscreen) e, se ela
-// falhar, pela API do navegador. Devolve a função que desfaz, ou null se nada mudou.
+// Requests full screen via the Tauri window API (needs the core:window:allow-set-fullscreen permission) and, if it
+// fails, via the browser API. Returns the function that undoes it, or null if nothing changed.
 async function enterFullscreen() {
   try {
     const T = window.__TAURI__;
@@ -73,15 +73,15 @@ async function enterFullscreen() {
     if (w) {
       if (await w.isFullscreen()) return null;
       await w.setFullscreen(true);
-      return async () => { try { await w.setFullscreen(false); } catch (e) { /* ignora */ } };
+      return async () => { try { await w.setFullscreen(false); } catch (e) { /* ignore */ } };
     }
-  } catch (e) { /* sem permissão ou sem API: tenta a do navegador */ }
+  } catch (e) { /* no permission or no API: tries the browser's */ }
   try {
     if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
       await document.documentElement.requestFullscreen();
-      return async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) { /* ignora */ } };
+      return async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) { /* ignore */ } };
     }
-  } catch (e) { /* a sobreposição sozinha já cobre a janela */ }
+  } catch (e) { /* the overlay alone already covers the window */ }
   return null;
 }
 

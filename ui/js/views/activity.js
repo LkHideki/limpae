@@ -1,4 +1,4 @@
-// Saúde: saúde do Mac, recomendações e o que o Limpae já liberou (lido do registro de ações).
+// Health: the Mac's health, recommendations and what Limpae has already freed (read from the action log).
 import { h, s, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { api, call } from '../api.js';
@@ -8,7 +8,7 @@ import { t, tn, tr, lazyIntl } from '../i18n.js';
 const getHealth = () => call('health', undefined, { quiet: true });
 const getActivity = () => call('activity', undefined, { quiet: true });
 
-// Chaves = nível em português como o backend envia (decisão lógica); o texto exibido é traduzido na hora.
+// Keys = level in Portuguese as the backend sends it (a logic decision); the displayed text is translated at display time.
 const LEVELS = {
   'Excelente': { key: 'excelente', text: () => t('Seu Mac está ótimo. Mantenha a manutenção em dia para ele continuar assim.') }, // i18n-ignore
   'Boa': { key: 'boa', text: () => t('Seu Mac está em boa forma. Alguns cuidados deixam o desempenho ainda melhor.') }, // i18n-ignore
@@ -21,7 +21,7 @@ const shortDateFmt = lazyIntl('DateTimeFormat', { day: 'numeric', month: 'short'
 
 function dayStart(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
 
-// "hoje", "ontem", "há 5 dias", "há 2 meses" (por dia do calendário, não por 24 h).
+// "today", "yesterday", "5 days ago", "2 months ago" (by calendar day, not by 24 h).
 export function relativeDays(unixSec, now = new Date()) {
   const days = Math.round((dayStart(now) - dayStart(new Date(unixSec * 1000))) / 86400000);
   if (days <= 0) return t('hoje');
@@ -33,7 +33,7 @@ export function relativeDays(unixSec, now = new Date()) {
 
 const shortDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return shortDateFmt.format(new Date(y, m - 1, d)); };
 
-// Anel de pontuação: trilho + arco proporcional ao score, na cor do nível.
+// Score ring: track + arc proportional to the score, in the level's color.
 function ring(score) {
   const R = 84, C = 2 * Math.PI * R;
   const arc = s('circle', { class: 'ring-arc', cx: 100, cy: 100, r: R, 'stroke-dasharray': C.toFixed(1), 'stroke-dashoffset': C.toFixed(1), transform: 'rotate(-90 100 100)' });
@@ -78,7 +78,7 @@ function recommendations(ctx, hl) {
       : h('div', { class: 'rec-ok' }, h('span', { class: 'rec-ic ok', 'aria-hidden': 'true' }, icon('check', 18)), h('div', null, h('b', null, t('Tudo certo por aqui')), h('p', null, t('Nenhuma recomendação no momento. Continue cuidando do Mac com regularidade.')))));
 }
 
-// Sparkline em SVG: área + linha dos últimos 30 dias, com um alvo (<title>) por dia para o tooltip nativo.
+// SVG sparkline: area + line for the last 30 days, with one target (<title>) per day for the native tooltip.
 function sparkline(days) {
   const W = 300, H = 72, PAD = 6;
   const max = Math.max(...days.map((d) => d.bytes), 1);
