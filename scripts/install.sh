@@ -19,6 +19,16 @@ fi
 
 cargo tauri build --bundles app
 
+# The bundle is signed ad hoc, and macOS ties privacy grants (Full Disk Access) to an ad-hoc signature's hash,
+# so every rebuild would need a new grant. If a local code-signing identity exists, re-sign with it: the
+# designated requirement becomes "bundle id + certificate", which survives rebuilds. Override with
+# LIMPAE_SIGN_IDENTITY; the default name matches the README's instructions.
+SIGN_IDENTITY="${LIMPAE_SIGN_IDENTITY:-Limpae Local}"
+if security find-identity -p codesigning | grep -q "\"$SIGN_IDENTITY\""; then
+    codesign --force --deep --sign "$SIGN_IDENTITY" --entitlements src-tauri/Entitlements.plist "$SRC"
+    echo "Signed with \"$SIGN_IDENTITY\"."
+fi
+
 # A running copy keeps the old binary mapped; ask it to quit before replacing.
 pkill -x limpae 2>/dev/null && sleep 1 || true
 

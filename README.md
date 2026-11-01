@@ -98,6 +98,8 @@ The script builds a release bundle, copies it to `~/Applications/Limpae.app`, re
 
 Limpae works without any special permission, but it cannot read the Trash or part of `~/Library` until you grant **Full Disk Access** (System Settings › Privacy & Security › Full Disk Access). The local build is ad-hoc signed, so macOS ties the grant to the binary hash: after rebuilding you have to grant it again.
 
+To keep the grant across rebuilds, create a self-signed code-signing certificate once: Keychain Access › Certificate Assistant › Create a Certificate, name **Limpae Local**, identity type *Self Signed Root*, certificate type *Code Signing*. `scripts/install.sh` finds it and re-signs the bundle with it (set `LIMPAE_SIGN_IDENTITY` to use another name). Grant Full Disk Access once more after the first signed install.
+
 Removing system-installed apps asks Finder to move them, which prompts for your administrator password. Listing login items uses System Events. Both prompts are localized.
 
 ## Languages
