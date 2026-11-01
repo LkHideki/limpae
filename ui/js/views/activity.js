@@ -1,4 +1,4 @@
-// Minha Atividade: saúde do Mac, recomendações e o que o Limpae já liberou (lido do registro de ações).
+// Saúde: saúde do Mac, recomendações e o que o Limpae já liberou (lido do registro de ações).
 import { h, s, mount } from '../dom.js';
 import { icon } from '../art.js';
 import { api, call } from '../api.js';
@@ -105,8 +105,8 @@ function statCards(ctx, a) {
       h('section', { class: 'act-card act-stat act-empty' },
         h('span', { class: 'as-ic', 'aria-hidden': 'true' }, icon('smart', 22)),
         h('h3', null, t('Nenhuma limpeza ainda')),
-        h('p', null, t('Comece pelo Faxina para ver aqui quantos GB você libera, mês a mês.')),
-        h('button', { class: 'btn primary sm', type: 'button', onClick: goSmart }, t('Ir para o Faxina'))),
+        h('p', null, t('Comece pela Faxina para ver aqui quantos GB você libera, mês a mês.')),
+        h('button', { class: 'btn primary sm', type: 'button', onClick: goSmart }, t('Ir para a Faxina'))),
       h('section', { class: 'act-card act-spark empty' },
         h('div', { class: 'asp-top' }, h('h3', null, t('Últimos 30 dias'))),
         h('div', { class: 'asp-empty' }, t('O gráfico aparece depois da primeira limpeza.'))),
@@ -137,7 +137,7 @@ export function enter(ctx) {
   const statsBox = h('div', { class: 'act-stats' });
   const recsBox = h('div', { class: 'act-recs-box' });
   mount(ctx.root, h('div', { class: 'act' },
-    h('header', { class: 'set-head' }, h('h1', { class: 'h2' }, t('Minha Atividade'))),
+    h('header', { class: 'set-head' }, h('h1', { class: 'h2' }, t('Saúde'))),
     h('div', { class: 'act-grid' }, healthBox, statsBox),
     recsBox));
 

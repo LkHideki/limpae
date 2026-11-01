@@ -50,7 +50,7 @@ export default {
   'Avançar': { en: 'Forward', id: 'Maju' },
   'Caminho': { en: 'Path', id: 'Jalur' },
   'Revisar e Remover': { en: 'Review and Remove', id: 'Tinjau dan Hapus' },
-  'Recomeçar': { en: 'Start Over', id: 'Mulai Ulang' },
+  'Recomeçar': { en: 'Scan Again', id: 'Pindai Lagi' },
   'Mover para o Lixo': { en: 'Move to Trash', id: 'Pindahkan ke Tempat Sampah' },
   'Nada selecionado.': { en: 'Nothing selected.', id: 'Tidak ada yang dipilih.' },
   'Mover 1 item para o Lixo?': { en: 'Move 1 item to the Trash?', id: 'Pindahkan 1 item ke Tempat Sampah?' },

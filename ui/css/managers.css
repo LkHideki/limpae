@@ -18,7 +18,7 @@
 /* Rodapé: seleção + ação. O aviso do último resultado traz o link "Ver log". */
 .rv-sel .link { margin-left: 6px; font-size: 14px; }
 
-/* ---- Resumo com blocos (Limpeza e Nuvem): total, "Revisar tudo" e um bloco por tipo ---- */
+/* ---- Resumo com blocos (Entulho e iCloud): total, "Revisar tudo" e um bloco por tipo ---- */
 .cl-results { overflow: auto; padding-bottom: 8px; }
 .cl-tiles { margin-top: 24px; width: 100%; max-width: 860px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; text-align: left; flex: none; }
 .cl-tiles[data-n="1"] { grid-template-columns: minmax(0, 380px); justify-content: center; }
@@ -48,7 +48,7 @@
 /* Conclusão: "Ver log" + "Concluir" centralizados */
 .bento-foot.center { left: 0; right: 0; bottom: 22px; display: flex; justify-content: center; align-items: center; gap: 14px; }
 
-/* ---- Meus Arquivos ---- */
+/* ---- Arquivos ---- */
 /* Os botões de ação (Visualização Rápida, Mostrar no Finder) aparecem sobre o tamanho, sob o mouse ou o foco do teclado:
    o nome e o caminho ficam com a largura toda, inclusive em janelas estreitas. */
 .fm-row .fm-act { position: absolute; top: 50%; right: 18px; width: 30px; height: 30px; margin: -15px 0 0; background: rgba(14, 32, 66, .94); transition: opacity .15s; }

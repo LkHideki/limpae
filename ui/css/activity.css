@@ -1,4 +1,4 @@
-/* ============ Minha Atividade (INC-17) ============ */
+/* ============ Saúde (INC-17) ============ */
 .act { height: 100%; overflow: auto; padding: 4px 8px 28px; display: flex; flex-direction: column; gap: 18px; }
 .act-grid { display: grid; grid-template-columns: minmax(290px, 1.05fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
 .act-health-box { display: flex; min-width: 0; }

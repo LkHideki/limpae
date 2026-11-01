@@ -1,4 +1,4 @@
-// Ajustes: sons, escopo do Faxina e lista de ignorados.
+// Ajustes: sons, escopo da Faxina e lista de ignorados.
 import { h, mount, mid } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
@@ -9,8 +9,8 @@ import { t, applyLangSetting, LANGS } from '../i18n.js';
 
 // Função: o idioma só é conhecido depois de carregar o módulo.
 const scopeList = () => [
-  ['junk', t('Limpeza')], ['trash', t('Lixeira')], ['protection', t('Proteção')],
-  ['performance', t('Desempenho')], ['apps', t('Aplicativos')], ['files', t('Meus Arquivos')],
+  ['junk', t('Entulho')], ['trash', t('Lixeira')], ['protection', t('Segurança')],
+  ['performance', t('Velocidade')], ['apps', t('Aplicativos')], ['files', t('Arquivos')],
 ];
 
 export function enter(ctx) {

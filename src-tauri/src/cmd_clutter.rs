@@ -76,8 +76,8 @@ pub async fn scan_duplicates(app: AppHandle, state: State<'_, Shared>, location:
     .await
 }
 
-/// Duplicates inside `~/Downloads` only (the Sweep "Meus Arquivos" tile). Same registry task as
-/// `scan_duplicates`, so "Revisar" opens My Files on the Duplicates category with these results. Review-only:
+/// Duplicates inside `~/Downloads` only (the Sweep "Arquivos" tile). Same registry task as
+/// `scan_duplicates`, so "Revisar" opens Files on the Duplicates category with these results. Review-only:
 /// the UI never pre-selects user files, and Run never touches them.
 #[tauri::command]
 pub async fn scan_download_dups(app: AppHandle, state: State<'_, Shared>) -> Result<ScanResult, String> {

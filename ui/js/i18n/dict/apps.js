@@ -81,7 +81,7 @@ export default {
 
   // ---- gerenciador
   'Seções': { en: 'Sections', id: 'Bagian' },
-  'Gerenciador de Aplicativos': { en: 'Application Manager', id: 'Pengelola Aplikasi' },
+  'Gerenciador de Aplicativos': { en: 'App Manager', id: 'Pengelola Aplikasi' },
   'Buscar': { en: 'Search', id: 'Cari' },
   'Inverter a ordem': { en: 'Reverse order', id: 'Balik urutan' },
   'Tamanho': { en: 'Size', id: 'Ukuran' },

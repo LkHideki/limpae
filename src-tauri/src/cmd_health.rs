@@ -1,4 +1,4 @@
-//! Mac health, "Minha Atividade" and the cheap system snapshot shared with the menu bar. No command here takes a
+//! Mac health, "Saúde" and the cheap system snapshot shared with the menu bar. No command here takes a
 //! path or removes anything.
 
 use std::path::Path;
@@ -163,7 +163,7 @@ pub async fn activity(state: State<'_, Shared>) -> Result<ActivityDto, String> {
     .await
 }
 
-/// The Sweep view calls this when a run finishes; it feeds the health score and "Minha Atividade".
+/// The Sweep view calls this when a run finishes; it feeds the health score and "Saúde".
 #[tauri::command]
 pub fn mark_smart_care(state: State<'_, Shared>) -> Result<(), String> {
     let mut s = lock(&state.settings);

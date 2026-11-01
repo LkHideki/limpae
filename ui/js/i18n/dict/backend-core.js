@@ -23,14 +23,14 @@ export default {
   },
   'Esvaziar Lixeira': { en: 'Empty Trash', id: 'Kosongkan Tempat Sampah' },
   'Executar Faxina': { en: 'Run Sweep', id: 'Jalankan Sapu Bersih' },
-  'Nenhum Faxina ainda': { en: 'No Sweep yet', id: 'Belum ada Sapu Bersih' },
-  'Você ainda não executou o Faxina neste Mac.': {
-    en: 'You haven’t run Sweep on this Mac yet.',
+  'Nenhuma Faxina ainda': { en: 'No Sweep yet', id: 'Belum ada Sapu Bersih' },
+  'Você ainda não fez uma Faxina neste Mac.': {
+    en: 'You haven’t run a Sweep on this Mac yet.',
     id: 'Anda belum menjalankan Sapu Bersih di Mac ini.',
   },
   'Faz tempo desde a última limpeza': { en: 'It’s been a while since the last cleanup', id: 'Sudah lama sejak pembersihan terakhir' },
   'Hora de cuidar do Mac': { en: 'Time to take care of your Mac', id: 'Saatnya merawat Mac Anda' },
-  'O último Faxina foi há {d} dias.': {
+  'A última Faxina foi há {d} dias.': {
     en: 'The last Sweep was {d} days ago.',
     id: 'Sapu Bersih terakhir dilakukan {d} hari lalu.',
   },
@@ -39,7 +39,7 @@ export default {
     en: 'Your Mac has been on for {d} days. Restarting frees up memory and applies updates.',
     id: 'Mac Anda sudah menyala selama {d} hari. Memulai ulang akan membebaskan memori dan menerapkan pembaruan.',
   },
-  'Ver Desempenho': { en: 'View Performance', id: 'Lihat Kinerja' },
+  'Ver Velocidade': { en: 'Open Speed', id: 'Buka Kecepatan' },
   'Memória sob pressão': { en: 'Memory under pressure', id: 'Memori tertekan' },
   'O macOS está comprimindo memória. Feche apps que você não usa.': {
     en: 'macOS is compressing memory. Close apps you aren’t using.',

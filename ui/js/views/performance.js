@@ -103,7 +103,7 @@ export function enter(ctx) {
     st = null;
     S.phase = 'idle';
     ensureStage();
-    st.show(h('h1', { class: 'h1' }, t('Desempenho')),
+    st.show(h('h1', { class: 'h1' }, t('Velocidade')),
       h('p', { class: 'sub' }, t('Veja o que roda sozinho no seu Mac e acompanhe a saúde do sistema.')),
       features('perf', [['chip', t('Agentes em segundo plano')], ['restart', t('Itens de login')], ['pulse', t('Monitor do sistema')]]),
       S.res ? h('div', { class: 'row-actions', style: 'margin-top:18px' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.phase = 'results'; render(); } }, t('Voltar aos resultados'))) : null,
@@ -447,8 +447,8 @@ export function enter(ctx) {
       if (S.tab === 'snaps') showTab(); else renderNav();
     }
 
-    const el = h('section', { class: 'review fm pf enter', dataset: { mod: 'perf' }, 'aria-label': t('Gerenciador de desempenho') },
-      managerBar({ title: t('Desempenho'), subtitle: t('Revise o que roda sozinho e acompanhe o uso do Mac.'), onBack: back }),
+    const el = h('section', { class: 'review fm pf enter', dataset: { mod: 'perf' }, 'aria-label': t('Gerenciador de velocidade') },
+      managerBar({ title: t('Velocidade'), subtitle: t('Revise o que roda sozinho e acompanhe o uso do Mac.'), onBack: back }),
       h('div', { class: 'fm-body' }, navEl, h('div', { class: 'fm-pane' }, headEl, bodyEl)),
       h('div', { class: 'rv-foot' }, footEl, actionBtn));
     mount(ctx.root, el);

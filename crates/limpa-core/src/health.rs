@@ -230,8 +230,8 @@ fn smart_care_entry(days: Option<u32>) -> Option<Entry> {
             8,
             "smart_care",
             Severity::Info,
-            "Nenhum Faxina ainda",
-            "Você ainda não executou o Faxina neste Mac.".into(),
+            "Nenhuma Faxina ainda",
+            "Você ainda não fez uma Faxina neste Mac.".into(),
             action,
         )),
         Some(d) if d > 30 => Some(entry(
@@ -239,7 +239,7 @@ fn smart_care_entry(days: Option<u32>) -> Option<Entry> {
             "smart_care",
             Severity::Warn,
             "Faz tempo desde a última limpeza",
-            format!("O último Faxina foi há {d} dias."),
+            format!("A última Faxina foi há {d} dias."),
             action,
         )),
         Some(d) if d > 14 => Some(entry(
@@ -247,7 +247,7 @@ fn smart_care_entry(days: Option<u32>) -> Option<Entry> {
             "smart_care",
             Severity::Info,
             "Hora de cuidar do Mac",
-            format!("O último Faxina foi há {d} dias."),
+            format!("A última Faxina foi há {d} dias."),
             action,
         )),
         Some(d) if d > 7 => Some(entry(
@@ -255,7 +255,7 @@ fn smart_care_entry(days: Option<u32>) -> Option<Entry> {
             "smart_care",
             Severity::Info,
             "Hora de cuidar do Mac",
-            format!("O último Faxina foi há {d} dias."),
+            format!("A última Faxina foi há {d} dias."),
             action,
         )),
         Some(_) => None,
@@ -281,7 +281,7 @@ fn uptime_entry(days: f64) -> Option<Entry> {
 }
 
 fn memory_entry(m: MemoryPressure) -> Option<Entry> {
-    let action = Some(("Ver Desempenho", "perf"));
+    let action = Some(("Ver Velocidade", "perf"));
     match m {
         MemoryPressure::Normal => None,
         MemoryPressure::Warning => Some(entry(
@@ -629,7 +629,7 @@ mod tests {
         assert_eq!(at(None), 8, "never ran");
         let mut i = healthy();
         i.days_since_smart_care = None;
-        assert_eq!(score(&i).factors[0].title, "Nenhum Faxina ainda");
+        assert_eq!(score(&i).factors[0].title, "Nenhuma Faxina ainda");
         assert_eq!(
             score(&i).factors[0].action,
             Some(Action { label: "Executar Faxina", module: "smart" })
