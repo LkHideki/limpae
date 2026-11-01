@@ -1,9 +1,9 @@
-//! Privacidade: itens recentes do sistema e dados de navegação de Chrome, Brave, Edge e Firefox.
+//! Privacy: recent system items and browsing data of Chrome, Brave, Edge and Firefox.
 //!
-//! Tudo vai para o Lixo (reversível). Dados de navegador só são oferecidos com o navegador fechado e nada vem
-//! pré-selecionado. Senhas e chaves (Login Data, logins.json, key4.db...) nunca entram: a lista de arquivos é
-//! explícita e um filtro final descarta qualquer credencial. Safari fica de fora (exige Acesso Total ao Disco e
-//! tem sandbox própria).
+//! Everything goes to the Trash (reversible). Browser data is only offered while the browser is closed and nothing
+//! is preselected. Passwords and keys (Login Data, logins.json, key4.db...) never get in: the file list is
+//! explicit and a final filter drops any credential. Safari is left out (it requires Full Disk Access and
+//! has its own sandbox).
 
 use std::collections::HashSet;
 use std::ffi::OsStr;
@@ -24,9 +24,9 @@ pub struct Browser {
     pub id: &'static str,
     pub name: &'static str,
     pub kind: Kind,
-    /// Bundle ids do app (em minúsculas) que indicam navegador aberto.
+    /// App bundle ids (lowercase) that indicate an open browser.
     pub bundle_ids: &'static [&'static str],
-    /// Pasta de dados, relativa a `~/Library/Application Support`.
+    /// Data folder, relative to `~/Library/Application Support`.
     pub data_dir: &'static str,
 }
 
@@ -61,7 +61,7 @@ pub const BROWSERS: &[Browser] = &[
     },
 ];
 
-/// Categorias por navegador: (id, título, descrição).
+/// Categories per browser: (id, title, description).
 pub const CATEGORIES: &[(&str, &str, &str)] = &[
     ("history", "Histórico", "Sites visitados."),
     ("cookies", "Cookies", "Você será desconectado dos sites onde está logado."),
@@ -74,13 +74,13 @@ const SUFFIXES: &[&str] = &["", "-journal", "-wal", "-shm"];
 
 const RECENT_DIR: &str = "Library/Application Support/com.apple.sharedfilelist";
 const APP_RECENT_DIR: &str = "com.apple.LSSharedFileList.ApplicationRecentDocuments";
-/// Só listas de itens recentes: o resto da pasta (favoritos da barra lateral do Finder etc.) fica intacto.
+/// Recent-item lists only: the rest of the folder (Finder sidebar favorites etc.) stays untouched.
 const RECENT_PREFIX: &str = "com.apple.LSSharedFileList.Recent";
 
 pub const NOTE_FIREFOX_BOOKMARKS: &str = "Inclui os favoritos";
 pub const NOTE_CHROMIUM_AUTOFILL: &str = "Inclui cartões e endereços salvos";
 
-/// Arquivos de credenciais: nunca oferecidos, qualquer que seja a categoria.
+/// Credential files: never offered, whatever the category.
 pub fn is_credential(name: &str) -> bool {
     let n = name.to_lowercase();
     n.starts_with("login data")
@@ -103,7 +103,7 @@ fn data_root(home: &Path, b: &Browser) -> PathBuf {
     app_support(home).join(b.data_dir)
 }
 
-/// Perfis do navegador: pastas reais (nunca symlink) `Default` / `Profile *` ou, no Firefox, todas.
+/// Browser profiles: real folders (never symlinks) `Default` / `Profile *` or, for Firefox, all of them.
 pub fn profiles(home: &Path, b: &Browser) -> Vec<PathBuf> {
     let Ok(rd) = fs::read_dir(data_root(home, b)) else { return Vec::new() };
     let mut out: Vec<PathBuf> = rd
@@ -122,7 +122,7 @@ pub fn profiles(home: &Path, b: &Browser) -> Vec<PathBuf> {
     out
 }
 
-/// Caminhos candidatos (relativos ao perfil) de uma categoria.
+/// Candidate paths (relative to the profile) of a category.
 fn candidates(kind: Kind, category: &str, profile: &Path) -> Vec<PathBuf> {
     let fixed: &[&str] = match (kind, category) {
         (Kind::Chromium, "history") => &["History"],
@@ -155,7 +155,7 @@ fn candidates(kind: Kind, category: &str, profile: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// Existe, não é symlink e não é credencial.
+/// Exists, is not a symlink and is not a credential.
 fn eligible(path: &Path) -> bool {
     let credential = path.file_name().and_then(OsStr::to_str).is_none_or(is_credential);
     !credential && fs::symlink_metadata(path).is_ok_and(|m| !m.file_type().is_symlink())
@@ -168,12 +168,12 @@ fn lock_pid(link: &Path, marker: char) -> Option<i32> {
 }
 
 fn pid_alive(pid: i32) -> bool {
-    // SAFETY: kill com sinal 0 só verifica a existência do processo; EPERM significa que existe.
+    // SAFETY: kill with signal 0 only checks that the process exists; EPERM means it exists.
     unsafe { libc::kill(pid, 0) == 0 || std::io::Error::last_os_error().raw_os_error() == Some(libc::EPERM) }
 }
 
-/// Navegador aberto: o app está na lista de executando, ou a trava de instância (SingletonLock / lock) aponta para
-/// um processo vivo. Travas velhas contam como aberto, o lado seguro.
+/// Browser open: the app is in the running list, or the instance lock (SingletonLock / lock) points to
+/// a live process. Stale locks count as open, the safe side.
 pub fn is_running(home: &Path, b: &Browser, running_ids: &HashSet<String>) -> bool {
     if b.bundle_ids.iter().any(|id| running_ids.iter().any(|r| r.eq_ignore_ascii_case(id))) {
         return true;
@@ -184,7 +184,7 @@ pub fn is_running(home: &Path, b: &Browser, running_ids: &HashSet<String>) -> bo
     }
 }
 
-/// Navegador dono de um caminho (pela pasta de dados), para rechecar na remoção.
+/// Browser that owns a path (by data folder), to re-check at removal time.
 pub fn browser_for_path(home: &Path, path: &Path) -> Option<&'static Browser> {
     BROWSERS.iter().find(|b| path.starts_with(data_root(home, b)))
 }
@@ -212,7 +212,7 @@ fn item(path: PathBuf, cancel: &std::sync::atomic::AtomicBool) -> Item {
     Item::new(path, size, Policy::MoveToTrash)
 }
 
-/// Itens recentes do sistema (selecionados): só as listas `Recent*` e as de documentos recentes por app.
+/// Recent system items (selected): only the `Recent*` lists and the per-app recent-document lists.
 pub fn recent_items(home: &Path, p: &Progress) -> Group {
     let dir = home.join(RECENT_DIR);
     let mut paths: Vec<PathBuf> = Vec::new();
@@ -255,8 +255,8 @@ fn note_for(b: &Browser, category: &str) -> Option<&'static str> {
     }
 }
 
-/// Grupos de um navegador, um por categoria. Aberto: grupos vazios com o aviso para fechar. Sem itens
-/// pré-selecionados. Só os navegadores com perfil no disco são considerados.
+/// Groups of a browser, one per category. Open: empty groups with a notice to close it. No items
+/// preselected. Only browsers with a profile on disk are considered.
 pub fn browser_groups(home: &Path, b: &Browser, running: bool, p: &Progress) -> Vec<Group> {
     let profs = profiles(home, b);
     if profs.is_empty() {
@@ -294,7 +294,7 @@ pub fn browser_groups(home: &Path, b: &Browser, running: bool, p: &Progress) -> 
         .collect()
 }
 
-/// Varredura completa: itens recentes, depois cada navegador presente.
+/// Full scan: recent items, then each browser present.
 pub fn scan(home: &Path, running_ids: &HashSet<String>, p: &Progress) -> Vec<Group> {
     let mut groups = vec![recent_items(home, p)];
     for b in BROWSERS {
@@ -323,7 +323,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let home = fs::canonicalize(tmp.path()).unwrap().join("home");
         let sup = home.join("Library/Application Support");
-        // Chrome: dois perfis, com credenciais ao lado dos dados.
+        // Chrome: two profiles, with credentials next to the data.
         for prof in ["Default", "Profile 1"] {
             let d = sup.join("Google/Chrome").join(prof);
             for f in [
@@ -364,10 +364,10 @@ mod tests {
             touch(&ff.join(f), 10);
         }
         touch(&ff.join("sessionstore-backups/recovery.jsonlz4"), 10);
-        // Brave sem perfil; Edge com perfil Default.
+        // Brave without a profile; Edge with a Default profile.
         fs::create_dir_all(sup.join("BraveSoftware/Brave-Browser/NativeMessagingHosts")).unwrap();
         touch(&sup.join("Microsoft Edge/Default/History"), 10);
-        // Itens recentes
+        // Recent items
         let sfl = sup.join("com.apple.sharedfilelist");
         for f in [
             "com.apple.LSSharedFileList.RecentApplications.sfl3",
@@ -412,9 +412,9 @@ mod tests {
         assert_eq!(group(&gs, "firefox:cookies").items.len(), 1);
         assert_eq!(group(&gs, "firefox:forms").items.len(), 1);
         assert_eq!(group(&gs, "firefox:sessions").items.len(), 2, "sessionstore.jsonlz4 e sessionstore-backups");
-        // Perfil único: nomes sem sufixo.
+        // Single profile: names without a suffix.
         assert_eq!(group(&gs, "edge:history").items[0].name, "History");
-        // Brave sem perfil e sem dados: nenhum grupo.
+        // Brave without a profile and without data: no group.
         assert!(gs.iter().all(|g| !g.id.starts_with("brave:")));
     }
 

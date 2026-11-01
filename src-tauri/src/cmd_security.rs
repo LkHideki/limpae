@@ -1,5 +1,5 @@
-//! Proteção: verificação de segurança (somente leitura), permissões de apps (TCC) e privacidade.
-//! A interface só envia ids: nunca caminhos, URLs nem bundle ids. Nenhuma configuração é alterada em silêncio.
+//! Security: security check (read-only), app permissions (TCC) and privacy.
+//! The UI only sends ids: never paths, URLs or bundle ids. No setting is changed silently.
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
@@ -27,32 +27,32 @@ const ERR_CANCELLED: &str = "Varredura cancelada.";
 const ERR_NO_FIX: &str = "Esta verificação não tem um painel nos Ajustes do Sistema.";
 const ERR_UNKNOWN_PERMISSION: &str = "permissão desconhecida; atualize a lista";
 
-/// Linhas de permissão entregues na última leitura: id -> (serviço, bundle id). Os ids vêm do contador global do
-/// registro, então nunca se repetem; a interface só devolve o id.
+/// Permission rows delivered on the last read: id -> (service, bundle id). The ids come from the registry's global
+/// counter, so they never repeat; the UI only sends back the id.
 static TCC_ROWS: Mutex<Option<RowMap>> = Mutex::new(None);
 
-// ---------- Verificação de segurança ----------
+// ---------- Security check ----------
 
 #[tauri::command]
 pub async fn security_checks() -> Result<Vec<Check>, String> {
     blocking(|| Ok(posture::run_checks())).await
 }
 
-/// Abre o painel dos Ajustes do Sistema ligado à verificação. A URL é uma constante do servidor.
+/// Opens the System Settings pane tied to the check. The URL is a server-side constant.
 #[tauri::command]
 pub async fn open_security_fix(check_id: String) -> Result<(), String> {
     let url = posture::fix_url(&check_id).ok_or(ERR_NO_FIX)?;
     blocking(move || open(&[OsStr::new(url)])).await
 }
 
-// ---------- Permissões de apps ----------
+// ---------- App permissions ----------
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TccRowDto {
     pub id: u64,
     pub name: String,
-    /// Só para exibição; a revogação usa o id.
+    /// Display only; revocation uses the id.
     pub bundle_id: String,
     pub installed: bool,
     pub icon: Option<String>,
@@ -75,9 +75,9 @@ pub struct TccGroupDto {
 pub struct TccResult {
     pub needs_fda: bool,
     pub groups: Vec<TccGroupDto>,
-    /// Apps distintos com câmera ou microfone liberados.
+    /// Distinct apps with camera or microphone allowed.
     pub camera_mic_apps: usize,
-    /// Apps distintos com alguma permissão liberada.
+    /// Distinct apps with some permission allowed.
     pub apps: usize,
 }
 
@@ -100,15 +100,15 @@ fn app_meta(bundle_id: &str) -> AppMeta {
                 app_icon_png(&path, ICON_PX).map(|png| format!("data:image/png;base64,{}", STANDARD.encode(png)));
             AppMeta { name, installed: true, icon }
         }
-        // App removido que ainda consta no banco: mostra o identificador.
+        // Removed app that is still in the database: show the identifier.
         None => AppMeta { name: bundle_id.to_owned(), installed: false, icon: None },
     }
 }
 
 type RowMap = HashMap<u64, (&'static str, String)>;
 
-/// Agrupa por serviço (na ordem de `SERVICES`), liberados primeiro, depois por nome. Aloca os ids e devolve o
-/// mapa id -> (serviço, bundle id) que `tcc_revoke` usa.
+/// Groups by service (in `SERVICES` order), allowed first, then by name. Allocates the ids and returns the
+/// id -> (service, bundle id) map that `tcc_revoke` uses.
 fn build_groups(
     entries: Vec<Entry>,
     meta: &mut dyn FnMut(&str) -> AppMeta,
@@ -171,8 +171,8 @@ pub async fn tcc_permissions(state: State<'_, Shared>) -> Result<TccResult, Stri
     .await
 }
 
-/// Revoga as permissões `ids` com `revoke(serviço, bundle id)`. Os dois valores vêm do mapa da última leitura,
-/// nunca da interface. Cada tentativa é registrada no log de ações.
+/// Revokes the permissions `ids` with `revoke(service, bundle id)`. Both values come from the last read's map,
+/// never from the UI. Each attempt is recorded in the action log.
 fn revoke_ids(
     st: &AppState,
     rows: &Mutex<Option<RowMap>>,
@@ -209,7 +209,7 @@ pub async fn tcc_revoke(state: State<'_, Shared>, ids: Vec<u64>) -> Result<Remov
     blocking(move || Ok(revoke_ids(&st, &TCC_ROWS, &ids, &tcc::revoke))).await
 }
 
-// ---------- Privacidade ----------
+// ---------- Privacy ----------
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -253,8 +253,8 @@ fn browser_open_error(name: &str) -> String {
     format!("o {name} está aberto; feche-o e tente de novo")
 }
 
-/// Remove itens de privacidade (Lixo, pelo mesmo caminho guardado de `remove`). Só aceita ids da última análise de
-/// privacidade e recusa os de um navegador que voltou a ficar aberto desde a análise.
+/// Removes privacy items (Trash, through the same guarded path as `remove`). Only accepts ids from the last privacy
+/// scan and refuses those of a browser that became open again since the scan.
 fn remove_privacy(st: &AppState, ids: &[u64], running_ids: &HashSet<String>, opts: RemoveOptions) -> RemoveResult {
     let mut resolved = lock(&st.registry).resolve_task(TASK_PRIVACY, ids);
     let mut by_id: HashMap<u64, OutcomeDto> = HashMap::new();
@@ -342,7 +342,7 @@ mod tests {
         assert_eq!(serde_json::to_value(TccResult::needs_fda()).unwrap()["needsFda"], true);
     }
 
-    /// Pasta temporária única, apagada ao sair de escopo.
+    /// Unique temporary folder, deleted when it goes out of scope.
     struct Tmp(PathBuf);
 
     impl Drop for Tmp {

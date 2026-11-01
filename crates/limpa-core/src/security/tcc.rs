@@ -1,8 +1,8 @@
-//! Permissões de apps (TCC): leitura do banco com `sqlite3 -readonly` e revogação com `tccutil reset`.
+//! App permissions (TCC): database read with `sqlite3 -readonly` and revocation with `tccutil reset`.
 //!
-//! O banco do usuário exige Acesso Total ao Disco. O banco do sistema (Acessibilidade, Gravação de tela,
-//! Monitoramento de entrada, Acesso Total ao Disco) também é lido quando acessível; se não for, é ignorado.
-//! O serviço e o bundle id de uma revogação vêm sempre desta leitura (nunca da interface) e são revalidados.
+//! The user database requires Full Disk Access. The system database (Accessibility, Screen Recording,
+//! Input Monitoring, Full Disk Access) is also read when accessible; if it is not, it is ignored.
+//! The service and bundle id of a revocation always come from this read (never from the UI) and are re-validated.
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -18,8 +18,8 @@ const READ_TIMEOUT: Duration = Duration::from_secs(4);
 const RESET_TIMEOUT: Duration = Duration::from_secs(5);
 const SYSTEM_DB: &str = "/Library/Application Support/com.apple.TCC/TCC.db";
 
-/// Serviços exibidos: (nome aceito pelo `tccutil`, título em português). Lista fechada: nada fora dela é lido nem
-/// revogado.
+/// Displayed services: (name accepted by `tccutil`, Portuguese title). Closed list: nothing outside it is read or
+/// revoked.
 pub const SERVICES: &[(&str, &str)] = &[
     ("Camera", "Câmera"),
     ("Microphone", "Microfone"),
@@ -38,7 +38,7 @@ pub fn service_title(service: &str) -> Option<&'static str> {
     SERVICES.iter().find(|(s, _)| *s == service).map(|(_, t)| *t)
 }
 
-/// Nome interno do serviço na tabela `access`.
+/// Internal service name in the `access` table.
 fn db_name(service: &str) -> String {
     format!("kTCCService{service}")
 }
@@ -46,7 +46,7 @@ fn db_name(service: &str) -> String {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Auth {
     Allowed,
-    /// Acesso limitado (ex.: Fotos selecionadas).
+    /// Limited access (e.g. selected Photos).
     Limited,
     Denied,
 }
@@ -59,13 +59,13 @@ impl Auth {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
-    /// Um dos nomes de `SERVICES`.
+    /// One of the `SERVICES` names.
     pub service: &'static str,
     pub client: String,
     pub auth: Auth,
-    /// Última alteração, segundos Unix.
+    /// Last change, Unix seconds.
     pub modified: Option<i64>,
-    /// Veio do banco do sistema.
+    /// Came from the system database.
     pub system: bool,
 }
 
@@ -75,7 +75,7 @@ pub enum ReadError {
     Failed(String),
 }
 
-/// `^[A-Za-z0-9.-]+$`, sem começar por hífen (nunca vira opção do `tccutil`).
+/// `^[A-Za-z0-9.-]+$`, not starting with a hyphen (never becomes a `tccutil` option).
 pub fn valid_bundle_id(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 255
@@ -96,7 +96,7 @@ struct Row {
     last_modified: Option<i64>,
 }
 
-/// Linhas do JSON do `sqlite3`, já filtradas: serviço da lista, cliente por bundle id válido, estado conhecido.
+/// Rows of the `sqlite3` JSON, already filtered: service from the list, client by valid bundle id, known state.
 pub fn parse_rows(json: &str, system: bool) -> Vec<Entry> {
     if json.trim().is_empty() {
         return Vec::new();
@@ -135,7 +135,7 @@ fn denied(stderr: &str) -> bool {
         .any(|m| low.contains(m))
 }
 
-/// Lê um banco TCC. Arquivo ausente = sem entradas.
+/// Reads a TCC database. Missing file = no entries.
 pub fn read_db(path: &Path, system: bool) -> Result<Vec<Entry>, ReadError> {
     if std::fs::symlink_metadata(path).is_err_and(|e| e.kind() == std::io::ErrorKind::NotFound) {
         return Ok(Vec::new());
@@ -155,8 +155,8 @@ pub fn read_db(path: &Path, system: bool) -> Result<Vec<Entry>, ReadError> {
     Ok(parse_rows(&out.stdout, system))
 }
 
-/// Entradas dos dois bancos, sem repetição de (serviço, app); o do usuário vem primeiro. Se o do usuário não puder
-/// ser lido, nada é devolvido; falha no do sistema é ignorada.
+/// Entries of the two databases, without repeating (service, app); the user's comes first. If the user's cannot
+/// be read, nothing is returned; a failure in the system one is ignored.
 pub fn read_all(home: &Path) -> Result<Vec<Entry>, ReadError> {
     read_all_from(&user_db(home), Path::new(SYSTEM_DB))
 }
@@ -171,7 +171,7 @@ pub fn read_all_from(user: &Path, system: &Path) -> Result<Vec<Entry>, ReadError
     Ok(entries)
 }
 
-/// Revoga com `tccutil reset <Serviço> <bundle id>`. Valida os dois argumentos antes de executar.
+/// Revokes with `tccutil reset <Service> <bundle id>`. Validates both arguments before running.
 pub fn revoke(service: &str, bundle_id: &str) -> Result<(), String> {
     if service_title(service).is_none() {
         return Err("Serviço de permissão desconhecido.".into());
@@ -190,7 +190,7 @@ pub fn revoke(service: &str, bundle_id: &str) -> Result<(), String> {
     }
 }
 
-/// App instalado para um bundle id: (nome de exibição, caminho do `.app`). Usa o LaunchServices.
+/// Installed app for a bundle id: (display name, `.app` path). Uses LaunchServices.
 pub fn resolve_app(bundle_id: &str) -> Option<(String, PathBuf)> {
     let path = app_path(bundle_id)?;
     let name = plist::Value::from_file(path.join("Contents/Info.plist"))

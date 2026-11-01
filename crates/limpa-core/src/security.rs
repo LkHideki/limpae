@@ -1,8 +1,8 @@
-//! Proteção: postura de segurança do Mac (somente leitura), permissões de apps (TCC) e dados de privacidade.
+//! Security: the Mac's security posture (read-only), app permissions (TCC) and privacy data.
 //!
-//! Aqui só há leitura de estado: o módulo lê o estado que o próprio macOS informa, lista o que o usuário
-//! concedeu a cada app e oferece limpar rastros de uso (itens recentes e dados de navegadores fechados).
-//! Todo subprocesso usa caminho absoluto, vetor de argumentos (sem shell) e tempo limite.
+//! This module only reads state: it reads what macOS itself reports, lists what the user has granted
+//! to each app and offers to clear usage traces (recent items and data of closed browsers).
+//! Every subprocess uses an absolute path, an argument vector (no shell) and a timeout.
 
 pub mod posture;
 pub mod privacy;
@@ -12,7 +12,7 @@ use std::io::Read;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-/// Saída de um subprocesso que terminou dentro do tempo limite.
+/// Output of a subprocess that finished within the timeout.
 #[derive(Debug, Clone)]
 pub struct Captured {
     pub ok: bool,
@@ -20,20 +20,20 @@ pub struct Captured {
     pub stderr: String,
 }
 
-/// Cada fluxo é lido só até este limite; o resto é descartado.
+/// Each stream is read only up to this limit; the rest is discarded.
 const MAX_CAPTURE: u64 = 8_000_000;
 const POLL: Duration = Duration::from_millis(10);
 
 fn read_capped(mut r: impl Read) -> String {
     let mut buf = Vec::new();
     let _ = (&mut r).take(MAX_CAPTURE).read_to_end(&mut buf);
-    // Esvazia o resto para o processo nunca travar escrevendo num cano cheio.
+    // Drain the rest so the process never blocks writing into a full pipe.
     let _ = std::io::copy(&mut r, &mut std::io::sink());
     String::from_utf8_lossy(&buf).into_owned()
 }
 
-/// Executa `program` (caminho absoluto) com `args`, sem shell. `None` se não iniciou ou estourou `timeout`
-/// (nesse caso o processo é encerrado).
+/// Runs `program` (absolute path) with `args`, without a shell. `None` if it did not start or exceeded `timeout`
+/// (in which case the process is terminated).
 pub fn run_capture(program: &str, args: &[&str], timeout: Duration) -> Option<Captured> {
     let mut child = Command::new(program)
         .args(args)
@@ -83,7 +83,7 @@ mod tests {
         assert!(t.elapsed() < Duration::from_secs(3));
     }
 
-    /// Relatório somente leitura desta máquina: `cargo test -p limpa-core real_machine -- --ignored --nocapture`.
+    /// Read-only report for this machine: `cargo test -p limpa-core real_machine -- --ignored --nocapture`.
     #[test]
     #[ignore = "lê o Mac real; só para inspeção manual"]
     fn real_machine_report() {
