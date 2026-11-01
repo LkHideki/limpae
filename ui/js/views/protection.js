@@ -442,7 +442,7 @@ export function enter(ctx) {
         ? t('Listas de documentos, apps e servidores abertos recentemente. Vão para o Lixo e o macOS recria as listas conforme você usa o Mac.')
         : t('Dados de navegação que vão para o Lixo. Senhas salvas e favoritos do Chrome, Brave e Edge nunca são tocados.'),
       !c.running && catItems(c).length ? selectMenuButton({
-        modes: [['smart', t('Inteligente')], ['all', t('Tudo')], ['none', t('Nada')]], mode: privMode(catItems(c)),
+        modes: [['smart', t('Recomendado')], ['all', t('Tudo')], ['none', t('Nada')]], mode: privMode(catItems(c)),
         onPick: (mode) => {
           for (const i of catItems(c)) (mode === 'all' || (mode === 'smart' && i.selected)) ? S.psel.add(i.id) : S.psel.delete(i.id);
           paintPrivCats(); paintPrivPane(); paintPrivFoot();

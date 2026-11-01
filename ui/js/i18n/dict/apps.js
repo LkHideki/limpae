@@ -43,7 +43,7 @@ export default {
   'Nenhum .dmg, .pkg ou .xip em Downloads ou na Mesa.': { en: 'No .dmg, .pkg, or .xip files in Downloads or on the Desktop.', id: 'Tidak ada file .dmg, .pkg, atau .xip di Unduhan atau Meja.' },
   'Encontramos {n} app no seu Mac.': { en: 'We found {n} app on your Mac.', id: 'Kami menemukan {n} aplikasi di Mac Anda.' },
   'Encontramos {n} apps no seu Mac.': { en: 'We found {n} apps on your Mac.', id: 'Kami menemukan {n} aplikasi di Mac Anda.' },
-  'Gerenciar meus aplicativos': { en: 'Manage my applications', id: 'Kelola aplikasi saya' },
+  'Gerenciar meus aplicativos': { en: 'Open the app list', id: 'Kelola aplikasi saya' },
 
   // ---- updates
   'Abrir {n} página de atualização?': { en: 'Open {n} update page?', id: 'Buka {n} halaman pembaruan?' },
@@ -163,7 +163,7 @@ export default {
 
   // ---- leftovers and installers
   'Dados de apps que já foram removidos e instaladores que podem ser baixados de novo.': { en: 'Data from apps that were already removed, and installers that can be downloaded again.', id: 'Data dari aplikasi yang sudah dihapus, dan penginstal yang dapat diunduh lagi.' },
-  'Restos de apps': { en: 'App leftovers', id: 'Sisa aplikasi' },
+  'Restos de apps': { en: 'Orphaned app files', id: 'Sisa aplikasi' },
   'Instaladores': { en: 'Installers', id: 'Penginstal' },
   'Sem Acesso Total ao Disco, parte de ~/Library pode não aparecer aqui.': { en: 'Without Full Disk Access, part of ~/Library may not show up here.', id: 'Tanpa Akses Disk Penuh, sebagian isi ~/Library mungkin tidak muncul di sini.' },
   'Nenhum item corresponde à busca.': { en: 'No items match your search.', id: 'Tidak ada item yang cocok dengan pencarian.' },

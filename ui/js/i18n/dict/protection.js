@@ -58,7 +58,7 @@ export default {
   'Feche {names} para limpar os dados de navegação.': { en: 'Quit {names} to clean browsing data.', id: 'Tutup {names} untuk membersihkan data penjelajahan.' },
   'Feche o {browser} para limpar': { en: 'Quit {browser} to clean', id: 'Tutup {browser} untuk membersihkan' },
   'Gerenciador de segurança': { en: 'Security manager', id: 'Pengelola keamanan' },
-  'Inteligente': { en: 'Smart', id: 'Cerdas' },
+  'Recomendado': { en: 'Recommended', id: 'Disarankan' },
   'Itens recentes': { en: 'Recent items', id: 'Item terbaru' },
   'Listas de documentos, apps e servidores abertos recentemente. Vão para o Lixo e o macOS recria as listas conforme você usa o Mac.': { en: 'Lists of recently opened documents, apps and servers. They go to the Trash, and macOS recreates them as you use your Mac.', id: 'Daftar dokumen, aplikasi, dan server yang baru dibuka. Daftar ini dipindahkan ke Tempat Sampah dan macOS membuatnya kembali saat Anda menggunakan Mac.' },
   'Mostrar {name} no Finder': { en: 'Show {name} in Finder', id: 'Tampilkan {name} di Finder' },

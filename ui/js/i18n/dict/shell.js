@@ -16,7 +16,7 @@ export default {
   'Remova apps por completo, com todos os arquivos relacionados.': { en: 'Remove apps completely, along with all related files.', id: 'Hapus aplikasi sepenuhnya, beserta semua file terkait.' },
   'Atualizador': { en: 'Updater', id: 'Pembaru' },
   'Acompanhe as versões mais recentes dos seus apps.': { en: 'Keep track of the latest versions of your apps.', id: 'Pantau versi terbaru aplikasi Anda.' },
-  'Restos de apps': { en: 'App leftovers', id: 'Sisa aplikasi' },
+  'Restos de apps': { en: 'Orphaned app files', id: 'Sisa aplikasi' },
   'Encontre o que sobrou de apps que já foram removidos.': { en: 'Find what\'s left behind by apps that were already removed.', id: 'Temukan sisa dari aplikasi yang sudah dihapus.' },
   'Instaladores': { en: 'Installers', id: 'Penginstal' },
   'Arquivos .dmg e .pkg que já cumpriram o papel.': { en: '.dmg and .pkg files that have served their purpose.', id: 'File .dmg dan .pkg yang sudah selesai digunakan.' },

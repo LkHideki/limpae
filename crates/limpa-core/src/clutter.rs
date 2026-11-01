@@ -719,7 +719,7 @@ pub fn downloads(home: &Path, p: &Progress) -> Vec<Group> {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Locations and Large & Old
+// Locations and Large and old
 // ---------------------------------------------------------------------------------------------------------------
 
 /// (name, root, free bytes, total bytes) of the places that can be scanned: the home folder, then every mounted
@@ -755,7 +755,7 @@ pub fn volumes_in(home: &Path, volumes_dir: &Path) -> Vec<(String, PathBuf, u64,
     out
 }
 
-/// Large & Old for any location: `large::scan_large`, minus the reserved top-level folders of an external volume
+/// Large and old for any location: `large::scan_large`, minus the reserved top-level folders of an external volume
 /// (the guard would refuse them).
 pub fn large_old(root: &Path, min_bytes: u64, p: &Progress) -> Vec<Group> {
     let groups = large::scan_large(root, min_bytes, p);
