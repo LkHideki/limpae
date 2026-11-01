@@ -1,6 +1,6 @@
 // Dictionary: key = Portuguese text → { en, id }.
 export default {
-  'Arquivos grandes e antigos': { en: "Large & old files", id: "File besar dan lama" },
+  'Arquivos grandes e antigos': { en: "Big, old files", id: "File besar dan lama" },
   'Duplicados': { en: "Duplicates", id: "Duplikat" },
   'Imagens parecidas': { en: "Similar images", id: "Gambar serupa" },
   'Downloads': { en: "Downloads", id: "Unduhan" },
@@ -41,7 +41,7 @@ export default {
   'Nada para revisar por aqui.': { en: "Nothing to review here.", id: "Tidak ada yang perlu ditinjau di sini." },
   'Revise cada categoria. Nada é selecionado nem removido sem a sua escolha.': { en: "Review each category. Nothing is selected or removed without your choice.", id: "Tinjau setiap kategori. Tidak ada yang dipilih atau dihapus tanpa pilihan Anda." },
   'Tente outro local ou um tamanho mínimo menor.': { en: "Try another location or a smaller minimum size.", id: "Coba lokasi lain atau ukuran minimum yang lebih kecil." },
-  'Revisar todos os arquivos': { en: "Review All Files", id: "Tinjau Semua File" },
+  'Revisar todos os arquivos': { en: "Review files", id: "Tinjau file" },
   'Revisar': { en: "Review", id: "Tinjau" },
   'Categorias': { en: "Categories", id: "Kategori" },
   'Grandes e antigos': { en: "Large & old", id: "Besar dan lama" },
@@ -63,7 +63,7 @@ export default {
   'Agrupar por': { en: "Group by", id: "Kelompokkan menurut" },
   'Mostrar': { en: "Show", id: "Tampilkan" },
   'Selecionar': { en: "Select", id: "Pilih" },
-  'Inteligente': { en: "Smart", id: "Cerdas" },
+  'Recomendado': { en: 'Recommended', id: 'Disarankan' },
   'Mais antigos': { en: "Oldest", id: "Terlama" },
   'Mais novos': { en: "Newest", id: "Terbaru" },
   'Menores': { en: "Smallest", id: "Terkecil" },

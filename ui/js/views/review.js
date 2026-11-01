@@ -212,7 +212,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     if (n === 0) return 'none';
     return smartEq(list) ? 'smart' : 'part';
   }
-  const modeLabel = (m) => (m === 'all' ? t('Tudo') : m === 'none' ? t('Nada') : m === 'smart' ? t('Inteligente') : t('Parcial'));
+  const modeLabel = (m) => (m === 'all' ? t('Tudo') : m === 'none' ? t('Nada') : m === 'smart' ? t('Recomendado') : t('Parcial'));
 
   function openSelectMenu(list, btn) {
     const mode = selectMode(list);
@@ -220,7 +220,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     openMenu({
       at: below(btn), opener: btn, label: t('Selecionar'), onClose: () => btn.setAttribute('aria-expanded', 'false'),
       items: [
-        { label: t('Seleção inteligente'), checked: mode === 'smart', onSelect: () => { for (const i of list) i.selected ? sel.add(i.id) : sel.delete(i.id); refresh(); } },
+        { label: t('Seleção recomendada'), checked: mode === 'smart', onSelect: () => { for (const i of list) i.selected ? sel.add(i.id) : sel.delete(i.id); refresh(); } },
         { label: t('Tudo'), checked: mode === 'all', onSelect: () => { for (const i of list) sel.add(i.id); refresh(); } },
         { label: t('Nada'), checked: mode === 'none', onSelect: () => { for (const i of list) sel.delete(i.id); refresh(); } },
       ],

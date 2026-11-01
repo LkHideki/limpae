@@ -54,8 +54,8 @@ const CATS = [
 ];
 // "Select" modes per category: [id, label]. The Smart/All/None/Partial labels apply across the whole app.
 const SELECT_MODES = { // i18n-ignore (key; translated on display)
-  dups: [['smart', 'Inteligente'], ['oldest', 'Mais antigos'], ['newest', 'Mais novos'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
-  sim: [['smart', 'Inteligente'], ['smallest', 'Menores'], ['largest', 'Maiores'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
+  dups: [['smart', 'Recomendado'], ['oldest', 'Mais antigos'], ['newest', 'Mais novos'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
+  sim: [['smart', 'Recomendado'], ['smallest', 'Menores'], ['largest', 'Maiores'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
   large: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
   dl: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
 };

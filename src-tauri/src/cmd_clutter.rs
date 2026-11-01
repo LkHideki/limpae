@@ -1,4 +1,4 @@
-//! Files commands: duplicates, similar images, downloads by app, Large & Old at any location.
+//! Files commands: duplicates, similar images, downloads by app, Large and old at any location.
 //! `location` is an index into the list returned by `clutter_locations`, resolved here; the UI never names a path.
 
 use std::path::{Path, PathBuf};
@@ -112,7 +112,7 @@ pub async fn scan_downloads(app: AppHandle, state: State<'_, Shared>) -> Result<
     .await
 }
 
-/// Large & Old for any location (kept apart from `scan_large`, which Sweep owns).
+/// Large and old for any location (kept apart from `scan_large`, which Sweep owns).
 #[tauri::command]
 pub async fn scan_large_at(
     app: AppHandle,
