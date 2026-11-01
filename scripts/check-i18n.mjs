@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Confere a internacionalização da UI. Uso: node scripts/check-i18n.mjs [arquivos...]   (sem argumentos: ui/js inteiro)
-//  - toda chave de t()/tn()/plural() existe no dicionário com `en` e `id`, ambos com os mesmos {parâmetros} da chave;
-//  - a chave é literal (ou ternário de literais); texto montado em runtime é erro (marque a linha com `i18n-dynamic`);
-//  - literais em português fora de t()/tn()/plural()/tr() são apontados (marque a linha com `i18n-ignore` se for legítimo);
-//  - chaves repetidas entre dicionários têm de ter a mesma tradução.
-// Sai com código 1 se achar qualquer problema.
+// Checks the UI internationalization. Usage: node scripts/check-i18n.mjs [files...]   (no arguments: all of ui/js)
+//  - every t()/tn()/plural() key exists in the dictionary with `en` and `id`, both with the key's {placeholders};
+//  - the key is a literal (or a ternary of literals); text built at runtime is an error (mark the line `i18n-dynamic`);
+//  - Portuguese literals outside t()/tn()/plural()/tr() are reported (mark the line `i18n-ignore` if legitimate);
+//  - keys repeated across dictionaries must have the same translation.
+// Exits with code 1 on any problem.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -18,7 +18,7 @@ const walk = (dir) => readdirSync(dir).flatMap((n) => {
   return statSync(p).isDirectory() ? (p.includes('/i18n') ? [] : walk(p)) : p.endsWith('.js') && n !== 'i18n.js' ? [p] : [];
 });
 
-// ---- dicionário -------------------------------------------------------------------------------------------
+// ---- dictionary ------------------------------------------------------------------------------------------
 const files = readdirSync(DICT_DIR).filter((f) => f.endsWith('.js') && f !== 'index.js');
 const EN = {}, owner = {};
 const problems = [];
@@ -26,23 +26,23 @@ const params = (x) => [...String(x).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sor
 for (const f of files) {
   const dict = (await import(pathToFileURL(join(DICT_DIR, f)).href)).default;
   for (const [k, v] of Object.entries(dict)) {
-    if (k in EN && (EN[k].en !== v.en || EN[k].id !== v.id)) problems.push(`dicionário: "${k}" traduzido diferente em ${owner[k]} e ${f}`);
+    if (k in EN && (EN[k].en !== v.en || EN[k].id !== v.id)) problems.push(`dictionary: "${k}" translated differently in ${owner[k]} and ${f}`);
     EN[k] = v; owner[k] = f;
     for (const l of ['en', 'id']) {
-      if (typeof v[l] !== 'string' || !v[l].trim()) { problems.push(`dicionário (${f}): falta ${l} em "${k}"`); continue; }
-      if (params(k) !== params(v[l])) problems.push(`dicionário (${f}): parâmetros divergem em "${k}" → ${l}: "${v[l]}"`);
+      if (typeof v[l] !== 'string' || !v[l].trim()) { problems.push(`dictionary (${f}): missing ${l} for "${k}"`); continue; }
+      if (params(k) !== params(v[l])) problems.push(`dictionary (${f}): placeholders differ for "${k}" → ${l}: "${v[l]}"`);
     }
   }
 }
 
-// ---- tokenizador de JS (strings, templates, comentários, regex) --------------------------------------------------
+// ---- JS tokenizer (strings, templates, comments, regexes) ---------------------------------------------------------
 function tokenize(src) {
   const toks = []; // { kind: 'str', start, end, value, tpl }
   let i = 0, prevSig = '';
   const n = src.length;
   const regexOk = () => prevSig === '' || /[(,=:[!&|?{};+\-*%<>~^]$/.test(prevSig) || /(return|typeof|case|in|of)$/.test(prevSig);
   function readTemplate(start) {
-    // devolve fim (exclusivo); tokens de strings dentro de ${} são registrados à parte
+    // returns the (exclusive) end; string tokens inside ${} are recorded separately
     let j = start + 1, text = '', dyn = false;
     while (j < n && src[j] !== '`') {
       if (src[j] === '\\') { text += src.slice(j, j + 2); j += 2; continue; }
@@ -84,7 +84,7 @@ function tokenize(src) {
   return toks.sort((a, b) => a.start - b.start);
 }
 
-// Divide os argumentos de uma chamada cujo '(' está em `open`; devolve [{start,end}] de cada argumento.
+// Splits the arguments of a call whose '(' is at `open`; returns [{start,end}] for each argument.
 function splitArgs(src, open, toks) {
   const strAt = new Map(toks.map((t) => [t.start, t]));
   const args = []; let depth = 0, from = open + 1, j = open;
@@ -103,7 +103,7 @@ const PT_WORDS = /\b(não|nao|para|com|uma|você|seu|sua|seus|suas|será|serão|
 const ACCENT = /[áàâãéêíóôõúüçÁÀÂÃÉÊÍÓÔÕÚÜÇ]/;
 const looksPt = (s) => {
   if (!/[A-Za-zÀ-ÿ]/.test(s) || s.length < 2) return false;
-  if (/^[\w./:#@-]+$/.test(s) && !ACCENT.test(s)) return false; // ids, classes, caminhos
+  if (/^[\w./:#@-]+$/.test(s) && !ACCENT.test(s)) return false; // ids, classes, paths
   if (ACCENT.test(s)) return true;
   const words = s.trim().split(/\s+/);
   return words.length >= 2 && PT_WORDS.test(s);
@@ -118,19 +118,19 @@ function checkFile(path) {
   const lineText = (pos) => lines[lineOf(pos) - 1] || '';
   const rel = relative(ROOT, path);
   const toks = tokenize(src);
-  const wrapped = new Set(); // início dos tokens que são chave de t()/tn()/plural()
+  const wrapped = new Set(); // start of tokens that are t()/tn()/plural() keys
   const report = (pos, msg) => problems.push(`${rel}:${lineOf(pos)}: ${msg}`);
   const useKey = (tok, pos) => {
     wrapped.add(tok.start);
     const k = keyOf(tok.value);
     if (tok.dyn) return;
-    if (!(k in EN) && /[A-Za-zÀ-ÿ]/.test(k) && !/^[\s\d{}.,:;%/()·—–-]+$/.test(k.replace(/\{\w+\}/g, ''))) report(pos, `sem tradução (en/id): "${k}"`);
+    if (!(k in EN) && /[A-Za-zÀ-ÿ]/.test(k) && !/^[\s\d{}.,:;%/()·—–-]+$/.test(k.replace(/\{\w+\}/g, ''))) report(pos, `no translation (en/id): "${k}"`);
   };
   const callRe = /(?<![\w.$])(t|tn|tr|plural)\(/g;
   for (let m; (m = callRe.exec(src));) {
     const open = m.index + m[0].length - 1, fn = m[1];
     if (fn === 'tr') {
-      // tr() recebe texto do backend (dinâmico); literais ali são tolerados.
+      // tr() receives backend text (dynamic); literals there are tolerated.
       continue;
     }
     const args = splitArgs(src, open, toks);
@@ -142,8 +142,8 @@ function checkFile(path) {
       const dynOk = /i18n-dynamic/.test(lineText(m.index));
       const ternary = /^[^?]+\?\s*(['"`]).*\1\s*:\s*(['"`]).*\2$/s.test(text);
       const single = /^(['"`])(?:\\.|(?!\1).)*\1$/s.test(text);
-      if (!single && !ternary) { if (!dynOk) report(m.index, `chave de ${fn}() não é literal: ${text.slice(0, 60)}`); continue; }
-      for (const tok of inside) { if (tok.tpl && tok.dyn && !dynOk) report(m.index, `chave de ${fn}() com \${}: use {parâmetro}`); else useKey(tok, m.index); }
+      if (!single && !ternary) { if (!dynOk) report(m.index, `${fn}() key is not a literal: ${text.slice(0, 60)}`); continue; }
+      for (const tok of inside) { if (tok.tpl && tok.dyn && !dynOk) report(m.index, `${fn}() key with \${}: use a {placeholder}`); else useKey(tok, m.index); }
     }
   }
   for (const tok of toks) {
@@ -151,7 +151,7 @@ function checkFile(path) {
     const line = lineText(tok.start);
     if (/i18n-ignore/.test(line) || /^\s*(import|export .* from)\b/.test(line)) continue;
     if (/\b(console\.\w+|querySelector(All)?|closest|matches|getElementById|setAttribute\(\s*'(class|role|type|data-|aria-live)|classList\.\w+|dataset\.|localStorage\.\w+|addEventListener|new RegExp|Intl\.\w+|\.test\()/.test(line) && !ACCENT.test(tok.value)) continue;
-    if (looksPt(tok.value)) report(tok.start, `literal em português fora de t(): "${tok.value.slice(0, 70)}"`);
+    if (looksPt(tok.value)) report(tok.start, `Portuguese literal outside t(): "${tok.value.slice(0, 70)}"`);
   }
 }
 
@@ -159,7 +159,7 @@ const targets = process.argv.length > 2 ? process.argv.slice(2).map((p) => resol
 for (const f of targets) checkFile(f);
 if (problems.length) {
   console.log(problems.join('\n'));
-  console.log(`\n${problems.length} problema(s) em ${targets.length} arquivo(s).`);
+  console.log(`\n${problems.length} problem(s) in ${targets.length} file(s).`);
   process.exit(1);
 }
-console.log(`ok: ${targets.length} arquivo(s), ${Object.keys(EN).length} chaves no dicionário.`);
+console.log(`ok: ${targets.length} file(s), ${Object.keys(EN).length} dictionary keys.`);

@@ -3,7 +3,7 @@ name = "limpae"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
-description = "Limpae: limpeza de disco para macOS"
+description = "Limpae: a careful disk cleaner for macOS"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

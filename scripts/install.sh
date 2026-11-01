@@ -13,7 +13,7 @@ SRC="target/release/bundle/macos/$APP_NAME.app"
 LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
 
 if ! cargo tauri --version >/dev/null 2>&1; then
-    echo "tauri-cli não encontrado. Instale com: cargo install tauri-cli --version '^2' --locked" >&2
+    echo "tauri-cli not found. Install it with: cargo install tauri-cli --version '^2' --locked" >&2
     exit 1
 fi
 
@@ -31,11 +31,11 @@ mdimport "$DEST"
 
 for _ in $(seq 1 30); do
     if mdfind "kMDItemCFBundleIdentifier == '$BUNDLE_ID'" | grep -qx "$DEST"; then
-        echo "Instalado em $DEST e indexado pelo Spotlight."
+        echo "Installed at $DEST and indexed by Spotlight."
         exit 0
     fi
     sleep 1
 done
 
-echo "Instalado em $DEST, mas o Spotlight ainda não indexou (verifique 'mdutil -s /')." >&2
+echo "Installed at $DEST, but Spotlight has not indexed it yet (check 'mdutil -s /')." >&2
 exit 2
