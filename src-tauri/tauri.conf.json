@@ -35,7 +35,7 @@
     "category": "Utility",
     "shortDescription": "Disk cleaner for macOS",
     "longDescription": "Finds and removes system junk, large files, Trash items and leftovers from uninstalled apps.",
-    "copyright": "Copyright © 2026 Limpae",
+    "copyright": "Released into the public domain (The Unlicense)",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
