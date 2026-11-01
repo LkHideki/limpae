@@ -1,4 +1,4 @@
-// Limpeza: landing -> varredura -> resumo -> revisão -> limpeza -> conclusão.
+// Junk: landing -> scan -> summary -> review -> cleanup -> done.
 import { play } from '../sound.js';
 import { h, mount } from '../dom.js';
 import { icon } from '../art.js';
@@ -15,7 +15,7 @@ const bigNum = (n, cap) => [
   h('div', { class: 'big-cap' }, cap),
 ];
 
-// Tiles do resumo,: cada um agrupa categorias do backend e tem Revisar e Limpar próprios.
+// Summary tiles: each one groups backend categories and has its own Review and Clean.
 const AI_GROUP = 'ai_clutter', MAIL_GROUP = 'mail_attachments';
 const tileDefs = () => [
   { id: 'system', title: t('Lixo do sistema'), ic: 'clean', blurb: t('Caches, registros, Xcode, ferramentas de desenvolvimento e backups antigos.'), has: (g) => g.id !== AI_GROUP && g.id !== MAIL_GROUP },
@@ -23,7 +23,7 @@ const tileDefs = () => [
   { id: 'mail', title: t('Anexos do Mail'), ic: 'mail', blurb: t('Cópias de anexos que o Mail baixa de novo; os que você editou ficam de fora.'), has: (g) => g.id === MAIL_GROUP },
 ];
 
-// Texto traduzido com um trecho em negrito: o tradutor posiciona {b} e o nó entra no lugar dele.
+// Translated text with a bold fragment: the translator positions {b} and the node goes in its place.
 const MARK = '\u0001';
 const withNode = (s, node) => { const [a, b = ''] = s.split(MARK); return [a, node, b]; };
 
@@ -68,7 +68,7 @@ export function enter(ctx) {
     try {
       const r = await api.junk();
       if (!cancelled) { store.junk = r; store.junkSel = selectedIds(r); bump(); C.phase = 'summary'; play('found'); }
-    } catch (e) { /* erro já exibido em toast */ }
+    } catch (e) { /* error already shown in a toast */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     if (C.phase !== 'summary') C.phase = 'idle';
@@ -124,7 +124,7 @@ export function enter(ctx) {
     ctx.onBack(back);
   }
 
-  // `only` = ids de um tile; sem ele, limpa toda a seleção atual.
+  // `only` = ids of one tile; without it, cleans the whole current selection.
   async function clean(only = null) {
     const selected = only || store.junkSel;
     const { bytes, count } = selectedSize(store.junk, selected);
@@ -164,7 +164,7 @@ export function enter(ctx) {
     store.junk = pruneResult(store.junk, res.okIds);
     for (const id of res.okIds) store.junkSel.delete(id);
     bump();
-    // "liberados" só conta o que foi apagado de vez; o que foi para o Lixo aparece à parte.
+    // "freed" only counts what was deleted for good; what went to Trash appears separately.
     C.freed = res.freed; C.trashed = res.trashed; C.failed = res.failures.length; C.phase = 'done';
     C.moved = ok === 'permanent' ? 0 : [...moved].filter((id) => res.okIds.has(id)).length;
     play(res.handled ? 'clean' : 'error');
@@ -179,7 +179,7 @@ export function enter(ctx) {
 
   function renderDone() {
     const remaining = countItems(store.junk);
-    // Sem nada liberado de fato, o número grande é o que foi para o Lixo (nunca chamado de "liberado").
+    // With nothing actually freed, the big number is what went to Trash (never called "freed").
     const onlyTrash = !C.freed && C.trashed > 0;
     st.show(...bigNum(onlyTrash ? C.trashed : C.freed, onlyTrash ? t('enviados ao Lixo') : t('liberados')),
       h('p', { class: 'sub' }, C.failed ? tn(C.failed, '{n} item não foi removido.', '{n} itens não foram removidos.') : onlyTrash ? t('Esvazie a Lixeira para liberar esse espaço.') : t('Seu Mac agradece. Tudo certo por aqui.')),

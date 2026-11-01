@@ -1,6 +1,6 @@
 import { play } from './sound.js';
 import { tr } from './i18n.js';
-// Camada fina sobre window.__TAURI__ (withGlobalTauri). Erros do backend chegam como string rejeitada.
+// Thin layer over window.__TAURI__ (withGlobalTauri). Backend errors arrive as a rejected string.
 const T = () => window.__TAURI__;
 const subs = new Set();
 let hooked = false;

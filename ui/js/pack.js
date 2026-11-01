@@ -1,5 +1,5 @@
-// Circle packing sem bibliotecas: front-chain de d3.packSiblings (Wang et al.), sem círculo envolvente exato.
-// Recebe círculos { r } e define x, y de cada um; devolve o raio do círculo que envolve todos, centrado em (0, 0).
+// Circle packing without libraries: front-chain of d3.packSiblings (Wang et al.), without an exact enclosing circle.
+// Takes circles { r } and sets x, y on each; returns the radius of the circle enclosing all of them, centered at (0, 0).
 
 function place(b, a, c) {
   const dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy;
@@ -26,7 +26,7 @@ function intersects(a, b) {
   return dr > 0 && dr * dr > dx * dx + dy * dy;
 }
 
-// Quadrado da distância do centroide ponderado do par (node, node.next) à origem.
+// Squared distance from the weighted centroid of the pair (node, node.next) to the origin.
 function score(node) {
   const a = node.c, b = node.next.c, ab = a.r + b.r;
   const dx = (a.x * b.r + b.x * a.r) / ab, dy = (a.y * b.r + b.y * a.r) / ab;
@@ -45,7 +45,7 @@ export function packSiblings(circles) {
   let c = circles[2];
   place(b, a, c);
 
-  // Cadeia frontal (lista circular duplamente ligada) com os três primeiros círculos.
+  // Front chain (circular doubly linked list) with the first three circles.
   a = { c: a, next: null, prev: null };
   b = { c: b, next: null, prev: null };
   c = { c, next: null, prev: null };
@@ -57,7 +57,7 @@ export function packSiblings(circles) {
     const circle = circles[i];
     place(a.c, b.c, circle);
     c = { c: circle, next: null, prev: null };
-    // Procura o círculo da cadeia que intersecta o novo, andando nos dois sentidos.
+    // Finds the chain circle that intersects the new one, walking in both directions.
     let j = b.next, k = a.prev, sj = b.c.r, sk = a.c.r;
     do {
       if (sj <= sk) {
@@ -68,7 +68,7 @@ export function packSiblings(circles) {
         sk += k.c.r; k = k.prev;
       }
     } while (j !== k.next);
-    // Sem interseção: insere c entre a e b e procura o par mais próximo do centroide.
+    // No intersection: inserts c between a and b and looks for the pair closest to the centroid.
     c.prev = a; c.next = b; a.next = b.prev = b = c;
     let best = score(a), cur = c;
     while ((cur = cur.next) !== b) {
@@ -81,7 +81,7 @@ export function packSiblings(circles) {
   return enclose(circles);
 }
 
-// Centraliza pela caixa delimitadora (mais barato que o círculo mínimo e visualmente equivalente).
+// Centers by bounding box (cheaper than the minimum circle and visually equivalent).
 function center(circles) {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const c of circles) {
@@ -98,7 +98,7 @@ function enclose(circles) {
   return r;
 }
 
-// Empacota e escala os círculos para caber em w × h; x e y ficam em coordenadas do retângulo.
+// Packs and scales the circles to fit w × h; x and y end up in rectangle coordinates.
 export function layout(circles, w, h, pad = 6) {
   if (!circles.length) return;
   packSiblings(circles);
@@ -112,17 +112,17 @@ export function layout(circles, w, h, pad = 6) {
   for (const c of circles) { c.x = w / 2 + (c.x - cx) * k; c.y = h / 2 + (c.y - cy) * k; c.r *= k; }
 }
 
-// ---- Mapa de bolhas do Disk Map ----------------------------------------------------------------------------
-// Raio por raiz quadrada do tamanho, comprimido entre rMin e rMax: r = rMin + (rMax − rMin)·sqrt(size/maxSize).
-// O fator `f` escala os dois extremos juntos; a folga entre bolhas (gap) e a margem (pad) ficam fixas em pixels.
+// ---- Disk Map bubble map -----------------------------------------------------------------------------------
+// Radius by square root of size, compressed between rMin and rMax: r = rMin + (rMax − rMin)·sqrt(size/maxSize).
+// The factor `f` scales both extremes together; the gap between bubbles (gap) and the margin (pad) stay fixed in pixels.
 
-// Gerador determinístico (a mesma pasta sempre produz o mesmo desenho).
+// Deterministic generator (the same folder always produces the same drawing).
 function lcg(seed) {
   let x = seed >>> 0;
   return () => (x = (Math.imul(x, 1664525) + 1013904223) >>> 0) / 4294967296;
 }
 
-// Cópias dos círculos com raio inflado em gap/2: dois círculos encostados no empacotamento ficam a `gap` de distância.
+// Copies of the circles with the radius inflated by gap/2: two circles touching in the packing end up `gap` apart.
 function packWith(radii, order, gap) {
   const cs = order.map((i) => ({ i, r: radii[i] + gap / 2 }));
   packSiblings(cs);
@@ -134,7 +134,7 @@ function packWith(radii, order, gap) {
   return { cs, w: x1 - x0 - gap, h: y1 - y0 - gap, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
 }
 
-// Ordens de inserção candidatas: o empacotamento muda de forma conforme a ordem, e algumas ficam bem mais compactas.
+// Candidate insertion orders: the packing changes shape with the order, and some come out much more compact.
 function orders(n) {
   const desc = Array.from({ length: n }, (_, i) => i);
   const out = [desc];
@@ -157,8 +157,8 @@ function orders(n) {
   return out;
 }
 
-// Define x, y, r em cada item ({ size }, já em ordem decrescente) dentro de w × h. Devolve o fator de escala usado
-// e se coube na escala mínima. opts: gap, pad, rMin, rMax, fMax (escala máxima), fMin.
+// Sets x, y, r on each item ({ size }, already in descending order) within w × h. Returns the scale factor used
+// and whether it fit at the minimum scale. opts: gap, pad, rMin, rMax, fMax (maximum scale), fMin.
 export function fitBubbles(items, w, h, opts = {}) {
   const { gap = 10, pad = 6, rMin = 46, rMax = 120, fMax = 1.25, fMin = 0.3, tCap = 1 } = opts;
   const n = items.length;
@@ -168,7 +168,7 @@ export function fitBubbles(items, w, h, opts = {}) {
   const radiiAt = (f) => t.map((u) => f * (rMin + (rMax - rMin) * u));
   const availW = w - 2 * pad, availH = h - 2 * pad;
   const ords = orders(n);
-  // Melhor empacotamento para o fator f: o que ocupa a menor caixa em relação à área disponível.
+  // Best packing for factor f: the one that occupies the smallest box relative to the available area.
   const bestAt = (f) => {
     const radii = radiiAt(f);
     let best = null;

@@ -1,4 +1,4 @@
-// Disk Map: mapa de bolhas navegável. Só ids de nós trafegam; o backend resolve caminhos e valida cada remoção.
+// Disk Map: navigable bubble map. Only node ids travel; the backend resolves paths and validates each removal.
 import { play } from '../sound.js';
 import { t, tn, tr } from '../i18n.js';
 import { h, mount, sleep } from '../dom.js';
@@ -11,18 +11,18 @@ import { removeGroups, stopDock } from '../actions.js';
 import { fitBubbles } from '../pack.js';
 import { createReview, openMenu } from './review.js';
 
-// Quantas bolhas o mapa mostra no máximo; o resto vira "Outros itens". Em áreas pequenas o mapa mostra menos.
+// How many bubbles the map shows at most; the rest becomes "Other items". In small areas the map shows fewer.
 const TOP_MAX = 13, TOP_MIN = 6, TOP_TRY = [13, 12, 11, 10, 9, 8, 7, 6];
 const GAP = 10, PAD = 8, R_MIN = 46, R_MAX = 120, F_GOOD = 0.66;
 const LIST_CHUNK = 250;
 
-// Estado da sessão: sobrevive à troca de módulo (o mapa fica no backend até o próximo scan).
+// Session state: survives module switch (the map stays in the backend until the next scan).
 const S = { phase: 'idle', roots: null, rootIdx: 0, root: null, vol: null, cache: new Map(), sel: new Set(), hist: [], pos: -1, cur: null, expanded: false, listLimit: LIST_CHUNK, review: null, moved: 0, hasMap: false, icons: new Map() };
 
 const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ============================================================================================================
-// Ícones estilo Finder (arte própria, SVG inline). Os gradientes ficam em um <svg> único no <body>.
+// Finder-style icons (own artwork, inline SVG). The gradients live in a single <svg> in the <body>.
 // ============================================================================================================
 const DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
 <linearGradient id="lf-back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4ea6f2"/><stop offset="1" stop-color="#1f62c0"/></linearGradient>
@@ -85,7 +85,7 @@ function svgIcon(kind) {
   return tpl.content.firstElementChild;
 }
 
-// Cache dos ícones reais de .app (path -> data URL | null) e das requisições em andamento.
+// Cache of the real .app icons (path -> data URL | null) and of the requests in flight.
 const pendingIcons = new Map();
 function wantAppIcon(n, slot) {
   const put = (u) => { if (u && slot.isConnected) { const img = h('img', { class: 'fi-img', src: u, alt: '', draggable: 'false' }); slot.replaceChildren(img); } };
@@ -97,7 +97,7 @@ function wantAppIcon(n, slot) {
   pendingIcons.get(n.path).then(put);
 }
 
-// Ícone de um nó, em `px` pixels. Pacotes .app trocam o desenho genérico pelo ícone real quando ele chega.
+// Icon of a node, at `px` pixels. .app bundles swap the generic drawing for the real icon when it arrives.
 function nodeIcon(n, px, root) {
   const kind = iconKind(n, root);
   const slot = h('span', { class: 'fi', style: `width:${px}px;height:${px}px` }, svgIcon(kind));
@@ -106,14 +106,14 @@ function nodeIcon(n, px, root) {
 }
 const plainIcon = (kind, px) => h('span', { class: 'fi', style: `width:${px}px;height:${px}px` }, svgIcon(kind));
 
-// O nó sintético de arquivos pequenos vem do backend com texto em português; os demais nomes são do disco.
+// The synthetic small-files node comes from the backend with Portuguese text; the other names come from disk.
 const nodeName = (n) => {
   if (n.kind !== 'small') return n.name;
-  const m = /^([\d.]+) arquivos pequenos$/.exec(n.name); // número vem formatado em pt-BR pelo Rust
+  const m = /^([\d.]+) arquivos pequenos$/.exec(n.name); // the number comes formatted in pt-BR by Rust
   return m ? tn(Number(m[1].replace(/\./g, '')), '1 arquivo pequeno', '{n} arquivos pequenos') : tr(n.name);
 };
 
-// Nome com reticências no meio, preservando a extensão: "CMPurgeableSpaceEntityPa…ntifier".
+// Name with an ellipsis in the middle, preserving the extension: "CMPurgeableSpaceEntityPa…ntifier".
 function midCut(name, cap) {
   if (name.length <= cap) return name;
   if (cap < 4) return name.slice(0, Math.max(1, cap - 1)) + '…';
@@ -152,7 +152,7 @@ export function enter(ctx) {
     shell = null; layoutInfo = null;
   }
 
-  // ---------- seleção ----------
+  // ---------- selection ----------
   function ancestorsSelected(id) {
     for (let p = node(id)?.parent; p != null; p = node(p)?.parent) if (S.sel.has(p)) return true;
     return false;
@@ -169,7 +169,7 @@ export function enter(ctx) {
     if (S.sel.has(id)) S.sel.delete(id);
     else {
       S.sel.add(id);
-      // Marcar a pasta inclui tudo dentro dela.
+      // Checking the folder includes everything inside it.
       for (const o of [...S.sel]) if (o !== id && ancestorsSelected(o)) S.sel.delete(o);
     }
     refreshSel();
@@ -206,7 +206,7 @@ export function enter(ctx) {
 
   // ---------- landing ----------
   function rootTitle(r) { return r.isVolume ? r.name : t('Pasta pessoal'); }
-  const volName = () => (S.vol.isVolume ? S.vol.name : t('Pasta pessoal')); // traduzido na hora de exibir
+  const volName = () => (S.vol.isVolume ? S.vol.name : t('Pasta pessoal')); // translated at display time
 
   function renderIdle() {
     const pick = h('div', { class: 'lens-roots', role: 'radiogroup', 'aria-label': t('Local para analisar') });
@@ -232,7 +232,7 @@ export function enter(ctx) {
     }
   }
 
-  // ---------- varredura ----------
+  // ---------- scan ----------
   async function scan() {
     cancelled = false;
     S.phase = 'scanning';
@@ -254,7 +254,7 @@ export function enter(ctx) {
         S.cache = new Map([[r.root.id, r.root]]); S.sel = new Set(); S.hist = []; S.pos = -1; S.cur = null; S.icons = new Map();
         ok = true;
       }
-    } catch (e) { /* toast já exibido */ }
+    } catch (e) { /* toast already shown */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     if (ok) {
@@ -267,8 +267,8 @@ export function enter(ctx) {
     render();
   }
 
-  // ---------- navegação ----------
-  // Carrega os filhos de `id` e os torna a pasta atual (sem desenhar). Maiores primeiro.
+  // ---------- navigation ----------
+  // Loads the children of `id` and makes them the current folder (without drawing). Largest first.
   async function load(id, push) {
     const token = ++navToken;
     let r;
@@ -285,7 +285,7 @@ export function enter(ctx) {
     S.cur = r; S.expanded = false; S.listLimit = LIST_CHUNK;
   }
 
-  // Navegação da interface, com transição: dir 'in' = entrar (a câmera mergulha na bolha), 'out' = subir/voltar.
+  // UI navigation, with transition: dir 'in' = enter (the camera dives into the bubble), 'out' = go up/back.
   async function go(id, { push = true, dir = 'in', from = null } = {}) {
     if (!shell) return false;
     const token = ++navToken;
@@ -314,7 +314,7 @@ export function enter(ctx) {
   const goUp = () => { if (S.cur && S.cur.node.parent != null) go(S.cur.node.parent, { dir: 'out' }); };
   const drill = (n, from) => { if (n && n.drillable) go(n.id, { dir: 'in', from }); };
 
-  // ---------- interações em comum (bolha e linha) ----------
+  // ---------- shared interactions (bubble and row) ----------
   function hover(id, on) {
     const r = rows.get(id), b = bubs.get(id) || (restIds.has(id) ? bubs.get('other') : null);
     if (r) r.classList.toggle('hot', on);
@@ -341,7 +341,7 @@ export function enter(ctx) {
     });
   }
 
-  // Um clique marca; o segundo clique de um duplo clique desfaz a marcação e a pasta abre (como no Finder).
+  // One click checks; the second click of a double click undoes the check and the folder opens (as in Finder).
   function clickable(el, n, mark) {
     let pre = null;
     el.addEventListener('click', (e) => {
@@ -367,7 +367,7 @@ export function enter(ctx) {
     });
   }
 
-  // ---------- painel esquerdo ----------
+  // ---------- left panel ----------
   function drawHead() {
     const { node: cur } = S.cur, atRoot = cur.id === S.root.id;
     mount(shell.headIc, atRoot ? plainIcon(S.vol.isVolume ? 'drive' : 'home', 46) : nodeIcon(cur, 46));
@@ -424,7 +424,7 @@ export function enter(ctx) {
     refreshSel();
   }
 
-  // ---------- caminho (estilo Finder) ----------
+  // ---------- path (Finder style) ----------
   function crumbsEl() {
     const cr = S.cur.crumbs;
     const show = cr.length > 3 ? [cr[0], null, ...cr.slice(-2)] : cr;
@@ -440,8 +440,8 @@ export function enter(ctx) {
     return out;
   }
 
-  // ---------- mapa ----------
-  // Escolhe quantas bolhas cabem com tamanho confortável, e posiciona. Devolve null se o mapa ainda não tem tamanho.
+  // ---------- map ----------
+  // Chooses how many bubbles fit at a comfortable size, and positions them. Returns null if the map has no size yet.
   function computeLayout() {
     const w = shell.mapEl.clientWidth, hgt = shell.mapEl.clientHeight;
     if (w < 80 || hgt < 80) return null;
@@ -454,7 +454,7 @@ export function enter(ctx) {
       const rest = kids.slice(k);
       if (rest.length) {
         const total = rest.reduce((a, c) => a + c.size, 0);
-        // O raio de "Outros itens" é limitado: a bolha-resumo não pode roubar o destaque dos maiores.
+        // The radius of "Other items" is capped: the summary bubble must not steal the spotlight from the largest ones.
         items.push({ n: null, id: 'other', size: Math.min(total, kids[0].size * 0.35), bytes: total, other: true, count: rest.length });
       }
       items.sort((a, b) => b.size - a.size);
@@ -515,7 +515,7 @@ export function enter(ctx) {
     }
   }
 
-  // ---------- montagem da tela de resultados ----------
+  // ---------- results screen assembly ----------
   function buildShell() {
     ensureDefs();
     const { node: root } = { node: S.root }, vol = S.vol;
@@ -577,7 +577,7 @@ export function enter(ctx) {
     shell = { el, layer, mapEl, empty, listEl, headIc, headT, crumbs, backBtn, fwdBtn, size: [0, 0], ro: null };
     mount(ctx.root, el);
 
-    // O desenho depende do tamanho do mapa: refaz (sem animação) quando a janela muda.
+    // The drawing depends on the map size: redraws (without animation) when the window changes.
     let raf = 0;
     shell.ro = new ResizeObserver(() => {
       const w = mapEl.clientWidth, hh = mapEl.clientHeight;
@@ -604,7 +604,7 @@ export function enter(ctx) {
     if (!shell.el.contains(document.activeElement) || document.activeElement === document.body) shell.el.focus({ preventScroll: true });
   }
 
-  // ---------- revisão e remoção ----------
+  // ---------- review and removal ----------
   async function review() {
     const ids = topSelected();
     if (!ids.length) return;

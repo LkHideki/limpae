@@ -1,7 +1,7 @@
-// Proteção: verificação de segurança (somente leitura), permissões de apps e privacidade.
-// Nada é alterado em silêncio: os "consertos" só abrem o painel certo dos Ajustes; revogar e remover pedem confirmação.
-// A interface só envia ids do backend, nunca caminhos, URLs nem bundle ids. Nomes vêm do disco (não confiáveis):
-// só textContent / createElement.
+// Security: security check (read-only), app permissions and privacy.
+// Nothing is changed silently: the "fixes" only open the right Settings pane; revoking and removing ask for confirmation.
+// The UI only sends backend ids, never paths, URLs or bundle ids. Names come from disk (untrusted):
+// only textContent / createElement.
 import { play } from '../sound.js';
 import { h, s, mount, mid } from '../dom.js';
 import { icon } from '../art.js';
@@ -15,7 +15,7 @@ import { t, tn, tr, lazyIntl } from '../i18n.js';
 
 const REMOVE_BATCH = 100;
 
-// Ícones locais (art.js pertence a outro módulo): mesmo traço dos demais.
+// Local icons (art.js belongs to another module): same stroke as the others.
 const PATHS = {
   globe: ['M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16z', 'M4 12h16', 'M12 4c2.4 2.2 3.6 4.9 3.6 8s-1.2 5.8-3.6 8c-2.4-2.2-3.6-4.9-3.6-8S9.6 6.2 12 4z'],
   camera: ['M4 8h3l1.5-2h7L17 8h3v11H4z', 'M12 10.5a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4z'],
@@ -58,8 +58,8 @@ function serviceDesc(service) {
   }
 }
 
-// O tr() não traduz o valor capturado em {param}: o "(há 16 dias)" e a lista "desligada para: ..." do detalhe
-// são traduzidos antes, para o padrão do dicionário casar já com os trechos no idioma certo.
+// tr() does not translate the value captured in {param}: the "(há 16 dias)" and the "desligada para: ..." list of the detail
+// are translated beforehand, so the dictionary pattern matches with the fragments already in the right language.
 function trDetail(text) {
   if (typeof text !== 'string') return text;
   const pre = text
@@ -70,7 +70,7 @@ function trDetail(text) {
 
 const areas = () => [{ value: 'checks', label: t('Verificação') }, { value: 'perms', label: t('Permissões') }, { value: 'privacy', label: t('Privacidade') }];
 
-// Nomes legíveis das listas de itens recentes do macOS (o arquivo real aparece no tooltip e no caminho).
+// Readable names of the macOS recent-item lists (the real file appears in the tooltip and in the path).
 function recentLabel(name) {
   switch (name) {
     case 'com.apple.LSSharedFileList.RecentApplications.sfl3': return t('Apps abertos recentemente');
@@ -91,13 +91,13 @@ const fmtDate = (sec) => (sec ? dtf.format(new Date(sec * 1000)) : '');
 const EMPTY_TCC = { needsFda: false, groups: [], cameraMicApps: 0, apps: 0 };
 const EMPTY_PRIV = { groups: [], total: 0, browsers: [], needsFda: false };
 
-// Estado que sobrevive à troca de módulo (a view é recriada a cada entrada).
+// State that survives module switch (the view is recreated on every entry).
 const S = {
   phase: 'idle', // idle | scanning | results | review | removing | done
   checks: null, tcc: null, priv: null,
   area: 'checks', svc: null, pcat: 'recent',
-  rsel: new Set(), // permissões marcadas para revogar
-  psel: new Set(), // itens de privacidade marcados para remover
+  rsel: new Set(), // permissions marked for revoking
+  psel: new Set(), // privacy items marked for removal
   done: null,
 };
 
@@ -159,7 +159,7 @@ export function enter(ctx) {
     return renderIdle();
   }
 
-  // ---------- Início ----------
+  // ---------- Start ----------
   function renderIdle() {
     S.phase = 'idle';
     st.show(h('h1', { class: 'h1' }, t('Segurança')),
@@ -169,7 +169,7 @@ export function enter(ctx) {
     ctx.setDock({ label: t('Analisar'), mod: 'protect', onClick: scan });
   }
 
-  // ---------- Análise ----------
+  // ---------- Scan ----------
   async function scan() {
     const steps = [
       { k: 'checks', task: null, label: t('Verificação de segurança'), run: () => api.securityChecks(), sum: (r) => (r.filter((c) => c.ok === false).length ? plural(r.filter((c) => c.ok === false).length, 'ponto de atenção', 'pontos de atenção') : t('tudo certo')) },
@@ -223,7 +223,7 @@ export function enter(ctx) {
     render();
   }
 
-  // ---------- Resultados (blocos) ----------
+  // ---------- Results (blocks) ----------
   function renderResults() {
     st = null;
     ctx.reserveDock(false);
@@ -280,7 +280,7 @@ export function enter(ctx) {
 
   function open(area) { S.area = area; S.phase = 'review'; render(); }
 
-  // ---------- Gerenciador ----------
+  // ---------- Manager ----------
   function renderReview() {
     st = null;
     ctx.reserveDock(false);
@@ -306,7 +306,7 @@ export function enter(ctx) {
 
     const back = () => { S.phase = 'results'; render(); };
 
-    // ---- Verificação ----
+    // ---- Check ----
     function viewChecks() {
       bodyEl.className = 'fm-body pr-single';
       mount(bodyEl, h('div', { class: 'fm-pane' }, headEl, listEl));
@@ -326,11 +326,11 @@ export function enter(ctx) {
     async function recheck() {
       actionBtn.disabled = true;
       actionBtn.textContent = t('Verificando…');
-      try { S.checks = await api.securityChecks(); } catch (e) { /* o erro já foi mostrado */ }
+      try { S.checks = await api.securityChecks(); } catch (e) { /* the error was already shown */ }
       if (ctx.alive && S.phase === 'review') renderReview();
     }
 
-    // ---- Permissões ----
+    // ---- Permissions ----
     const rowsOf = (g) => g.rows;
     const grantedOf = (g) => g.rows.filter((r) => r.granted);
     const selCount = () => S.rsel.size;
@@ -403,7 +403,7 @@ export function enter(ctx) {
       actionBtn.onclick = revoke;
     }
 
-    // ---- Privacidade ----
+    // ---- Privacy ----
     function viewPrivacy() {
       bodyEl.className = 'fm-body';
       mount(bodyEl, catsEl, h('div', { class: 'fm-pane' }, headEl, listEl));
@@ -427,7 +427,7 @@ export function enter(ctx) {
       }));
     }
 
-    // Mesmos rótulos da Limpeza: Tudo, Nada, Inteligente (a seleção padrão do backend) ou Parcial.
+    // Same labels as Junk: All, None, Smart (the backend's default selection) or Partial.
     function privMode(items) {
       const n = items.filter((i) => S.psel.has(i.id)).length;
       if (n === items.length) return 'all';
@@ -483,7 +483,7 @@ export function enter(ctx) {
               h('div', { class: 'fm-meta' }, mid(it.path, 26))),
             h('span', { class: 'fm-size' }, fmtBytes(it.size)),
             h('button', { class: 'icon-btn fm-act', type: 'button', title: t('Mostrar no Finder'), 'aria-label': t('Mostrar {name} no Finder', { name: label }), onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)));
-          // Arquivos internos (bancos de dados, listas): só Mostrar no Finder; nada de Visualização Rápida nem Ignorar.
+          // Internal files (databases, lists): only Show in Finder; no Quick Look or Ignore.
           attachMenu(row, () => ({ id: it.id, name: label, quickLook: false, ignore: false, select: { on: S.psel.has(it.id), toggle } }));
           return row;
         }));
@@ -504,11 +504,11 @@ export function enter(ctx) {
         const r = await api.privacyScan();
         S.priv = r;
         selectInitial();
-      } catch (e) { /* o erro já foi mostrado */ }
+      } catch (e) { /* the error was already shown */ }
       if (ctx.alive && S.phase === 'review') renderReview();
     }
 
-    // ---- montagem ----
+    // ---- assembly ----
     paintAreas();
     if (S.area === 'checks') viewChecks();
     else if (S.area === 'perms') viewPerms();
@@ -521,14 +521,14 @@ export function enter(ctx) {
     ctx.onBack(back);
   }
 
-  // ---------- Ações ----------
+  // ---------- Actions ----------
   function busyStage(title, sub) {
     S.phase = 'removing';
     ctx.setBusy(true);
     st = null; ensureStage(); st.busy(true);
     const prog = h('p', { class: 'sub' }, sub);
     st.show(h('h1', { class: 'h1' }, title), prog);
-    ctx.setDock(null); // sem ação possível aqui: nada de anel girando; a remoção de privacidade passa a mostrar "Parar"
+    ctx.setDock(null); // no possible action here: no spinning ring; the privacy removal starts showing "Stop"
     return prog;
   }
 
@@ -557,8 +557,8 @@ export function enter(ctx) {
       failures.push(...ids.map((id) => ({ id, name: byId.get(id).name, path: byId.get(id).path, error: tr(e.message) })));
     }
     prog.textContent = t('{done} de {total}', { done: fmtNum(ids.length), total: fmtNum(ids.length) });
-    // Ids são novos a cada leitura: busca a lista de novo para refletir o que o macOS realmente guarda.
-    try { S.tcc = await api.tccPermissions(); } catch (e) { /* mantém a lista antiga */ }
+    // Ids are new on each read: fetches the list again to reflect what macOS really stores.
+    try { S.tcc = await api.tccPermissions(); } catch (e) { /* keeps the old list */ }
     S.rsel = new Set();
     S.done = { kind: 'perms', n: good, failed: failures.length };
     S.phase = 'done';

@@ -1,5 +1,5 @@
-// Lixeira: landing -> verificação -> resumo (por lixeira) -> revisão item a item -> esvaziar o que foi marcado.
-// Esvaziar é permanente: tudo vem marcado, mas o usuário pode manter itens na revisão.
+// Trash: landing -> check -> summary (per trash) -> item-by-item review -> empty what was checked.
+// Emptying is permanent: everything comes checked, but the user can keep items in the review.
 import { play } from '../sound.js';
 import { h, mount } from '../dom.js';
 import { icon, groupIcon } from '../art.js';
@@ -11,7 +11,7 @@ import { removeGroups, stopDock } from '../actions.js';
 import { createReview } from './review.js';
 import { t, tn, tr } from '../i18n.js';
 
-const MARK = '\u0001'; // marcador {b} onde entra o trecho em negrito
+const MARK = '\u0001'; // {b} marker where the bold fragment goes
 const withNode = (s, node) => { const [a, b = ''] = s.split(MARK); return [a, node, b]; };
 
 export function enter(ctx) {
@@ -29,7 +29,7 @@ export function enter(ctx) {
     st.busy(false);
   }
 
-  // Marcação: tudo, por padrão. Recalculada quando o resultado muda (nova leitura, ou a feita pela Faxina).
+  // Marking: everything, by default. Recomputed when the result changes (new read, or the one made by Sweep).
   function selection() {
     const r = store.trash;
     if (store.trashSelRef !== r) {
@@ -49,10 +49,10 @@ export function enter(ctx) {
     ctx.onProgress((p) => { if (p.task === 'trash') ticker.textContent = p.path || ''; });
     ctx.setDock({ label: t('Parar'), busy: true, mod: 'trash', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'trash' }); api.cancel().catch(() => {}); } });
     let r = null;
-    try { r = await api.trash(); } catch (e) { failed = !cancelled; /* toast já exibido */ }
+    try { r = await api.trash(); } catch (e) { failed = !cancelled; /* toast already shown */ }
     ctx.setBusy(false);
     if (r && !cancelled) {
-      for (const g of r.groups) if (g.id === 'trash') g.title = 'Lixeira do Mac'; // i18n-ignore: chave do dicionário, traduzida por tr() na exibição
+      for (const g of r.groups) if (g.id === 'trash') g.title = 'Lixeira do Mac'; // i18n-ignore: dictionary key, translated by tr() on display
       store.trash = r;
       T.phase = 'ready';
     } else T.phase = 'idle';
@@ -87,7 +87,7 @@ export function enter(ctx) {
     ctx.setDock({ label: t('Verificar'), mod: 'trash', onClick: load });
   }
 
-  // ---------- resumo ----------
+  // ---------- summary ----------
   function renderReady(r) {
     T.phase = 'ready';
     const n = countItems(r);
@@ -112,7 +112,7 @@ export function enter(ctx) {
     ctx.setDock({ label: t('Esvaziar'), mod: 'trash', disabled: picked.count === 0, onClick: empty });
   }
 
-  // Uma linha por lixeira: a do Mac e uma por volume externo, com tamanho e quantidade.
+  // One row per trash: the Mac's and one per external volume, with size and count.
   function volumeList(groups) {
     return h('ul', { class: 'vol-list', 'aria-label': t('Lixeiras encontradas') }, groups.map((g) => h('li', { class: 'vol-row' },
       h('span', { class: 'vol-ic' }, icon(groupIcon(g.id), 16)),
@@ -133,7 +133,7 @@ export function enter(ctx) {
     ctx.setDock(null);
   }
 
-  // ---------- revisão ----------
+  // ---------- review ----------
   function renderReview() {
     st = null;
     ctx.reserveDock(false);
@@ -152,7 +152,7 @@ export function enter(ctx) {
     ctx.onBack(back);
   }
 
-  // ---------- esvaziar ----------
+  // ---------- empty ----------
   async function empty() {
     const r = store.trash;
     const sel = selection();

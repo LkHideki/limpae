@@ -1,4 +1,4 @@
-// Componentes compartilhados: toast, diálogos, checkbox tri-state, botão redondo, stage.
+// Shared components: toast, dialogs, tri-state checkbox, round button, stage.
 import { h, s, mount, mid } from './dom.js';
 import { icon, orb } from './art.js';
 import { plural } from './format.js';
@@ -44,18 +44,18 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
     }
     document.addEventListener('keydown', onKey, true);
     root.append(back);
-    // Destrutivo: foco inicial em Cancelar, para Enter não confirmar sem querer.
+    // Destructive: initial focus on Cancel, so Enter does not confirm by accident.
     requestAnimationFrame(() => requestAnimationFrame(() => { back.classList.add('in'); btns[danger ? 0 : btns.length - 1].focus({ preventScroll: true }); }));
   });
 }
 
-// Primeiro botão = cancelar (valor false); último = confirmar (true).
-// permanentChoice: mostra a chave "Apagar definitivamente" (itens que iriam para o Lixo). Retorna false, true
-// ou 'permanent' quando a chave está ligada — o chamador repassa `permanent` à remoção.
-// permanentTitle: título do diálogo quando a chave liga (o chamador monta os dois já traduzidos, p.ex. "Mover 2 itens
-// para o Lixo?" e "Apagar 2 itens definitivamente?"); sem ele cai em "Apagar definitivamente?".
-// trashCount: quantos itens do lote iriam para o Lixo (o resto já é apagado direto, como caches); a nota fala
-// só deles, para não contradizer o corpo do diálogo em seleções mistas.
+// First button = cancel (value false); last = confirm (true).
+// permanentChoice: shows the "Delete permanently" switch (items that would go to Trash). Returns false, true
+// or 'permanent' when the switch is on — the caller passes `permanent` on to the removal.
+// permanentTitle: dialog title when the switch is on (the caller builds both already translated, e.g. "Move 2 items
+// to Trash?" and "Delete 2 items permanently?"); without it, falls back to "Delete permanently?".
+// trashCount: how many items of the batch would go to Trash (the rest is deleted directly, like caches); the note speaks
+// only of them, so as not to contradict the dialog body in mixed selections.
 export function confirmDialog({ title, body, confirm = t('Confirmar'), cancel = t('Cancelar'), danger = false, glyph = 'alert', mod, permanentChoice = false, permanentDefault = false, trashCount = null, permanentTitle = null }) {
   let permanent = permanentChoice && permanentDefault;
   const mixed = trashCount != null && danger;
@@ -74,12 +74,12 @@ export function confirmDialog({ title, body, confirm = t('Confirmar'), cancel = 
       }
       if (!card) return;
       card.classList.toggle('danger', permanent || danger);
-      // O texto sobre o Lixo deixa de valer: título reescrito e corpo escondido (a nota acima explica).
+      // The text about Trash no longer applies: title rewritten and body hidden (the note above explains).
       const h3 = card.querySelector('h3'), bodyEl = card.querySelector('.body');
       if (h3) {
         h3.textContent = permanent ? (permanentTitle || t('Apagar definitivamente?')) : title;
       }
-      // Corpo escondido só quando ele fala apenas do Lixo; em lotes mistos ele descreve os itens já definitivos.
+      // Body hidden only when it talks solely about Trash; in mixed batches it describes the items already permanent.
       if (bodyEl) bodyEl.hidden = permanent && !mixed;
       const btn = card.querySelector('.btns .btn:last-child');
       if (btn) { btn.textContent = permanent ? t('Apagar definitivamente') : confirm; btn.className = 'btn ' + (permanent || danger ? 'danger' : 'primary'); }
@@ -93,7 +93,7 @@ export function confirmDialog({ title, body, confirm = t('Confirmar'), cancel = 
   return modal({ title, body, danger, glyph, mod, extra, buttons: [{ label: cancel, value: false }, confirmBtn] }).then((ok) => (ok && permanent ? 'permanent' : ok));
 }
 
-// "Recomeçar" descarta resultados e marcações: sempre com confirmação (nada foi removido até ali).
+// "Start over" discards results and marks: always with confirmation (nothing was removed up to that point).
 export function confirmRestart(mod) {
   return confirmDialog({
     title: t('Recomeçar a análise?'), body: t('Os resultados e as marcações atuais serão descartados. Nada foi removido até agora.'),
@@ -101,9 +101,9 @@ export function confirmRestart(mod) {
   });
 }
 
-// Barra superior de todo gerenciador: "‹ Voltar" + nome do módulo à esquerda; busca e ordenação (`controls`) à
-// direita. O rodapé do gerenciador fica só com a seleção e a ação principal.
-// `into`: barra já existente para repintar no lugar (a busca mantém o foco entre repinturas só se não for refeita).
+// Top bar of every manager: "‹ Back" + module name on the left; search and sorting (`controls`) on the
+// right. The manager footer holds only the selection and the primary action.
+// `into`: existing bar to repaint in place (search keeps focus between repaints only if it is not rebuilt).
 export function managerBar({ title, subtitle, onBack, controls = [], into = null }) {
   const kids = [
     h('button', { class: 'btn sm ghost mgr-back', type: 'button', title: t('Voltar (Esc)'), onClick: onBack }, icon('back', 14), t('Voltar')),
@@ -113,7 +113,7 @@ export function managerBar({ title, subtitle, onBack, controls = [], into = null
   return into ? mount(into, kids) : h('div', { class: 'rv-head mgr-bar' }, kids);
 }
 
-// Chave liga/desliga (role=switch), animada.
+// On/off switch (role=switch), animated.
 export function toggleSwitch(on, onChange, label) {
   const b = h('button', { class: 'switch', type: 'button', role: 'switch', 'aria-label': label || '', 'aria-checked': String(!!on) }, h('i'));
   b.addEventListener('click', (e) => { e.stopPropagation(); const v = b.getAttribute('aria-checked') !== 'true'; b.setAttribute('aria-checked', String(v)); onChange(v); });
@@ -121,7 +121,7 @@ export function toggleSwitch(on, onChange, label) {
 }
 
 export function failuresSheet(failures) {
-  // Falhas com o mesmo motivo (ex.: restos mantidos porque o app ficou) viram um cartão só.
+  // Failures with the same reason (e.g. leftovers kept because the app was running) become a single card.
   const byReason = new Map();
   for (const f of failures) {
     const k = f.error || '';
@@ -146,7 +146,7 @@ export function failuresSheet(failures) {
   });
 }
 
-// Checkbox tri-state: data-state = on | off | mixed.
+// Tri-state checkbox: data-state = on | off | mixed.
 export function checkbox(state, onToggle, label) {
   const b = h('button', { class: 'cb', type: 'button', role: 'checkbox', 'aria-label': label || t('Selecionar') }, icon('check', 14), icon('dash', 14));
   b.set = (st) => {
@@ -172,7 +172,7 @@ export function chipRow(options, value, onChange) {
   return wrap;
 }
 
-// Botão redondo (96px) com anel de progresso. Um único elemento persistente no #dock.
+// Round button (96px) with a progress ring. A single persistent element in #dock.
 export function createGo(host) {
   const R = 52, C = 2 * Math.PI * R;
   const ring = s('svg', { class: 'go-ring', viewBox: '0 0 114 114', 'aria-hidden': 'true' },
@@ -199,7 +199,7 @@ export function createGo(host) {
   };
 }
 
-// Palco de módulo: orb à esquerda (persistente entre fases) + coluna de texto trocável.
+// Module stage: orb on the left (persistent between phases) + swappable text column.
 export function stage(mod, glyph, size = 260) {
   const art = orb(mod, size, glyph);
   const text = h('div', { class: 'stage-text' });

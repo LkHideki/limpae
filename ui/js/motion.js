@@ -1,6 +1,6 @@
-// Movimento global, sem tocar nas views: observa body[data-mod] (troca de tela), #nav (menu reconstruído / item atual)
-// e #view (heróis numéricos e estado "concluído"). Só transform/opacity; reduced-motion e body.idle desligam tudo.
-// Um observer por alvo, trabalho adiado para um rAF só; nada de setInterval. Seletor ausente = nada acontece.
+// Global motion, without touching the views: observes body[data-mod] (screen change), #nav (menu rebuilt / current item)
+// and #view (numeric heroes and "done" state). Only transform/opacity; reduced-motion and body.idle turn everything off.
+// One observer per target, work deferred to a single rAF; no setInterval. Missing selector = nothing happens.
 const view = document.getElementById('view');
 const nav = document.getElementById('nav');
 const dock = document.getElementById('dock');
@@ -8,22 +8,22 @@ const RM = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduc
 const calm = () => RM.matches || document.hidden || document.body.classList.contains('idle');
 const SPRING = 'cubic-bezier(.22, .7, .2, 1)';
 
-let navAt = 0; // instante da última troca de tela: "concluído" logo após ela é reentrada, não conclusão ao vivo
+let navAt = 0; // instant of the last screen change: "done" right after it is a re-entry, not a live completion
 const observers = [];
 
-// ---------- 1) Transição de tela ----------
+// ---------- 1) Screen transition ----------
 let enterAnims = [];
 
 function enterScreen() {
   navAt = performance.now();
   slots.clear();
-  enterAnims.forEach((a) => { try { a.cancel(); } catch (e) { /* já terminou */ } });
+  enterAnims.forEach((a) => { try { a.cancel(); } catch (e) { /* already finished */ } });
   enterAnims = [];
   if (!view || calm() || !view.animate) return;
   let kids = [...view.children];
-  // Tela de um filho só (palco): escalona os filhos dele.
+  // Single-child screen (stage): staggers its children.
   if (kids.length === 1 && !kids[0].classList.contains('enter')) kids = [...kids[0].children];
-  // Quem já entra com a própria animação (.enter) ou tem filho assim não é animado de novo: evita somar deslocamentos.
+  // Anything that already enters with its own animation (.enter) or has such a child is not animated again: avoids stacking offsets.
   kids = kids.filter((el) => !el.hidden && !el.classList.contains('enter') && !el.querySelector(':scope > .enter')).slice(0, 6);
   kids.forEach((el, i) => {
     enterAnims.push(el.animate(
@@ -32,14 +32,14 @@ function enterScreen() {
   });
 }
 
-// ---------- 2) Pílula deslizante do menu ----------
+// ---------- 2) Sliding menu pill ----------
 let pill = null, pillPlaced = false, navRaf = 0;
 
 function placePill() {
   navRaf = 0;
   if (!nav) return;
   if (!pill) { pill = document.createElement('i'); pill.className = 'nav-pill'; pill.setAttribute('aria-hidden', 'true'); }
-  if (!pill.isConnected) { nav.prepend(pill); pillPlaced = false; } // mount() do menu apaga a pílula junto
+  if (!pill.isConnected) { nav.prepend(pill); pillPlaced = false; } // the menu's mount() wipes the pill along with it
   const cur = nav.querySelector('.nav-item[aria-current="page"]');
   const w = cur ? cur.offsetWidth : 0;
   if (!cur || !w) { nav.classList.remove('has-pill'); pill.style.opacity = '0'; pillPlaced = false; return; }
@@ -47,7 +47,7 @@ function placePill() {
   pill.style.height = cur.offsetHeight + 'px';
   const tf = `translate3d(${cur.offsetLeft}px, ${cur.offsetTop}px, 0)`;
   if (!pillPlaced) {
-    // Primeira posição (ou menu novo): sem deslizar desde a origem.
+    // First position (or new menu): no sliding from the origin.
     pill.classList.add('snap');
     pill.style.transform = tf;
     pill.style.opacity = '';
@@ -59,13 +59,13 @@ function placePill() {
 }
 const schedulePill = () => { if (!navRaf) navRaf = requestAnimationFrame(placePill); };
 
-// ---------- 5) Contagem dos números "herói" ----------
-// Só estes (resultado grande); linhas e listas nunca entram.
+// ---------- 5) Counting up the "hero" numbers ----------
+// Only these (big result); rows and lists never qualify.
 const HERO = '.big, .t-num, .cl-tile-n';
 const DUR = 700;
 const active = [];
-const seen = new WeakMap(); // herói -> nó de texto já animado
-const slots = new Map();    // herói repintado no mesmo lugar (tile) -> último texto, para não recontar à toa
+const seen = new WeakMap(); // hero -> text node already animated
+const slots = new Map();    // hero repainted in the same place (tile) -> last text, to avoid pointless recounting
 let loop = 0;
 const fmtCache = new Map();
 
@@ -75,7 +75,7 @@ function symbols(loc) {
   return { group: pick('group'), decimal: pick('decimal') };
 }
 
-// "12,3 GB" / "1.234" / "42 itens" -> { lead, tail, value, dec, fmt }. Só aceita se o texto reformatado for idêntico ao original.
+// "12,3 GB" / "1.234" / "42 itens" -> { lead, tail, value, dec, fmt }. Only accepted if the reformatted text is identical to the original.
 function parse(text) {
   if (!text || text.length > 60) return null;
   const m = /^(\s*)(\d(?:[\d.,  ]*\d)?)([^\d]*)$/.exec(text);
@@ -108,7 +108,7 @@ function startCount(el) {
   const text = tn.nodeValue, p = parse(text);
   let from = 0;
   if (!el.matches('.big')) {
-    // Tile repintado com o mesmo valor não recontar; valor maior com a mesma unidade continua do anterior.
+    // A tile repainted with the same value does not recount; a larger value with the same unit continues from the previous one.
     const key = slotKey(el), prev = slots.get(key);
     slots.set(key, text);
     if (prev === text) return;
@@ -135,8 +135,8 @@ function frame(now) {
   if (active.length) loop = requestAnimationFrame(frame);
 }
 
-// ---------- 6) Celebração ao concluir ----------
-const celebrated = new Set(); // assinaturas já celebradas; zera quando a tela volta a trabalhar
+// ---------- 6) Celebration on completion ----------
+const celebrated = new Set(); // signatures already celebrated; reset when the screen goes back to working
 
 function burst(anchor) {
   const r = anchor.getBoundingClientRect();
@@ -167,7 +167,7 @@ function burst(anchor) {
 function checkDone() {
   if (!view) return;
   const mod = document.body.dataset.mod || '';
-  // Voltou a trabalhar (analisando/limpando): a próxima conclusão é nova.
+  // Back to working (scanning/cleaning): the next completion is a new one.
   if (view.querySelector('.orb.busy, .bento[data-phase="scan"], .bento[data-phase="cleaning"]')) { celebrated.clear(); return; }
   let anchor = null, sig = '';
   const stage = view.querySelector('.stage');
@@ -175,7 +175,7 @@ function checkDone() {
   if (stage) {
     const text = stage.querySelector('.stage-text');
     const big = text && text.querySelector('.big');
-    const dockOff = !dock || dock.classList.contains('off'); // com o botão redondo ativo ainda é pré-limpeza
+    const dockOff = !dock || dock.classList.contains('off'); // with the round button active it is still pre-cleanup
     if ((big && dockOff) || stage.querySelector('.orb-glyph.i-check')) {
       anchor = stage.querySelector('.stage-art .orb');
       sig = mod + '|' + (text ? text.textContent.slice(0, 80) : '');
@@ -186,11 +186,11 @@ function checkDone() {
   }
   if (!anchor || celebrated.has(sig)) return;
   celebrated.add(sig);
-  if (performance.now() - navAt < 700) return; // reentrada em tela já concluída
+  if (performance.now() - navAt < 700) return; // re-entry into an already completed screen
   burst(anchor);
 }
 
-// ---------- Observação de #view ----------
+// ---------- Observing #view ----------
 let pending = new Set(), viewRaf = 0;
 
 function collect(n, into) {
@@ -223,7 +223,7 @@ function onView(records) {
   if (!viewRaf) viewRaf = requestAnimationFrame(scanView);
 }
 
-// ---------- Ligação ----------
+// ---------- Wiring ----------
 function watch(target, opts, cb) {
   if (!target || !window.MutationObserver) return;
   const mo = new MutationObserver(cb);
@@ -236,7 +236,7 @@ watch(nav, { childList: true, subtree: true, attributes: true, attributeFilter: 
 watch(view, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-phase'] }, onView);
 window.addEventListener('resize', schedulePill);
 schedulePill();
-// Descarta observers ao fechar a janela.
+// Disconnects observers when the window closes.
 window.addEventListener('pagehide', () => { observers.forEach((o) => o.disconnect()); observers.length = 0; });
 
 export {};

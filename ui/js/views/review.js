@@ -1,5 +1,5 @@
-// Gerenciador de revisão: grupos (esq.) + itens (dir.), busca, ordenação, seleção tri-state,
-// menu de contexto por item e menu "Selecionar".
+// Review manager: groups (left) + items (right), search, sorting, tri-state selection,
+// per-item context menu and "Select" menu.
 import { h, mount, mid } from '../dom.js';
 import { icon, groupIcon } from '../art.js';
 import { api } from '../api.js';
@@ -10,11 +10,11 @@ import { selectedSize } from '../store.js';
 
 const CHUNK = 250;
 
-// ---- Menu DOM acessível (contexto e "Selecionar") ----
+// ---- Accessible DOM menu (context and "Select") ----
 let closeActive = null;
 
 // items: { label, icon?, checked?, disabled?, danger?, onSelect } | { sep: true }.
-// `at` = { x, y } em coordenadas de viewport; `opener` recebe o foco ao fechar.
+// `at` = { x, y } in viewport coordinates; `opener` receives focus on close.
 export function openMenu({ items, at, label, opener, onClose }) {
   if (closeActive) closeActive(false);
   const menu = h('div', { class: 'ctx-menu', role: 'menu', 'aria-label': label || t('Ações'), style: 'visibility:hidden' });
@@ -71,17 +71,17 @@ export function openMenu({ items, at, label, opener, onClose }) {
   menu.style.left = left + 'px';
   menu.style.top = top + 'px';
   menu.style.visibility = '';
-  if (opener) focusAt(0); // aberto por teclado ou por botão: o foco entra no menu
+  if (opener) focusAt(0); // opened by keyboard or by button: focus enters the menu
   return { close };
 }
 
-// Ponto de ancoragem de um elemento (canto inferior esquerdo) para menus abertos pelo teclado.
+// Anchor point of an element (bottom-left corner) for menus opened by keyboard.
 const below = (el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.bottom + 6 }; };
 const isMenuKey = (e) => e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10');
 
-// title = nome do módulo (barra superior, com "Voltar"); subtitle = o que esta revisão mostra.
-// ignore: false esconde "Ignorar" (a Lixeira não vai para a lista de ignorados); quickLook: false esconde
-// "Visualização Rápida" (abrir um arquivo do iCloud o baixaria de novo).
+// title = module name (top bar, with "Back"); subtitle = what this review shows.
+// ignore: false hides "Ignore" (Trash is not sent to the ignored list); quickLook: false hides
+// "Quick Look" (opening an iCloud file would download it again).
 export function createReview({ result, sel, mod, title, subtitle, actionLabel, showAge = false, extra = null, onBack, onAction, emptyText = null, ignore = true, quickLook = true, gid = null }) {
   const st = { q: '', sort: 'size', gid: result.groups.some((g) => g.id === gid) ? gid : (result.groups[0] ? result.groups[0].id : null), limit: CHUNK, anchor: null };
   const groupsEl = h('div', { class: 'rv-groups' });
@@ -107,7 +107,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
 
   function renderFooter() {
     const { bytes, count } = selectedSize(result, sel);
-    // Seleções fora da categoria aberta também valem para a ação: o rodapé diz em quantas categorias estão.
+    // Selections outside the open category also count for the action: the footer says how many categories they are in.
     const cats = result.groups.filter((g) => g.items.some((i) => sel.has(i.id))).length;
     if (!count) mount(selEl, t('Nenhum item selecionado'));
     else mount(selEl, t('Selecionado: '), h('b', null, fmtBytes(bytes)), h('small', null, cats > 1 ? tn(count, '{n} item em {cats}', '{n} itens em {cats}', { cats: tn(cats, '{n} categoria', '{n} categorias') }) : tn(count, '{n} item', '{n} itens')));
@@ -127,7 +127,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     }));
   }
 
-  // Remove o item da revisão (já foi para a lista de ignorados no backend): ajusta grupos e totais no lugar.
+  // Removes the item from the review (it already went to the ignored list in the backend): adjusts groups and totals in place.
   function dropLocal(it) {
     for (const g of result.groups) {
       const i = g.items.indexOf(it);
@@ -145,7 +145,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
   async function ignoreItem(it) {
     try {
       await api.ignore(it.id);
-    } catch (e) { return; } // o erro já foi mostrado
+    } catch (e) { return; } // the error was already shown
     dropLocal(it);
     toast(t('“{name}” não aparecerá mais nas análises. Gerencie em Ajustes.', { name: it.name }), 'ok');
   }
@@ -167,7 +167,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
 
   function itemRow(g, it, list) {
     const cb = checkbox(sel.has(it.id) ? 'on' : 'off', (_s, e) => toggle(e), t('Selecionar {name}', { name: it.name }));
-    // Shift+clique aplica o novo estado a todo o intervalo desde o último item clicado (como no Finder).
+    // Shift+click applies the new state to the whole range since the last clicked item (as in Finder).
     const toggle = (e) => {
       const on = !sel.has(it.id);
       const a = e && e.shiftKey && st.anchor != null ? list.findIndex((x) => x.id === st.anchor) : -1;
@@ -185,7 +185,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
       class: 'icon-btn rv-act', type: 'button', title: t('Mais ações'), 'aria-label': t('Mais ações para {name}', { name: it.name }), 'aria-haspopup': 'menu',
       onClick: (e) => { e.stopPropagation(); rowMenu(g, it, list, row, below(more), more); },
     }, icon('more', 16));
-    // Notas curtas viram selo ao lado do nome; as longas (ex.: caminho ausente) ganham uma linha própria.
+    // Short notes become a badge next to the name; long ones (e.g. missing path) get their own line.
     const longNote = !!it.note && it.note.length > 30;
     const row = h('div', {
       class: 'rv-item' + (longNote ? ' has-note' : ''), onClick: (e) => toggle(e),
@@ -204,7 +204,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     return row;
   }
 
-  // Seleção do grupo aberto (respeita a busca): Tudo, Nada ou a seleção padrão do backend.
+  // Selection of the open group (respects the search): All, None or the backend's default selection.
   const smartEq = (list) => list.every((i) => sel.has(i.id) === !!i.selected);
   function selectMode(list) {
     const n = list.filter((i) => sel.has(i.id)).length;
@@ -263,7 +263,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     extra ? h('div', { class: 'rv-extra' }, extra) : null,
     h('div', { class: 'rv-body' }, groupsEl, itemsEl),
     h('div', { class: 'rv-foot' }, selEl, actionBtn));
-  // ⌘A seleciona todos os itens visíveis do grupo aberto; ⌘⇧A desmarca (fora de campos de texto).
+  // ⌘A selects all visible items of the open group; ⌘⇧A deselects (outside text fields).
   el.addEventListener('keydown', (e) => {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'a' || e.target.tagName === 'INPUT') return;
     const g = result.groups.find((x) => x.id === st.gid);
