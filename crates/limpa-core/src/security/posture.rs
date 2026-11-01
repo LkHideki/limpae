@@ -1,5 +1,5 @@
-//! Verificação de segurança (somente leitura): Gatekeeper, SIP, FileVault, firewall, definições do XProtect e
-//! atualizações automáticas de segurança. Nada é alterado: o "conserto" só abre o painel certo dos Ajustes.
+//! Security check (read-only): Gatekeeper, SIP, FileVault, firewall, XProtect definitions and
+//! automatic security updates. Nothing is changed: the "fix" only opens the right System Settings pane.
 
 use std::path::Path;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -17,7 +17,7 @@ const XPROTECT_PLIST: &str = "/Library/Apple/System/Library/CoreServices/XProtec
 const XPROTECT_PLIST_OLD: &str = "/System/Library/CoreServices/XProtect.bundle/Contents/Info.plist";
 const SOFTWAREUPDATE_PLIST: &str = "/Library/Preferences/com.apple.SoftwareUpdate.plist";
 
-/// Definições mais velhas que isto passam a ser sinalizadas.
+/// Definitions older than this get flagged.
 const XPROTECT_MAX_AGE_DAYS: i64 = 45;
 
 const URL_SECURITY: &str = "x-apple.systempreferences:com.apple.preference.security?General";
@@ -32,8 +32,8 @@ pub const ID_FIREWALL: &str = "firewall";
 pub const ID_XPROTECT: &str = "xprotect";
 pub const ID_UPDATES: &str = "updates";
 
-/// Painel dos Ajustes do Sistema que resolve a verificação. Constantes fixas: a interface só envia o id.
-/// `None` quando não há o que fazer pelos Ajustes (SIP só muda pelo Modo de Recuperação).
+/// System Settings pane that resolves the check. Fixed constants: the UI only sends the id.
+/// `None` when there is nothing to do in Settings (SIP can only be changed from Recovery Mode).
 pub fn fix_url(check_id: &str) -> Option<&'static str> {
     match check_id {
         ID_GATEKEEPER => Some(URL_SECURITY),
@@ -55,7 +55,7 @@ pub struct Fix {
 pub struct Check {
     pub id: &'static str,
     pub title: String,
-    /// `None` = não foi possível determinar.
+    /// `None` = could not be determined.
     pub ok: Option<bool>,
     pub detail: String,
     pub fix: Option<Fix>,
@@ -63,7 +63,7 @@ pub struct Check {
 
 impl Check {
     fn new(id: &'static str, title: &str, ok: Option<bool>, detail: impl Into<String>) -> Self {
-        // O conserto só aparece quando algo não está certo ou não foi possível confirmar.
+        // The fix only shows up when something is not right or could not be confirmed.
         let fix = if ok == Some(true) {
             None
         } else {
@@ -73,7 +73,7 @@ impl Check {
     }
 }
 
-// ---------- Parsers (testados com saídas de exemplo em PT e EN) ----------
+// ---------- Parsers (tested with sample outputs in PT and EN) ----------
 
 fn tokens(text: &str) -> Vec<String> {
     text.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|t| !t.is_empty()).map(str::to_owned).collect()
@@ -108,7 +108,7 @@ const POSITIVE: &[&str] = &[
     "ativa",
 ];
 
-/// Interpreta "enabled/disabled", "On/Off" e equivalentes em português. Negativos vencem: "not enabled" é falso.
+/// Parses "enabled/disabled", "On/Off" and Portuguese equivalents. Negatives win: "not enabled" is false.
 pub fn parse_toggle(text: &str) -> Option<bool> {
     let toks = tokens(text);
     let negated = |i: usize| i > 0 && matches!(toks[i - 1].as_str(), "not" | "nao" | "não");
@@ -130,7 +130,7 @@ pub fn parse_gatekeeper(text: &str) -> Option<bool> {
     parse_toggle(text)
 }
 
-/// `Some(true)` só para "enabled" puro; configuração personalizada conta como enfraquecida.
+/// `Some(true)` only for a plain "enabled"; a custom configuration counts as weakened.
 pub fn parse_sip(text: &str) -> (Option<bool>, bool) {
     let custom = text.to_lowercase().contains("custom") || text.to_lowercase().contains("personaliz");
     match parse_toggle(text) {
@@ -139,7 +139,7 @@ pub fn parse_sip(text: &str) -> (Option<bool>, bool) {
     }
 }
 
-/// `(ok, em_andamento)`. A criptografia em andamento não é "ligado" nem "desligado".
+/// `(ok, in_progress)`. Encryption in progress is neither "on" nor "off".
 pub fn parse_filevault(text: &str) -> (Option<bool>, bool) {
     let low = text.to_lowercase();
     if low.contains("in progress") || low.contains("andamento") || low.contains("progresso") {
@@ -148,7 +148,7 @@ pub fn parse_filevault(text: &str) -> (Option<bool>, bool) {
     (parse_toggle(text), false)
 }
 
-/// Estado numérico de `socketfilterfw --getglobalstate`: 0 desligado, 1 ligado, 2 bloqueia todas as conexões.
+/// Numeric state from `socketfilterfw --getglobalstate`: 0 off, 1 on, 2 blocks all connections.
 pub fn parse_firewall(text: &str) -> (Option<bool>, Option<u8>) {
     let low = text.to_lowercase();
     if let Some((pos, len)) = low.find("state").map(|p| (p, 5)).or_else(|| low.find("estado").map(|p| (p, 6))) {
@@ -161,12 +161,12 @@ pub fn parse_firewall(text: &str) -> (Option<bool>, Option<u8>) {
     (parse_toggle(text), None)
 }
 
-// ---------- Fontes lidas do disco ----------
+// ---------- Sources read from disk ----------
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct XProtectInfo {
     pub version: String,
-    /// Última modificação do `Info.plist`, em segundos Unix.
+    /// Last modification of `Info.plist`, in Unix seconds.
     pub updated: Option<i64>,
 }
 
@@ -194,7 +194,7 @@ pub struct UpdatePrefs {
 }
 
 impl Default for UpdatePrefs {
-    /// Padrão do macOS quando a chave não existe: tudo ligado.
+    /// macOS default when the key does not exist: everything on.
     fn default() -> Self {
         Self { critical: true, config: true, macos: true }
     }
@@ -210,7 +210,7 @@ pub fn parse_update_prefs(dict: &plist::Dictionary) -> UpdatePrefs {
     }
 }
 
-/// `None` quando o arquivo existe mas não pôde ser lido; arquivo ausente vale o padrão do macOS.
+/// `None` when the file exists but could not be read; a missing file takes the macOS default.
 pub fn read_update_prefs(path: &Path) -> Option<UpdatePrefs> {
     if !path.exists() {
         return Some(UpdatePrefs::default());
@@ -219,9 +219,9 @@ pub fn read_update_prefs(path: &Path) -> Option<UpdatePrefs> {
     Some(parse_update_prefs(value.as_dictionary()?))
 }
 
-// ---------- Montagem das verificações ----------
+// ---------- Assembling the checks ----------
 
-/// Data civil (UTC) de um instante Unix, no formato dd/mm/aaaa.
+/// Civil date (UTC) of a Unix instant, formatted dd/mm/yyyy.
 pub fn fmt_date(unix: i64) -> String {
     let z = unix.div_euclid(86_400) + 719_468;
     let era = z.div_euclid(146_097);
@@ -383,7 +383,7 @@ fn now_unix() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
 }
 
-/// Roda todas as verificações. Os quatro comandos externos rodam em paralelo, cada um com tempo limite.
+/// Runs all the checks. The four external commands run in parallel, each with a timeout.
 pub fn run_checks() -> Vec<Check> {
     let out = |program: &'static str, args: &'static [&'static str]| {
         move || {

@@ -1,7 +1,7 @@
-//! Desempenho: agentes em segundo plano, itens de login, monitor do sistema e snapshots locais do Time Machine.
+//! Speed: background agents, login items, system monitor and Time Machine local snapshots.
 //!
-//! Sem root e sem shell: todo subprocesso usa um vetor de argumentos e tem timeout. Nada que venha da interface
-//! entra em um script ou comando: rótulos e nomes são relidos do disco no momento da ação e validados aqui.
+//! No root and no shell: every subprocess uses an argument vector and has a timeout. Nothing that comes from the UI
+//! enters a script or command: labels and names are re-read from disk at action time and validated here.
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::{OsStr, OsString};
@@ -27,10 +27,10 @@ const T_SCRIPT: Duration = Duration::from_secs(30);
 const T_THIN: Duration = Duration::from_secs(120);
 
 // ---------------------------------------------------------------------------------------------------------------
-// Execução de subprocessos
+// Subprocess execution
 // ---------------------------------------------------------------------------------------------------------------
 
-/// Resultado de um subprocesso. `code` é `None` quando foi encerrado por sinal ou por timeout.
+/// Result of a subprocess. `code` is `None` when it was terminated by a signal or a timeout.
 #[derive(Debug, Clone, Default)]
 pub struct CmdOut {
     pub code: Option<i32>,
@@ -45,7 +45,7 @@ impl CmdOut {
     }
 }
 
-/// Costura sobre os subprocessos: os testes trocam por um executor falso e nada toca o launchd de verdade.
+/// Seam over subprocesses: tests swap in a fake executor so nothing ever touches the real launchd.
 pub trait Runner: Sync {
     fn run(&self, program: &str, args: &[OsString], timeout: Duration) -> io::Result<CmdOut>;
 }
@@ -59,8 +59,8 @@ fn read_all(mut src: impl Read) -> String {
 }
 
 impl Runner for SystemRunner {
-    /// Argumentos em vetor (sem shell). A saída é lida em threads para o pipe nunca encher e travar o processo;
-    /// ao estourar o tempo o processo é morto.
+    /// Argument vector (no shell). Output is read on threads so the pipe never fills and stalls the process;
+    /// on timeout the process is killed.
     fn run(&self, program: &str, args: &[OsString], timeout: Duration) -> io::Result<CmdOut> {
         let mut child = Command::new(program)
             .args(args)
@@ -96,7 +96,7 @@ fn run(r: &dyn Runner, program: &str, args: &[OsString], timeout: Duration) -> O
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Agentes em segundo plano (launchd)
+// Background agents (launchd)
 // ---------------------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -110,11 +110,11 @@ pub enum Scope {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AgentState {
-    /// Carregado no launchd.
+    /// Loaded in launchd.
     Active,
-    /// Habilitado, mas não carregado agora.
+    /// Enabled, but not loaded right now.
     Inactive,
-    /// Desabilitado no launchd (`launchctl disable`).
+    /// Disabled in launchd (`launchctl disable`).
     Disabled,
 }
 
@@ -122,15 +122,15 @@ pub enum AgentState {
 #[serde(rename_all = "camelCase")]
 pub enum Signature {
     Valid,
-    /// Assinatura válida, mas ad hoc (sem identidade de desenvolvedor).
+    /// Valid signature, but ad hoc (no developer identity).
     AdHoc,
     Unsigned,
     Invalid,
-    /// O programa do agente não existe mais.
+    /// The agent's program no longer exists.
     Missing,
-    /// O plist não aponta para nenhum programa.
+    /// The plist does not point to any program.
     NoProgram,
-    /// `codesign` não respondeu a tempo.
+    /// `codesign` did not answer in time.
     Unknown,
 }
 
@@ -140,7 +140,7 @@ pub struct SignatureInfo {
     pub signer: Option<String>,
 }
 
-/// App dono do agente: o `.app` que contém o programa (ou um dos argumentos).
+/// App that owns the agent: the `.app` containing the program (or one of its arguments).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppRef {
     pub name: String,
@@ -158,14 +158,14 @@ pub struct Agent {
     pub keep_alive: bool,
     pub owner: Option<AppRef>,
     pub signature: SignatureInfo,
-    /// `None` para itens do sistema (somente leitura; o estado exigiria privilégios).
+    /// `None` for system items (read-only; changing their state would require privileges).
     pub state: Option<AgentState>,
     pub manageable: bool,
     pub note: Option<String>,
 }
 
 impl Agent {
-    /// Sem assinatura válida ou sem programa: merece atenção do usuário.
+    /// No valid signature or no program: deserves the user's attention.
     pub fn flagged(&self) -> bool {
         matches!(self.signature.status, Signature::Unsigned | Signature::Invalid | Signature::Missing)
     }
@@ -176,7 +176,7 @@ const NOTE_APPLE: &str = "Item da Apple";
 const NOTE_OWN: &str = "Pertence ao Limpae";
 const NOTE_UNREADABLE: &str = "Arquivo vazio, sem rótulo ou ilegível";
 
-/// Rótulo aceito para `launchctl`: o mesmo conjunto que os testes e o filtro da interface esperam.
+/// Label accepted for `launchctl`: the same set that the tests and the UI filter expect.
 pub fn valid_label(label: &str) -> bool {
     !label.is_empty()
         && label.len() <= 200
@@ -188,7 +188,7 @@ fn is_apple_label(label: &str) -> bool {
     label.starts_with("com.apple.")
 }
 
-/// Pastas de agentes e daemons. O usuário só pode alterar a primeira.
+/// Agent and daemon folders. The user can only change the first one.
 #[derive(Debug, Clone)]
 pub struct AgentDirs {
     pub user: PathBuf,
@@ -251,7 +251,7 @@ fn parse_plist_file(path: &Path, scope: Scope) -> Parsed {
     p
 }
 
-/// O `.app` mais externo no caminho, se houver: `/A/B.app/Contents/MacOS/x` vira `/A/B.app`.
+/// The outermost `.app` in the path, if any: `/A/B.app/Contents/MacOS/x` becomes `/A/B.app`.
 fn outer_app(path: &Path) -> Option<PathBuf> {
     let mut acc = PathBuf::new();
     for c in path.components() {
@@ -263,7 +263,7 @@ fn outer_app(path: &Path) -> Option<PathBuf> {
     None
 }
 
-/// App dono: o primeiro caminho absoluto (programa ou argumento) que está dentro de um `.app`.
+/// Owning app: the first absolute path (program or argument) that lies inside an `.app`.
 fn owner_of(program: Option<&Path>, args: &[String]) -> Option<AppRef> {
     let candidates = program.map(Path::to_path_buf).into_iter().chain(args.iter().map(PathBuf::from));
     let bundle = candidates.filter(|p| p.is_absolute()).find_map(|p| outer_app(&p))?;
@@ -294,7 +294,7 @@ fn plist_files(dir: &Path) -> Vec<PathBuf> {
     v
 }
 
-/// `launchctl print-disabled gui/<uid>`: rótulo para "desabilitado?". Rótulos ausentes estão habilitados.
+/// `launchctl print-disabled gui/<uid>`: label to "disabled?". Missing labels are enabled.
 pub fn parse_print_disabled(out: &str) -> HashMap<String, bool> {
     out.lines()
         .filter_map(|l| {
@@ -306,9 +306,9 @@ pub fn parse_print_disabled(out: &str) -> HashMap<String, bool> {
         .collect()
 }
 
-/// UID do usuário que executa o app: o domínio `gui/<uid>` do launchd.
+/// UID of the user running the app: launchd's `gui/<uid>` domain.
 pub fn current_uid() -> u32 {
-    // SAFETY: `getuid` não tem pré-condições e nunca falha.
+    // SAFETY: `getuid` has no preconditions and never fails.
     unsafe { libc::getuid() }
 }
 
@@ -327,12 +327,12 @@ fn disabled_map(r: &dyn Runner, uid: u32) -> HashMap<String, bool> {
         .unwrap_or_default()
 }
 
-/// Carregado no domínio gráfico do usuário: `launchctl print gui/<uid>/<label>` sai com 0.
+/// Loaded in the user's graphical domain: `launchctl print gui/<uid>/<label>` exits with 0.
 pub fn is_loaded(r: &dyn Runner, uid: u32, label: &str) -> bool {
     valid_label(label) && run(r, LAUNCHCTL, &[a("print"), a(target(uid, label))], T_QUICK).is_some_and(|o| o.ok())
 }
 
-/// `Authority=` (primeira, a do certificado folha) e `TeamIdentifier=` da saída de `codesign -dv`.
+/// `Authority=` (the first one, the leaf certificate's) and `TeamIdentifier=` from the output of `codesign -dv`.
 pub fn parse_codesign_dv(stderr: &str) -> (Option<String>, bool) {
     let mut authority = None;
     let mut team = None;
@@ -364,7 +364,7 @@ fn check_signature(r: &dyn Runner, prog: &Path) -> SignatureInfo {
         return none(Signature::Unknown);
     }
     if !v.ok() {
-        // Sem permissão para ler o programa (ex.: ferramentas privilegiadas): não dá para afirmar nada.
+        // No permission to read the program (e.g. privileged tools): nothing can be asserted.
         if v.stderr.contains("Permission denied") || v.stderr.contains("Operation not permitted") {
             return none(Signature::Unknown);
         }
@@ -376,7 +376,7 @@ fn check_signature(r: &dyn Runner, prog: &Path) -> SignatureInfo {
     SignatureInfo { status: if adhoc { Signature::AdHoc } else { Signature::Valid }, signer }
 }
 
-/// Lista agentes e daemons. Somente leitura: `launchctl print` / `print-disabled` e `codesign --verify`.
+/// Lists agents and daemons. Read-only: `launchctl print` / `print-disabled` and `codesign --verify`.
 pub fn scan_agents(dirs: &AgentDirs, uid: u32, own_bundle_id: &str, r: &dyn Runner, cancel: &AtomicBool) -> Vec<Agent> {
     let mut files: Vec<(PathBuf, Scope)> = Vec::new();
     for (dir, scope) in [
@@ -456,9 +456,9 @@ pub fn scan_agents(dirs: &AgentDirs, uid: u32, own_bundle_id: &str, r: &dyn Runn
     agents
 }
 
-/// Revalida, no momento da ação, que `plist` é um agente do usuário que o Limpae pode alterar, e devolve o
-/// rótulo lido do arquivo (nunca o que a interface viu). Recusa itens da Apple, do próprio app, links simbólicos
-/// e qualquer arquivo fora de `dirs.user`.
+/// Re-validates, at action time, that `plist` is a user agent Limpae may change, and returns the
+/// label read from the file (never the one the UI saw). Refuses Apple items, the app's own, symlinks
+/// and any file outside `dirs.user`.
 pub fn user_agent_label(user_dir: &Path, plist: &Path, own_bundle_id: &str) -> Result<String, &'static str> {
     if plist.parent() != Some(user_dir) || plist.extension().is_none_or(|e| e != "plist") {
         return Err("o arquivo não está na pasta de agentes do usuário");
@@ -484,7 +484,7 @@ pub fn user_agent_label(user_dir: &Path, plist: &Path, own_bundle_id: &str) -> R
     Ok(p.label)
 }
 
-/// Descarrega o agente do launchd. `true` quando ele não está mais carregado ao final.
+/// Unloads the agent from launchd. `true` when it is no longer loaded at the end.
 pub fn bootout(r: &dyn Runner, uid: u32, label: &str) -> bool {
     if !valid_label(label) {
         return false;
@@ -493,8 +493,8 @@ pub fn bootout(r: &dyn Runner, uid: u32, label: &str) -> bool {
     !is_loaded(r, uid, label)
 }
 
-/// Desativar: `disable` (não volta a carregar no login) e depois `bootout` (para agora). Ativar: `enable` e
-/// `bootstrap` do plist. Reversível nos dois sentidos; nenhum arquivo é tocado.
+/// Disable: `disable` (does not load again at login) then `bootout` (stops now). Enable: `enable` and
+/// `bootstrap` of the plist. Reversible both ways; no file is touched.
 pub fn set_agent_enabled(
     r: &dyn Runner,
     uid: u32,
@@ -529,7 +529,7 @@ pub fn set_agent_enabled(
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Itens de login (System Events)
+// Login items (System Events)
 // ---------------------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -540,12 +540,12 @@ pub struct LoginItem {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LoginError {
-    /// Falta o consentimento de Automação para controlar o System Events.
+    /// Missing Automation consent to control System Events.
     NeedsAutomation,
     Failed(String),
 }
 
-/// Script fixo, sem dado do usuário: uma linha por item, `nome US caminho RS`.
+/// Fixed script, no user data: one line per item, `name US path RS`.
 const LIST_SCRIPT: &[&str] = &[
     "tell application \"System Events\"",
     "set o to \"\"",
@@ -556,7 +556,7 @@ const LIST_SCRIPT: &[&str] = &[
     "end tell",
 ];
 
-/// O nome chega por `argv` (`item 1 of argv`), nunca interpolado no texto do script.
+/// The name arrives via `argv` (`item 1 of argv`), never interpolated into the script text.
 const DELETE_SCRIPT: &[&str] =
     &["on run argv", "tell application \"System Events\" to delete login item (item 1 of argv)", "end run"];
 
@@ -588,7 +588,7 @@ fn script_args(lines: &[&str], extra: Option<&str>) -> Vec<OsString> {
         v.push(a(l));
     }
     if let Some(x) = extra {
-        // `--` impede que um nome começando com `-` seja lido como opção do osascript.
+        // `--` stops a name starting with `-` from being read as an osascript option.
         v.push(a("--"));
         v.push(a(x));
     }
@@ -611,7 +611,7 @@ pub fn list_login_items(r: &dyn Runner) -> Result<Vec<LoginItem>, LoginError> {
     Err(LoginError::Failed(o.stderr.trim().to_string()))
 }
 
-/// Remove da lista de login (o app continua instalado). Recusa quando o nome não identifica um único item.
+/// Removes from the login list (the app stays installed). Refuses when the name does not identify a single item.
 pub fn remove_login_item(r: &dyn Runner, item: &LoginItem) -> Result<(), String> {
     let current = list_login_items(r).map_err(|e| match e {
         LoginError::NeedsAutomation => "Falta a permissão de Automação para o System Events.".to_string(),
@@ -637,18 +637,18 @@ pub fn remove_login_item(r: &dyn Runner, item: &LoginItem) -> Result<(), String>
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Snapshots locais do Time Machine
+// Time Machine local snapshots
 // ---------------------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Snapshot {
     pub name: String,
-    /// Hora local, `AAAA-MM-DDTHH:MM:SS`.
+    /// Local time, `YYYY-MM-DDTHH:MM:SS`.
     pub date: Option<String>,
 }
 
-/// `com.apple.TimeMachine.2026-10-29-220903.local` vira `2026-10-29T22:09:03`.
+/// `com.apple.TimeMachine.2026-10-29-220903.local` becomes `2026-10-29T22:09:03`.
 fn snapshot_date(name: &str) -> Option<String> {
     let part = name.strip_prefix("com.apple.TimeMachine.")?.split('.').next()?;
     let b = part.as_bytes();
@@ -657,7 +657,7 @@ fn snapshot_date(name: &str) -> Option<String> {
         .then(|| format!("{}T{}:{}:{}", &part[..10], &part[11..13], &part[13..15], &part[15..17]))
 }
 
-/// Saída de `tmutil listlocalsnapshots /` (e de `thinlocalsnapshots`): um nome por linha, depois do cabeçalho.
+/// Output of `tmutil listlocalsnapshots /` (and of `thinlocalsnapshots`): one name per line, after the header.
 pub fn parse_snapshots(out: &str) -> Vec<Snapshot> {
     out.lines()
         .map(str::trim)
@@ -673,8 +673,8 @@ pub fn list_snapshots(r: &dyn Runner) -> Result<Vec<Snapshot>, String> {
     Ok(parse_snapshots(&o.stdout))
 }
 
-/// `tmutil thinlocalsnapshots / <bytes> 4`: funciona sem root (testado). Apaga os snapshots locais, que o
-/// Time Machine volta a criar sozinho; não há como restaurar os removidos.
+/// `tmutil thinlocalsnapshots / <bytes> 4`: works without root (tested). Deletes local snapshots, which
+/// Time Machine recreates on its own; the removed ones cannot be restored.
 pub fn thin_snapshots(r: &dyn Runner) -> Result<Vec<Snapshot>, String> {
     let o = run(r, TMUTIL, &[a("thinlocalsnapshots"), a("/"), a("999999999999"), a("4")], T_THIN)
         .filter(CmdOut::ok)
@@ -696,7 +696,7 @@ pub enum Pressure {
 }
 
 impl Pressure {
-    /// `kern.memorystatus_vm_pressure_level`: 1 normal, 2 atenção, 4 crítica.
+    /// `kern.memorystatus_vm_pressure_level`: 1 normal, 2 warning, 4 critical.
     pub fn from_level(level: i32) -> Self {
         match level {
             1 => Self::Normal,
@@ -711,7 +711,7 @@ impl Pressure {
 #[serde(rename_all = "camelCase")]
 pub struct Memory {
     pub total: u64,
-    /// App + dedicada + comprimida, como o Monitor de Atividade.
+    /// App + wired + compressed, like Activity Monitor.
     pub used: u64,
     pub app: u64,
     pub wired: u64,
@@ -720,7 +720,7 @@ pub struct Memory {
     pub pressure: Pressure,
 }
 
-/// Contagens de páginas do `host_statistics64`.
+/// Page counts from `host_statistics64`.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct VmPages {
     pub internal: u64,
@@ -751,11 +751,11 @@ pub struct Cpu {
     pub load5: f64,
     pub load15: f64,
     pub cores: u32,
-    /// Uso instantâneo (0 a 100) entre duas leituras; `None` na primeira.
+    /// Instantaneous usage (0 to 100) between two samples; `None` on the first.
     pub usage: Option<f64>,
 }
 
-/// Ticks acumulados de CPU (`host_statistics`, `HOST_CPU_LOAD_INFO`).
+/// Accumulated CPU ticks (`host_statistics`, `HOST_CPU_LOAD_INFO`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CpuTicks {
     pub user: u32,
@@ -765,7 +765,7 @@ pub struct CpuTicks {
 }
 
 impl CpuTicks {
-    /// Porcentagem ocupada entre `prev` e `self`. Os contadores são de 32 bits e dão a volta.
+    /// Busy percentage between `prev` and `self`. The counters are 32-bit and wrap around.
     pub fn usage_since(&self, prev: &CpuTicks) -> Option<f64> {
         let d = |n: u32, p: u32| u64::from(n.wrapping_sub(p));
         let busy = d(self.user, prev.user) + d(self.system, prev.system) + d(self.nice, prev.nice);
@@ -780,7 +780,7 @@ pub enum BatteryState {
     Charging,
     Discharging,
     Charged,
-    /// Na tomada, sem carregar (por exemplo, carga otimizada).
+    /// Plugged in, not charging (for example, optimized charging).
     Idle,
 }
 
@@ -803,7 +803,7 @@ pub struct Proc {
     pub count: u32,
 }
 
-/// `pmset -g batt`; `None` em Macs sem bateria.
+/// `pmset -g batt`; `None` on Macs without a battery.
 pub fn parse_pmset_batt(out: &str) -> Option<Battery> {
     let on_ac = out.lines().next().is_some_and(|l| l.contains("AC Power"));
     let line = out.lines().find(|l| l.contains('%') && l.contains(';'))?;
@@ -828,7 +828,7 @@ pub fn parse_pmset_batt(out: &str) -> Option<Battery> {
     Some(Battery { percent, on_ac, state, remaining_min, cycles: None, health_pct: None })
 }
 
-/// `ioreg -rn AppleSmartBattery`: (ciclos, saúde em %). Só as linhas de nível superior (` = ` com espaços).
+/// `ioreg -rn AppleSmartBattery`: (cycles, health in %). Only top-level lines (` = ` with spaces).
 pub fn parse_ioreg_battery(out: &str) -> (Option<u32>, Option<u8>) {
     let num = |key: &str| -> Option<u64> {
         out.lines().find_map(|l| l.trim().strip_prefix(key)?.strip_prefix(" = ")?.trim().parse().ok())
@@ -840,7 +840,7 @@ pub fn parse_ioreg_battery(out: &str) -> (Option<u32>, Option<u8>) {
     (cycles, health)
 }
 
-/// `ps -Ao pid,rss,comm`: (pid, RSS em KB, caminho do executável). O caminho pode ter espaços.
+/// `ps -Ao pid,rss,comm`: (pid, RSS in KB, executable path). The path may contain spaces.
 pub fn parse_ps(out: &str) -> Vec<(u32, u64, String)> {
     out.lines()
         .skip(1)
@@ -852,7 +852,7 @@ pub fn parse_ps(out: &str) -> Vec<(u32, u64, String)> {
         .collect()
 }
 
-/// Nome do app (ou do executável) dono do processo, sem o caminho.
+/// Name of the app (or executable) that owns the process, without the path.
 fn proc_name(comm: &str) -> String {
     if let Some(stem) = outer_app(Path::new(comm)).as_deref().and_then(Path::file_stem) {
         return stem.to_string_lossy().into_owned();
@@ -860,7 +860,7 @@ fn proc_name(comm: &str) -> String {
     Path::new(comm).file_name().map_or_else(|| comm.to_string(), |n| n.to_string_lossy().into_owned())
 }
 
-/// Soma a memória residente por app (um Chrome com 30 processos vira uma linha) e devolve os `n` maiores.
+/// Sums resident memory per app (a Chrome with 30 processes becomes one row) and returns the top `n`.
 pub fn top_consumers(rows: &[(u32, u64, String)], n: usize) -> Vec<Proc> {
     let mut by: HashMap<String, Proc> = HashMap::new();
     for (_, rss_kb, comm) in rows {
@@ -886,14 +886,14 @@ pub fn sample_battery(r: &dyn Runner) -> Option<Battery> {
     run(r, PMSET, &[a("-g"), a("batt")], T_QUICK).filter(CmdOut::ok).and_then(|o| parse_pmset_batt(&o.stdout))
 }
 
-/// Ciclos e saúde mudam devagar: leitura opcional, pedida raramente.
+/// Cycles and health change slowly: optional read, requested rarely.
 pub fn sample_battery_wear(r: &dyn Runner) -> (Option<u32>, Option<u8>) {
     run(r, IOREG, &[a("-rn"), a("AppleSmartBattery")], T_QUICK)
         .filter(CmdOut::ok)
         .map_or((None, None), |o| parse_ioreg_battery(&o.stdout))
 }
 
-/// Amostra barata do que o kernel entrega sem subprocesso (sysctl e mach): memória, swap, carga e uptime.
+/// Cheap sample of what the kernel provides without a subprocess (sysctl and mach): memory, swap, load and uptime.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Fast {
@@ -912,16 +912,16 @@ mod native {
     fn sysctl<T: Copy>(name: &CStr) -> Option<T> {
         let mut v = std::mem::MaybeUninit::<T>::zeroed();
         let mut len = size_of::<T>();
-        // SAFETY: `v` tem `len` bytes; o kernel escreve no máximo `len` e atualiza `len`. `T` é dado puro (POD).
+        // SAFETY: `v` has `len` bytes; the kernel writes at most `len` and updates `len`. `T` is plain data (POD).
         let rc = unsafe { libc::sysctlbyname(name.as_ptr(), v.as_mut_ptr().cast(), &mut len, std::ptr::null_mut(), 0) };
-        // SAFETY: zerado na criação e, se o tamanho confere, preenchido pelo kernel.
+        // SAFETY: zeroed at creation and, if the size matches, filled in by the kernel.
         (rc == 0 && len == size_of::<T>()).then(|| unsafe { v.assume_init() })
     }
 
     #[allow(deprecated, reason = "libc recomenda mach2; novas dependências estão fora do escopo")]
     fn host() -> libc::mach_port_t {
         static HOST: OnceLock<libc::mach_port_t> = OnceLock::new();
-        // SAFETY: sem argumentos; a porta é guardada para não acumular referências a cada leitura.
+        // SAFETY: no arguments; the port is cached so references do not pile up on every read.
         *HOST.get_or_init(|| unsafe { libc::mach_host_self() })
     }
 
@@ -934,13 +934,13 @@ mod native {
     }
 
     pub fn page_size() -> u64 {
-        // SAFETY: consulta simples.
+        // SAFETY: simple query.
         let p = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
         u64::try_from(p).ok().filter(|p| *p > 0).unwrap_or(16384)
     }
 
     pub fn vm_pages() -> Option<VmPages> {
-        // SAFETY: `s` é preenchido pelo kernel dentro de `count` inteiros (tamanho da struct).
+        // SAFETY: `s` is filled in by the kernel within `count` integers (the struct size).
         let s = unsafe {
             let mut s: libc::vm_statistics64 = std::mem::zeroed();
             let mut count = libc::HOST_VM_INFO64_COUNT;
@@ -950,7 +950,7 @@ mod native {
             }
             s
         };
-        // A struct é `packed`: os campos são copiados por valor, nunca referenciados.
+        // The struct is `packed`: fields are copied by value, never referenced.
         Some(VmPages {
             internal: u64::from(s.internal_page_count),
             purgeable: u64::from(s.purgeable_count),
@@ -970,7 +970,7 @@ mod native {
     }
 
     pub fn cpu_ticks() -> Option<CpuTicks> {
-        // SAFETY: `info` tem `HOST_CPU_LOAD_INFO_COUNT` inteiros, que é o que o kernel escreve.
+        // SAFETY: `info` has `HOST_CPU_LOAD_INFO_COUNT` integers, which is what the kernel writes.
         let info = unsafe {
             let mut info: libc::host_cpu_load_info = std::mem::zeroed();
             let mut count = libc::HOST_CPU_LOAD_INFO_COUNT;
@@ -1021,18 +1021,18 @@ pub fn cpu_ticks() -> Option<CpuTicks> {
 }
 
 fn core_count() -> u32 {
-    // SAFETY: consulta simples.
+    // SAFETY: simple query.
     let n = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_ONLN) };
     u32::try_from(n).ok().filter(|n| *n > 0).unwrap_or(1)
 }
 
-/// Memória, swap, carga e uptime, sem subprocesso: custa microssegundos.
+/// Memory, swap, load and uptime, without a subprocess: costs microseconds.
 pub fn sample_fast() -> Fast {
     let memory = native::total_memory()
         .zip(native::vm_pages())
         .map(|(total, v)| memory_from(total, native::page_size(), v, native::pressure()));
     let mut load = [0f64; 3];
-    // SAFETY: `load` tem 3 posições, como pedido.
+    // SAFETY: `load` has 3 slots, as requested.
     let got = unsafe { libc::getloadavg(load.as_mut_ptr(), 3) };
     if got < 3 {
         load = [0.0; 3];
@@ -1052,7 +1052,7 @@ mod tests {
     use std::fs;
     use std::sync::Mutex;
 
-    /// Executor falso: registra as chamadas e responde por uma função.
+    /// Fake executor: records the calls and answers through a function.
     type Call = (String, Vec<String>);
     type Reply = Box<dyn Fn(&str, &[String]) -> CmdOut + Sync>;
 
@@ -1196,9 +1196,9 @@ mod tests {
             (owner.name.as_str(), owner.bundle_id.as_deref(), owner.path.as_path()),
             ("Foo Bar", Some("com.foo.bar"), app.as_path())
         );
-        // Sem .app no caminho: sem dono.
+        // No .app in the path: no owner.
         assert_eq!(owner_of(Some(Path::new("/usr/bin/true")), &[]), None);
-        // O dono pode vir de um argumento (/bin/sh -c ... /A.app/...).
+        // The owner may come from an argument (/bin/sh -c ... /A.app/...).
         let o = owner_of(Some(Path::new("/bin/sh")), &["-c".into(), prog.to_string_lossy().into_owned()]).unwrap();
         assert_eq!(o.name, "Foo Bar");
     }
@@ -1278,10 +1278,10 @@ mod tests {
             assert_eq!(s.note.as_deref(), Some(NOTE_SYSTEM));
         }
         assert_eq!(by("com.sys.daemon").scope, Scope::SystemDaemon);
-        // Itens do usuário vêm antes dos do sistema.
+        // User items come before system ones.
         let first_system = agents.iter().position(|a| a.scope != Scope::User).unwrap();
         assert!(agents[..first_system].iter().all(|a| a.scope == Scope::User));
-        // Nenhuma chamada que altere o launchd durante a análise.
+        // No call that changes launchd during the analysis.
         assert!(r.calls().iter().all(|(p, a)| p != LAUNCHCTL || matches!(a[0].as_str(), "print" | "print-disabled")));
     }
 
@@ -1298,10 +1298,10 @@ mod tests {
         assert!(user_agent_label(&user, &bad, "br.com.limpae").is_err());
         let own = write_agent(&user, "d.plist", "br.com.limpae.x", "/usr/bin/true", "");
         assert!(user_agent_label(&user, &own, "br.com.limpae").is_err());
-        // Fora da pasta de agentes do usuário.
+        // Outside the user's agents folder.
         let outside = write_agent(dir.path(), "e.plist", "com.out.agent", "/usr/bin/true", "");
         assert!(user_agent_label(&user, &outside, "br.com.limpae").is_err());
-        // Link simbólico para um plist válido: recusado.
+        // Symlink to a valid plist: refused.
         let link = user.join("link.plist");
         std::os::unix::fs::symlink(&outside, &link).unwrap();
         assert!(user_agent_label(&user, &link, "br.com.limpae").is_err());
@@ -1367,7 +1367,7 @@ mod tests {
         let boot = calls.iter().find(|(_, a)| a[0] == "bootstrap").unwrap();
         assert_eq!(boot.1, ["bootstrap", "gui/501", "/Users/u/Library/LaunchAgents/a.plist"]);
         assert_eq!(calls[0].1, ["enable", "gui/501/com.foo.agent"]);
-        // Bootstrap que não pega: o agente fica habilitado, porém inativo; sem erro.
+        // Bootstrap that does not take: the agent stays enabled but inactive; no error.
         let r = Fake::new(|_, args| {
             if args[0] == "print" || args[0] == "bootstrap" { fail("5: Input/output error") } else { ok("") }
         });
@@ -1406,7 +1406,7 @@ mod tests {
         assert!(matches!(list_login_items(&r), Err(LoginError::Failed(_))));
         let r = Fake::new(|_, _| ok("A\u{1f}/A.app\u{1e}"));
         assert_eq!(list_login_items(&r).unwrap().len(), 1);
-        // O script de listagem é fixo.
+        // The listing script is fixed.
         let args = r.calls()[0].1.clone();
         assert_eq!(args.iter().filter(|x| *x == "-e").count(), LIST_SCRIPT.len());
         assert!(!args.contains(&"--".to_string()));
@@ -1423,7 +1423,7 @@ mod tests {
         remove_login_item(&r, &item).unwrap();
         let calls = r.calls();
         let del = &calls[1].1;
-        // O nome aparece uma única vez, como argumento depois de `--`; nunca dentro de um `-e`.
+        // The name appears exactly once, as an argument after `--`; never inside a `-e`.
         let dashdash = del.iter().position(|x| x == "--").unwrap();
         assert_eq!(del[dashdash + 1], name);
         assert_eq!(dashdash + 2, del.len());
@@ -1530,7 +1530,7 @@ mod tests {
         assert_eq!(m.app, 294_000 * page);
         assert_eq!(m.used, m.app + m.wired + m.compressed);
         assert_eq!(m.available, m.total - m.used);
-        // Nunca passa do total, mesmo com contagens absurdas.
+        // Never exceeds the total, even with absurd counts.
         let m = memory_from(1000, 1, VmPages { internal: 5000, ..Default::default() }, Pressure::Critical);
         assert_eq!((m.used, m.available), (1000, 0));
         assert_eq!(Pressure::from_level(1), Pressure::Normal);
@@ -1546,7 +1546,7 @@ mod tests {
         let u = b.usage_since(&a).unwrap();
         assert!((u - 40.0).abs() < 1e-9, "{u}");
         assert_eq!(a.usage_since(&a), None);
-        // Contador de 32 bits que deu a volta.
+        // 32-bit counter that wrapped around.
         let wrap_prev = CpuTicks { user: u32::MAX - 9, system: 0, idle: 0, nice: 0 };
         let wrap_now = CpuTicks { user: 10, system: 0, idle: 20, nice: 0 };
         let u = wrap_now.usage_since(&wrap_prev).unwrap();
@@ -1568,7 +1568,7 @@ mod tests {
         assert!(took < Duration::from_millis(200), "amostra rápida demorou {took:?}");
     }
 
-    /// Leitura real, somente leitura (launchctl print, codesign, osascript de listagem, tmutil list, ps, pmset):
+    /// Real read, read-only (launchctl print, codesign, listing osascript, tmutil list, ps, pmset):
     /// `cargo test -p limpa-core real_machine -- --ignored --nocapture`.
     #[cfg(target_os = "macos")]
     #[test]
