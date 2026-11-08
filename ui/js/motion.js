@@ -189,7 +189,8 @@ function checkDone() {
     const text = stage.querySelector('.stage-text[data-result="ok"]');
     if (text) {
       anchor = stage.querySelector('.stage-art .orb');
-      sig = mod + '|' + text.textContent.slice(0, 80);
+      // The caption/title, never the counting hero: its text changes while the count-up runs and would look like a new success.
+      sig = mod + '|' + (text.querySelector('.big-cap, .h1') || text).textContent.slice(0, 80);
     }
   } else if (bento) {
     anchor = bento.querySelector('.tile[data-ok] .orb');

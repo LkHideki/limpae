@@ -424,3 +424,279 @@ test.describe('with motion', () => {
     await expect.poll(() => bursts(page)).toBe(1);
   });
 });
+
+// ---- gauntlet round 1 ----
+
+test.describe('gauntlet round 1 (motion)', () => {
+  test.use({ reducedMotion: 'no-preference' });
+  const bursts = (page) => page.evaluate(() => window.__bursts);
+  const countBursts = (page) => page.addInitScript(() => {
+    window.__bursts = 0;
+    new MutationObserver((l) => l.forEach((m) => m.addedNodes.forEach((n) => { if (n.classList && n.classList.contains('mo-fx')) window.__bursts++; })))
+      .observe(document, { childList: true, subtree: true });
+  });
+  const cleanJunk = async (page) => {
+    await scanJunk(page);
+    await page.locator('#dock .go').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Limpar'), exact: true }).click();
+  };
+
+  test('the celebration does not replay when the window gets focus back after the count-up', async ({ page }) => {
+    await countBursts(page);
+    await boot(page, JUNK);
+    await cleanJunk(page);
+    await expect.poll(() => bursts(page)).toBe(1);
+    await page.waitForTimeout(1800); // the counting hero is done: its text no longer reads 0
+    await page.evaluate(() => { window.dispatchEvent(new Event('blur')); window.dispatchEvent(new Event('focus')); });
+    await page.waitForTimeout(500);
+    expect(await bursts(page)).toBe(1);
+  });
+
+  test('the dock ring starts empty and never unwinds, and a hidden dock keeps no ring behind', async ({ page }) => {
+    await boot(page, JUNK2);
+    await scanJunk(page);
+    await page.locator('#dock .go').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Mover para o Lixo') }).click();
+    // While the first (slow) group runs, the determinate ring must never show more than an empty arc.
+    const offsets = await page.evaluate(() => new Promise((resolve) => {
+      const arc = document.querySelector('#dock .arc'), btn = document.querySelector('#dock .go'), out = [], t0 = performance.now();
+      const tick = () => {
+        if (btn.classList.contains('det')) out.push(parseFloat(getComputedStyle(arc).strokeDashoffset));
+        if (performance.now() - t0 < 700) requestAnimationFrame(tick); else resolve(out);
+      };
+      tick();
+    }));
+    expect(offsets.length).toBeGreaterThan(5);
+    expect(Math.min(...offsets)).toBeGreaterThan(320);
+    await expect(page.getByRole('button', { name: en('Concluir') })).toBeVisible({ timeout: 6000 });
+    const cls = await page.locator('#dock .go').getAttribute('class');
+    expect(cls).not.toMatch(/\b(busy|det)\b/);
+  });
+
+  test('Screen Cleaning exit fades the overlay instead of holding it opaque', async ({ page }) => {
+    await boot(page);
+    const opacity = await page.evaluate(async () => {
+      const ov = document.createElement('div');
+      ov.className = 'sclean';
+      document.body.append(ov);
+      await new Promise((r) => setTimeout(r, 600)); // the entrance is over
+      ov.classList.add('out');
+      await new Promise((r) => setTimeout(r, 90));
+      return parseFloat(getComputedStyle(ov).opacity);
+    });
+    expect(opacity).toBeLessThan(0.95);
+  });
+
+  test('toasts do not cover the manager bar', async ({ page }) => {
+    await boot(page, MANY);
+    await scanJunk(page);
+    await page.getByRole('button', { name: en('Revisar todo o lixo') }).click();
+    await page.evaluate(() => { const d = document.createElement('div'); d.className = 'toast ok'; d.textContent = 'x'; document.getElementById('toast-root').append(d); });
+    await page.waitForTimeout(300);
+    const [toast, bar] = await page.evaluate(() => ['.toast', '.mgr-bar'].map((s) => { const r = document.querySelector(s).getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; }));
+    expect(toast.top).toBeGreaterThan(bar.bottom);
+  });
+});
+
+test('review keeps its scroll position on selection-only refreshes and resets it on a search change', async ({ page }) => {
+  await boot(page, MANY);
+  await scanJunk(page);
+  await page.getByRole('button', { name: en('Revisar todo o lixo') }).click();
+  await page.locator('.rv-items').evaluate((el) => { el.scrollTop = 1200; });
+  const top = await page.locator('.rv-items').evaluate((el) => el.scrollTop);
+  expect(top).toBeGreaterThan(500);
+  await page.locator('.rv-item').nth(30).evaluate((el) => el.click()); // the row is on screen at this scroll position
+  expect(await page.locator('.rv-items').evaluate((el) => el.scrollTop)).toBe(top);
+  await page.locator('.sel-btn').click();
+  await page.getByRole('menuitemradio', { name: en('Nada') }).click();
+  expect(await page.locator('.rv-items').evaluate((el) => el.scrollTop)).toBe(top);
+  await page.getByRole('searchbox', { name: en('Buscar itens') }).fill('item2');
+  expect(await page.locator('.rv-items').evaluate((el) => el.scrollTop)).toBe(0);
+});
+
+test('Toolbox: favoriting with the keyboard keeps focus on the tool\'s star', async ({ page }) => {
+  await boot(page);
+  await nav(page, 'Ferramentas').click();
+  const star = page.locator('.tl-star').nth(1);
+  const tool = await star.evaluate((el) => el.closest('.tl-tile').dataset.tool);
+  await star.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator(`.tl-tile[data-tool="${tool}"] .tl-star`)).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => document.activeElement.closest('.tl-tile')?.dataset.tool)).toBe(tool);
+  expect(await page.evaluate(() => document.activeElement.classList.contains('tl-star'))).toBe(true);
+});
+
+test('the junk summary offers Start over, which returns to the landing page', async ({ page }) => {
+  await boot(page, JUNK);
+  await scanJunk(page);
+  await page.getByRole('button', { name: en('Recomeçar') }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: en('Recomeçar'), exact: true }).click();
+  await expect(page.getByRole('heading', { name: en('Entulho') })).toBeVisible();
+  await expect(page.locator('#dock .go')).toContainText(en('Analisar'));
+});
+
+test.describe('gauntlet round 1 (sound)', () => {
+  const soundBoot = (page, extra = '') => boot(page, `{ ${SOUND_ON}, ${extra} }`);
+  const settle = (page, ms = 300) => page.waitForTimeout(ms);
+  const tonesOf = (page) => page.evaluate(() => window.__tones);
+
+  test('Trash scan plays the start and found cues', async ({ page }) => {
+    await recordTones(page);
+    await soundBoot(page, `scan_trash: () => new Promise((r) => setTimeout(() => r({ total: 0, needsFda: false, groups: [] }), 300))`);
+    await nav(page, 'Lixeira').click();
+    await page.waitForTimeout(500);
+    await page.evaluate(() => { window.__tones = []; });
+    await page.locator('#dock .go').click();
+    await settle(page, 900);
+    const tones = await tonesOf(page);
+    expect(tones.length).toBeGreaterThan(0);
+    expect(tones).not.toEqual(expect.arrayContaining([392])); // not the generic 'pop'
+    expect(tones).toContain(1047); // 'found'
+  });
+
+  test('a row click selects an app with the checkbox sound', async ({ page }) => {
+    await recordTones(page);
+    await soundBoot(page, `list_apps: () => [{ id: 1, name: 'Alpha', path: '/Applications/Alpha.app', size: 5000, bundleId: 'x.alpha', running: false, version: '1', kind: 'app' }],
+      apps_overview: () => ({ updates: [], unused: [], leftovers: { total: 0, needsFda: false, groups: [] }, installers: { total: 0, needsFda: false, groups: [] } }),
+      app_meta: () => [], app_leftovers: () => ({ total: 0, needsFda: false, groups: [] })`);
+    await nav(page, 'Aplicativos').click();
+    await page.getByRole('button', { name: en('Ver meus aplicativos') }).click();
+    const row = page.locator('.am-row').first();
+    await expect(row).toBeVisible();
+    await page.waitForTimeout(400);
+    await page.evaluate(() => { window.__tones = []; });
+    await row.locator('.rv-name').click();
+    await expect(row.locator('.cb')).toHaveAttribute('aria-checked', 'true');
+    await settle(page, 200);
+    expect(await tonesOf(page)).toContain(1976); // 'tick'
+  });
+
+  test('Time Machine thinning that removes nothing does not play the success sound', async ({ page }) => {
+    await recordTones(page);
+    const snap = `{ name: 'com.apple.TimeMachine.2026-01-01', date: null }`;
+    const m = PERF.replace('snapshots: { items: [], error: null, canThin: false }', `snapshots: { items: [${snap}], error: null, canThin: true }`)
+      .replace('{', `{ ${SOUND_ON}, tm_thin: () => ({ removed: 0, snapshots: [${snap}] }),`);
+    await boot(page, m);
+    await nav(page, 'Velocidade').click();
+    await page.locator('#dock .go').click();
+    await page.getByRole('button', { name: en('Abrir o gerenciador') }).click();
+    await page.locator('.fm-cat', { hasText: en('Snapshots') }).click();
+    await page.getByRole('button', { name: en('Afinar snapshots') }).click();
+    await page.evaluate(() => { window.__tones = []; });
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Afinar'), exact: true }).click();
+    await expect(page.locator('.rv-foot .rv-sel')).toContainText(en('Nenhum snapshot foi removido.'));
+    await settle(page, 400);
+    expect(await tonesOf(page)).not.toContain(2093); // 'clean' fanfare
+  });
+
+  test('keyboard activation of another module while a scan runs plays no navigation sound', async ({ page }) => {
+    await recordTones(page);
+    await soundBoot(page, `scan_junk: () => new Promise(() => {})`);
+    await nav(page, 'Entulho').click();
+    await page.locator('#dock .go').click();
+    await expect(page.locator('body.locked')).toHaveCount(1);
+    await page.evaluate(() => { window.__tones = []; });
+    await nav(page, 'Lixeira').focus();
+    await page.keyboard.press('Enter');
+    await settle(page, 300);
+    expect(await tonesOf(page)).toEqual([]);
+    await expect(page.locator('body')).toHaveAttribute('data-mod', 'clean');
+  });
+
+  test('a removal whose call rejects sounds one error, with no dialog chime on top', async ({ page }) => {
+    await recordTones(page);
+    const m = JUNK2.replace(/remove: [^\n]*\n/, "remove: () => new Promise((_, rej) => setTimeout(() => rej('falhou'), 150)),\n");
+    await boot(page, m.replace('{', '{ ' + SOUND_ON + ','));
+    await scanJunk(page);
+    await page.locator('#dock .go').click();
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await page.evaluate(() => { window.__tones = []; }); // after the confirmation's own chime
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Mover para o Lixo') }).click();
+    await expect(page.getByRole('alertdialog', { name: en('Alguns itens não foram removidos') })).toBeVisible({ timeout: 6000 });
+    await settle(page, 300);
+    const tones = await tonesOf(page);
+    expect(tones.filter((f) => f === 247).length).toBe(1); // one error voice, not one per group
+    expect(tones).not.toContain(440); // the rising 'open' chime stayed out
+  });
+
+  test('an Undo that restores nothing plays the error cue, not just the dialog chime', async ({ page }) => {
+    await recordTones(page);
+    await boot(page, JUNK.replace('{', '{ ' + SOUND_ON + ',').replace(/restore_trashed: [^\n]*\n/, "restore_trashed: () => [{ from: '/Users/u/Library/Caches/com.beta', ok: false, error: 'já existe' }],\n"));
+    await scanJunk(page);
+    await page.locator('#dock .go').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Limpar'), exact: true }).click();
+    await page.evaluate(() => { window.__tones = []; });
+    await page.getByRole('button', { name: en('Desfazer') }).click();
+    await expect(page.getByRole('alertdialog', { name: en('Alguns itens não foram restaurados') })).toBeVisible();
+    await settle(page, 300);
+    const tones = await tonesOf(page);
+    expect(tones.includes(247) || tones.includes(233)).toBe(true);
+    expect(tones).not.toContain(440);
+  });
+});
+
+test('the failures sheet pauses the Undo toast countdown while it is open', async ({ page }) => {
+  await boot(page, JUNK.replace(/remove: [^\n]*\n/, "remove: ({ ids }) => ({ freed: 0, outcomes: ids.map((id) => id === 1 ? { id, ok: false, freed: 0, error: 'em uso' } : { id, ok: true, freed: 2000, error: null, undo: 'b-1' }) }),\n"));
+  await scanJunk(page);
+  await page.locator('#dock .go').click();
+  await page.getByRole('alertdialog').getByRole('button', { name: en('Limpar'), exact: true }).click();
+  const sheet = page.getByRole('alertdialog', { name: en('Alguns itens não foram removidos') });
+  await expect(sheet).toBeVisible();
+  await expect(page.getByRole('button', { name: en('Desfazer') })).toBeVisible();
+  // Past the 9 s lifetime of an Undo toast: it must survive because the sheet is open.
+  const alive = await page.evaluate(() => new Promise((r) => setTimeout(() => r(!!document.querySelector('.toast-act')), 9600)));
+  expect(alive).toBe(true);
+  await page.getByRole('button', { name: en('Entendi') }).click();
+  await expect(page.getByRole('button', { name: en('Desfazer') })).toBeVisible();
+});
+
+const APPS = `{
+  list_apps: () => [{ id: 1, name: 'Alpha', path: '/Applications/Alpha.app', size: 5000, bundleId: 'x.alpha', running: false, version: '1', kind: 'app' }],
+  apps_overview: () => ({ updates: [], unused: [], leftovers: { total: 0, needsFda: false, groups: [] }, installers: { total: 0, needsFda: false, groups: [] } }),
+  app_meta: () => [],
+  app_leftovers: () => new Promise((r) => setTimeout(() => r({ total: 0, needsFda: false, groups: [] }), 1500)),
+}`;
+
+test('Uninstall shows a busy state while leftovers are scanned, and a second click opens no second dialog', async ({ page }) => {
+  await boot(page, APPS);
+  await nav(page, 'Aplicativos').click();
+  await page.getByRole('button', { name: en('Ver meus aplicativos') }).click();
+  await page.locator('.am-row .cb').first().click();
+  const btn = page.locator('.rv-foot .btn.primary');
+  await btn.click();
+  await expect(btn).toBeDisabled();
+  await expect(btn).toHaveAttribute('aria-busy', 'true');
+  await expect(btn).toContainText(en('Calculando restos…'));
+  await btn.click({ force: true });
+  await expect(page.getByRole('alertdialog')).toBeVisible({ timeout: 4000 });
+  await page.waitForTimeout(300);
+  await expect(page.locator('.modal-back')).toHaveCount(1);
+  expect(await calls(page, 'app_leftovers')).toHaveLength(1);
+});
+
+const SECURITY = `{
+  security_checks: () => [],
+  privacy_scan: () => ({ needsFda: false, groups: [], browsers: [] }),
+  tcc_permissions: () => ({ needsFda: false, apps: 2, cameraMicApps: 2, groups: [{ service: 'Camera', title: 'Câmera', rows: [
+    { id: 1, name: 'Zoom', bundleId: 'us.zoom.xos', installed: true, granted: true, limited: false, modified: null },
+    { id: 2, name: 'Meet', bundleId: 'com.meet', installed: true, granted: true, limited: false, modified: null }] }] }),
+}`;
+
+test('Security permissions: toggling a row with the keyboard keeps focus on its checkbox', async ({ page }) => {
+  await boot(page, SECURITY);
+  await nav(page, 'Segurança').click();
+  await page.locator('#dock .go').click();
+  await page.locator('.pr-tile[data-area="perms"] button').click();
+  const cb = page.getByRole('checkbox', { name: en('Selecionar {name}', { name: 'Zoom' }) });
+  await cb.focus();
+  await page.keyboard.press('Space');
+  await expect(cb).toHaveAttribute('aria-checked', 'true');
+  expect(await page.evaluate(() => document.activeElement.getAttribute('aria-label'))).toBe(en('Selecionar {name}', { name: 'Zoom' }));
+  // The "Select" menu returns focus to its (rebuilt) opener too.
+  const sel = page.locator('.sel-btn');
+  await sel.focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.ctx-menu')).toHaveCount(0);
+  expect(await page.evaluate(() => document.activeElement.classList.contains('sel-btn'))).toBe(true);
+});

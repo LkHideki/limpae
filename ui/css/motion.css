@@ -46,11 +46,11 @@
 .modal-back.out .modal { animation-duration: .16s; }
 .modal-back.out { transition-duration: .18s; }
 
-/* ============ Notices: drop from the top; the exit is a transition (the entrance does not hold the final state) ============ */
-@keyframes mo-toast-in { from { opacity: 0; transform: translate3d(0, -16px, 0) scale(.97); } to { opacity: 1; transform: none; } }
+/* ============ Notices: rise from below (bottom-centre, above the dock); the exit is a transition (the entrance does not hold the final state) ============ */
+@keyframes mo-toast-in { from { opacity: 0; transform: translate3d(0, 16px, 0) scale(.97); } to { opacity: 1; transform: none; } }
 .toast { animation: mo-toast-in .44s var(--mo-soft) backwards; }
 .toast.out {
-  opacity: 0; transform: translate3d(0, -10px, 0) scale(.98); overflow: hidden; pointer-events: none;
+  opacity: 0; transform: translate3d(0, 10px, 0) scale(.98); overflow: hidden; pointer-events: none;
   /* The collapse (set inline by toast()) starts once the fade is under way: the stack closes up smoothly. */
   transition: opacity .18s ease-in, transform .18s ease-in, height .2s var(--ease) .06s, padding .2s var(--ease) .06s, border-width .2s var(--ease) .06s, margin .2s var(--ease) .06s;
 }

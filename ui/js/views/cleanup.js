@@ -5,7 +5,7 @@ import { icon } from '../art.js';
 import { api } from '../api.js';
 import { store, selectedIds, selectedSize, pruneResult, bump, countItems } from '../store.js';
 import { bytesParts, fmtBytes } from '../format.js';
-import { confirmDialog, failuresSheet, stage, features } from '../ui.js';
+import { confirmDialog, confirmRestart, failuresSheet, stage, features } from '../ui.js';
 import { removeGroups, realFailures, stopDock } from '../actions.js';
 import { createReview } from './review.js';
 import { t, tn, tr } from '../i18n.js';
@@ -103,6 +103,7 @@ export function enter(ctx) {
     }).filter(Boolean);
     const review = (gid) => { focusGid = gid; C.phase = 'review'; render(); };
     mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'clean' }, 'aria-label': t('Resultados do Entulho') },
+      h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('clean')) { store.junk = null; C.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar'))),
       h('h2', { class: 'fl-title' }, t('Encontramos {size} de lixo no seu Mac.', { size: fmtBytes(r.total) })),
       h('p', { class: 'sub fl-sub' }, sel.bytes !== r.total ? t('{size} pré-selecionados para limpar.', { size: fmtBytes(sel.bytes) }) : t('Itens seguros de remover já vêm selecionados.')),
       h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => review(null) }, t('Revisar todo o lixo')),

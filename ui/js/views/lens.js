@@ -407,6 +407,8 @@ export function enter(ctx) {
   }
 
   function drawList() {
+    // Only folder navigation staggers the rows (renderMap adds 'swap' back after this); redraws must not replay it.
+    shell.listEl.classList.remove('swap');
     rows = new Map(); cbs = new Map();
     const kids = S.cur.children, k = layoutInfo ? layoutInfo.k : Math.min(TOP_MAX, kids.length);
     const head = kids.slice(0, k), rest = kids.slice(k);

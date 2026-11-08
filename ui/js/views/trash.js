@@ -43,6 +43,7 @@ export function enter(ctx) {
   async function load() {
     cancelled = false; failed = false;
     ensureStage();
+    play('start');
     ctx.setBusy(true);
     st.busy(true);
     const ticker = h('div', { class: 'ticker' });
@@ -50,12 +51,13 @@ export function enter(ctx) {
     ctx.onProgress((p) => { if (p.task === 'trash') ticker.textContent = p.path || ''; });
     ctx.setDock({ label: t('Parar'), busy: true, mod: 'trash', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'trash' }); api.cancel().catch(() => {}); } });
     let r = null;
-    try { r = await api.trash(); } catch (e) { failed = !cancelled; /* toast already shown */ }
+    try { r = await api.trash(); } catch (e) { failed = !cancelled; if (failed) play('error'); /* the toast's 'err' is gated on focus; 'error' also reaches a background window and ducks it */ }
     ctx.setBusy(false);
     if (r && !cancelled) {
       for (const g of r.groups) if (g.id === 'trash') g.title = 'Lixeira do Mac'; // i18n-ignore: dictionary key, translated by tr() on display
       store.trash = r;
       T.phase = 'ready';
+      play('found');
     } else T.phase = 'idle';
     if (!ctx.alive) return;
     render();

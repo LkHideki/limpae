@@ -151,7 +151,12 @@ export function enter(ctx) {
   const toggleFav = (id) => {
     favs = favs.includes(id) ? favs.filter((x) => x !== id) : [...favs, id];
     saveFavs(favs);
+    // The tile moves between sections and its star is rebuilt: keyboard focus follows it instead of falling to <body>.
+    const a = document.activeElement;
+    const had = a && a.classList && a.classList.contains('tl-star') && body.contains(a);
     render();
+    const star = had && body.querySelector(`.tl-tile[data-tool="${CSS.escape(id)}"] .tl-star`);
+    if (star) star.focus();
   };
 
   function tile(tool) {

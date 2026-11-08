@@ -12,15 +12,26 @@ const liveToasts = new Set();
 const isIdle = () => document.hidden || document.body.classList.contains('idle');
 if (window.MutationObserver) new MutationObserver(() => liveToasts.forEach((f) => f())).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 document.addEventListener('visibilitychange', () => liveToasts.forEach((f) => f()));
+// A dialog over the toast (e.g. the failures sheet next to the Undo toast) also pauses the countdown: the user is
+// reading the dialog and cannot reach the toast's button (the modal traps Tab).
+const modalOpen = () => !!document.querySelector('.modal-back:not(.out)');
+const modalRoot = document.getElementById('modal-root');
+if (modalRoot && window.MutationObserver) new MutationObserver(() => liveToasts.forEach((f) => f())).observe(modalRoot, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 
 export function toast(msg, kind = 'err', action = null) {
   const root = document.getElementById('toast-root');
-  let gone = false, hold = false, timer = 0, deadline = 0, left = action ? 9000 : 5200;
+  let gone = false, hold = false, timer = 0, deadline = 0, left = action ? 9000 : 5200, behindModal = false;
   const sync = () => {
     if (gone) return;
-    const paused = hold || isIdle();
+    const modal = modalOpen();
+    if (modal && action) behindModal = true;
+    const paused = hold || isIdle() || modal;
     if (paused && timer) { clearTimeout(timer); timer = 0; left = Math.max(0, deadline - performance.now()); }
-    else if (!paused && !timer) { deadline = performance.now() + left; timer = setTimeout(close, left); }
+    else if (!paused && !timer) {
+      // Back from under a dialog: the action gets a short grace so "Undo" does not vanish right as the sheet closes.
+      if (behindModal) { behindModal = false; left = Math.max(left, 4000); }
+      deadline = performance.now() + left; timer = setTimeout(close, left);
+    }
   };
   const close = () => {
     if (gone) return;
@@ -231,12 +242,18 @@ export function createGo(host) {
     s('circle', { class: 'track', cx: 57, cy: 57, r: R }), s('circle', { class: 'arc', cx: 57, cy: 57, r: R, 'stroke-dashoffset': 0 }));
   const label = h('span', { class: 'go-label' });
   const btn = h('button', { class: 'go', type: 'button' }, ring, label);
+  const arc = ring.querySelector('.arc');
   let handler = null;
   btn.addEventListener('click', () => handler && handler());
   host.append(btn);
   return {
     set(cfg) {
-      if (!cfg) { host.classList.add('off'); btn.disabled = true; handler = null; return; }
+      if (!cfg) {
+        host.classList.add('off'); btn.disabled = true; handler = null;
+        // The ring fades out together with the dock instead of lingering (and ghosting) inside the hidden one.
+        btn.classList.remove('busy', 'det'); arc.setAttribute('stroke-dashoffset', '0');
+        return;
+      }
       host.classList.remove('off');
       label.textContent = cfg.label;
       btn.setAttribute('aria-label', cfg.label);
@@ -244,9 +261,13 @@ export function createGo(host) {
       handler = cfg.onClick;
       host.dataset.mod = cfg.mod || 'smart';
       btn.classList.toggle('busy', !!cfg.busy);
-      const det = cfg.progress != null;
+      const det = cfg.progress != null, wasDet = btn.classList.contains('det');
       btn.classList.toggle('det', det);
-      btn.querySelector('.arc').setAttribute('stroke-dashoffset', det ? String(C * (1 - cfg.progress)) : '0');
+      const off = det ? String(C * (1 - cfg.progress)) : '0';
+      if (det && !wasDet) {
+        // First determinate paint: jump to the start instead of unwinding from the full ring; only real steps animate.
+        arc.style.transition = 'none'; arc.setAttribute('stroke-dashoffset', off); arc.getBoundingClientRect(); arc.style.transition = '';
+      } else arc.setAttribute('stroke-dashoffset', off);
     },
   };
 }

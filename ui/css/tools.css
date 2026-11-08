@@ -34,7 +34,7 @@
 .tl-open:hover:not(:disabled) { background: #fff; }
 
 /* Screen cleaning mode */
-.sclean { position: fixed; inset: 0; z-index: 10000; background: #000; display: grid; place-items: center; cursor: none; user-select: none; -webkit-user-select: none; animation: fade .35s var(--ease) both; }
+.sclean { position: fixed; inset: 0; z-index: 10000; background: #000; display: grid; place-items: center; cursor: none; user-select: none; -webkit-user-select: none; animation: fade .35s var(--ease) backwards; }
 .sclean.out { opacity: 0; transition: opacity .2s; }
 .sc-center { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .sc-ring { width: 64px; height: 64px; transform: rotate(-90deg); opacity: 0; transition: opacity .25s; }

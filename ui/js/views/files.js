@@ -3,7 +3,7 @@
 // Names and paths come from disk (untrusted): only textContent / createElement.
 import { play } from '../sound.js';
 import { t, tn, tr, lazyIntl, cmp } from '../i18n.js';
-import { h, s, mount, mid } from '../dom.js';
+import { h, s, mount, mid, keepFocus } from '../dom.js';
 import { icon, groupIcon } from '../art.js';
 import { api } from '../api.js';
 import { store, selectedSize, pruneResult, bump, countItems } from '../store.js';
@@ -385,7 +385,8 @@ export function enter(ctx) {
 
     function refresh() { renderCats(); renderHead(); renderList(); renderFoot(); }
 
-    function renderHead() {
+    function renderHead() { keepFocus(ctx.root, drawHead); }
+    function drawHead() {
       const c = CATS.find((x) => x.id === S.cat);
       const kids = [h('div', { class: 'fm-pane-t' }, h('h3', null, catLabel(c)), h('p', null, catDesc(c)))];
       const tools = [];
@@ -411,6 +412,7 @@ export function enter(ctx) {
     // opts.dir: row of one copy (the name is the same in all of them): shows the folder, which is what tells them apart.
     function fileRow(it, sel, opts = {}) {
       const cb = checkbox(sel.has(it.id) ? 'on' : 'off', () => toggle(), t('Selecionar {name}', { name: it.name }));
+      cb.dataset.fk = 'c:' + it.id;
       const toggle = () => { sel.has(it.id) ? sel.delete(it.id) : sel.add(it.id); refresh(); };
       const main = opts.dir
         ? h('div', { class: 'fm-main' },
@@ -438,6 +440,7 @@ export function enter(ctx) {
       const limit = S.limits.get(key) || CHUNK;
       const shown = sec.items.slice(0, limit);
       const cb = checkbox(groupState(sec.items, sel), (cur) => { for (const i of sec.items) cur === 'on' ? sel.delete(i.id) : sel.add(i.id); refresh(); }, t('Selecionar {name}', { name: sec.title }));
+      cb.dataset.fk = 'sc:' + key;
       const total = sec.items.reduce((a, i) => a + i.size, 0);
       return h('section', { class: 'fm-sec' },
         h('div', { class: 'fm-sec-head' }, cb, h('b', { title: sec.title }, sec.title), h('span', null, t('{items} · {size}', { items: plural(sec.items.length, 'item', 'itens'), size: fmtBytes(total) }))),
@@ -450,7 +453,7 @@ export function enter(ctx) {
       const open = S.open.has(g.id);
       const n = g.items.filter((i) => sel.has(i.id)).length;
       const all = n === g.items.length;
-      const head = h('button', { class: 'fm-set-head', type: 'button', 'aria-expanded': String(open), onClick: () => { open ? S.open.delete(g.id) : S.open.add(g.id); renderList(); } },
+      const head = h('button', { class: 'fm-set-head', type: 'button', dataset: { fk: 'sh:' + g.id }, 'aria-expanded': String(open), onClick: () => { open ? S.open.delete(g.id) : S.open.add(g.id); renderList(); } },
         h('span', { class: 'fm-chev' }, fi('chevron', 16)),
         h('span', { class: 'fm-ic' }, itemIcon(g.title)),
         h('span', { class: 'fm-set-t' }, h('b', { title: g.title }, g.title), h('span', null, tr(g.description))),
@@ -465,6 +468,7 @@ export function enter(ctx) {
       const n = g.items.filter((i) => sel.has(i.id)).length;
       const all = n === g.items.length;
       const cb = checkbox(groupState(g.items, sel), (cur) => { for (const i of g.items) cur === 'on' ? sel.delete(i.id) : sel.add(i.id); refresh(); }, t('Selecionar o grupo {n}', { n: idx + 1 }));
+      cb.dataset.fk = 'sg:' + g.id;
       const keeper = keeperOf(g);
       return h('section', { class: 'fm-sec' },
         h('div', { class: 'fm-sec-head' }, cb, h('b', { title: g.title }, t('Grupo {n} · {title}', { n: idx + 1, title: g.title })), h('span', null, `${tr(g.description)} · ${fmtBytes(g.total)}`), all ? h('span', { class: 'badge', title: t('Todas as imagens estão selecionadas; nenhuma vai sobrar') }, t('Todas selecionadas')) : null),
@@ -473,7 +477,7 @@ export function enter(ctx) {
           const toggle = () => { on ? sel.delete(it.id) : sel.add(it.id); refresh(); };
           const img = h('img', { alt: '', draggable: 'false', hidden: true });
           const ph = h('span', { class: 'fm-img-ph' }, fi('image', 22));
-          const card = h('div', { class: 'fm-img', role: 'button', tabindex: '0', 'aria-pressed': String(on), 'aria-label': on ? t('Desmarcar {name}', { name: it.name }) : t('Selecionar {name}', { name: it.name }), dataset: { on: String(on), id: it.id },
+          const card = h('div', { class: 'fm-img', role: 'button', tabindex: '0', 'aria-pressed': String(on), 'aria-label': on ? t('Desmarcar {name}', { name: it.name }) : t('Selecionar {name}', { name: it.name }), dataset: { on: String(on), id: it.id, fk: 'img:' + it.id },
             onClick: toggle,
             onKeydown: (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } } },
             h('div', { class: 'fm-img-box' }, ph, img),
@@ -502,7 +506,8 @@ export function enter(ctx) {
       }
     }
 
-    function renderList() {
+    function renderList() { keepFocus(ctx.root, drawList); }
+    function drawList() {
       const keep = listEl.scrollTop;
       if (io) io.disconnect();
       queue.length = 0;
@@ -620,7 +625,11 @@ export function enter(ctx) {
   function renderDone() {
     const left = CATS.some((c) => countOf(c.id));
     st.show(h('div', { class: 'big' }, bytesParts(F.moved).value, h('small', null, bytesParts(F.moved).unit)), h('div', { class: 'big-cap' }, F.permanent ? t('apagados definitivamente') : t('movidos para o Lixo')),
-      h('p', { class: 'sub' }, F.permanent ? t('O espaço já foi liberado.') : t('Esvazie a Lixeira para liberar o espaço no disco.')),
+      h('p', { class: 'sub' }, [
+        // With nothing moved, "Empty the Trash" would send the user to do something pointless.
+        F.moved === 0 ? t('Nada foi movido.') : F.permanent ? t('O espaço já foi liberado.') : t('Esvazie a Lixeira para liberar o espaço no disco.'),
+        F.failed ? ' ' + tn(F.failed, '{n} item não foi removido.', '{n} itens não foram removidos.') : '',
+      ]),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
         left ? h('button', { class: 'btn', type: 'button', onClick: () => { F.phase = S.res.full ? 'results' : 'review'; render(); } }, t('Revisar mais itens')) : null,

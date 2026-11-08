@@ -278,8 +278,14 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     mount(headEl, h('div', { class: 't' }, h('b', null, tr(g.title)), h('span', { title: tr(g.description) }, tr(g.description))), btn);
   }
 
+  // Which list the items scroller shows: a selection-only refresh keeps its scroll position, a group/search/sort change resets it.
+  let itemsKey = '';
   function renderItems() {
     const g = result.groups.find((x) => x.id === st.gid);
+    const key = g ? st.gid + '|' + st.q + '|' + st.sort : '';
+    const oldBody = itemsEl.querySelector('.rv-items');
+    const keepTop = oldBody && key && key === itemsKey ? oldBody.scrollTop : 0;
+    itemsKey = key;
     if (!g) { mount(itemsEl, h('div', { class: 'rv-empty' }, st.q ? t('Nenhum item corresponde à busca.') : (emptyText || t('Nada encontrado.')))); return; }
     const list = visible(g);
     headEl = h('div', { class: 'rv-items-head' });
@@ -298,6 +304,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     }
     if (!list.length) body.append(h('div', { class: 'rv-empty' }, t('Nenhum item corresponde à busca.')));
     mount(itemsEl, headEl, body);
+    if (keepTop) body.scrollTop = keepTop;
     renderHead(g, list);
   }
 

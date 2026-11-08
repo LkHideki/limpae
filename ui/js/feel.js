@@ -3,7 +3,7 @@ import { play, lastPlayedAt } from './sound.js';
 
 const later = (fn) => setTimeout(fn, 0);
 // Rows/cards whose click (outside their buttons) toggles the selection; each has its checkbox as a direct child.
-const ROWS = '.pf-row, .rv-item, .fm-row, .lo-row, .ln-row:not(.other), .fm-img'; // i18n-ignore: CSS selector
+const ROWS = '.pf-row, .rv-item, .fm-row, .lo-row, .am-row, .ln-row:not(.other), .fm-img'; // i18n-ignore: CSS selector
 
 // The view changes state in the element's own handler, after capture: reads the already-settled result.
 // If the element was recreated on render, infers from the previous state.
@@ -56,7 +56,8 @@ document.addEventListener('click', (e) => {
   const sw = el.closest('.switch');
   if (sw) return afterSwitch(sw, sw.getAttribute('aria-checked'));
   const nav = el.closest('.nav-item');
-  if (nav) { if (nav.getAttribute('aria-current') !== 'page') play('nav'); return; }
+  // Locked (a scan or removal is running): navigate() refuses, so the whoosh would answer nothing.
+  if (nav) { if (nav.getAttribute('aria-current') !== 'page' && !document.body.classList.contains('locked')) play('nav'); return; }
   if (el.closest('.ctx-item:not(:disabled), .fm-menu button:not(:disabled)')) return play('menu');
   const opener = el.closest('[aria-haspopup="menu"]');
   if (opener) return afterMenuOpener();

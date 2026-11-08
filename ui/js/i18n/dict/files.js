@@ -133,5 +133,6 @@ export default {
   'movidos para o Lixo': { en: "moved to the Trash", id: "dipindahkan ke Tempat Sampah" },
   'O espaço já foi liberado.': { en: "The space has been freed.", id: "Ruang sudah dibebaskan." },
   'Esvazie a Lixeira para liberar o espaço no disco.': { en: "Empty the Trash to free up space on your disk.", id: "Kosongkan Tempat Sampah untuk membebaskan ruang di disk." },
+  'Nada foi movido.': { en: "Nothing was moved.", id: "Tidak ada yang dipindahkan." },
   'Revisar mais itens': { en: "Review more items", id: "Tinjau item lainnya" },
 };

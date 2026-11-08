@@ -37,7 +37,7 @@ export function entryMenu({ id, name, at, opener = null, label, select = null, o
 // The same label (Smart, All, None, Partial) applies in every module.
 export function selectMenuButton({ modes, mode, onPick, label = t('Selecionar'), disabled = false }) {
   const text = (modes.find(([id]) => id === mode) || [null, t('Parcial')])[1];
-  const btn = h('button', { class: 'btn sm ghost sel-btn', type: 'button', disabled, 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, t('{label}: ', { label }), h('b', null, text), icon('chevron', 14));
+  const btn = h('button', { class: 'btn sm ghost sel-btn', type: 'button', disabled, dataset: { fk: 'sel:' + label }, 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, t('{label}: ', { label }), h('b', null, text), icon('chevron', 14));
   btn.addEventListener('click', () => {
     btn.setAttribute('aria-expanded', 'true');
     openMenu({

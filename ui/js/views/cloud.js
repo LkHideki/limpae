@@ -6,7 +6,7 @@ import { icon } from '../art.js';
 import { api } from '../api.js';
 import { selectedSize, pruneResult, countItems } from '../store.js';
 import { bytesParts, fmtBytes, plural } from '../format.js';
-import { confirmDialog, failuresSheet, stage, features } from '../ui.js';
+import { confirmDialog, confirmRestart, failuresSheet, stage, features } from '../ui.js';
 import { outcomesToFailures } from '../actions.js';
 import { createReview } from './review.js';
 import { t } from '../i18n.js';
@@ -114,6 +114,7 @@ export function enter(ctx) {
         h('button', { class: 'btn sm', type: 'button', onClick: () => { C.phase = 'review'; render(); } }, t('Revisar')),
         h('button', { class: 'btn sm primary', type: 'button', onClick: async () => { C.sel = new Set(list.map((i) => i.id)); if (!(await evict())) C.sel = new Set(); } }, t('Liberar do Mac'))));
     mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'cloud' }, 'aria-label': t('Resultados do iCloud') },
+      h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('cloud')) { C.result = null; C.sel = new Set(); C.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar'))),
       h('h2', { class: 'fl-title' }, t('{size} de arquivos do iCloud neste Mac.', { size: fmtBytes(C.result.total) })),
       h('p', { class: 'sub fl-sub' }, t('Continuam guardados no iCloud e baixam de novo quando você abrir. Nada vem marcado.')),
       h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => { C.phase = 'review'; render(); } }, t('Revisar todos os arquivos')),

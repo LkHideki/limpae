@@ -457,7 +457,7 @@ export function enter(ctx) {
       lock(false);
       if (!res || !ctx.alive) return;
       S.res.snapshots.items = res.snapshots;
-      play('clean');
+      play(res.removed ? 'clean' : 'error'); // the cue matches the note: nothing removed is not a success
       const nGone = res.removed;
       S.note = () => (nGone ? tn(nGone, '{n} snapshot removido.', '{n} snapshots removidos.') : t('Nenhum snapshot foi removido.'));
       if (S.tab === 'snaps') showTab(); else renderNav();

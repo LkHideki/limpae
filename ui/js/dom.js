@@ -46,6 +46,17 @@ export function mount(el, ...kids) {
   return el;
 }
 
+// Runs a repaint that rebuilds controls inside `root` and keeps keyboard focus: the focused control's data-fk key is
+// read first and the matching new node refocused afterwards (otherwise focus would fall back to <body>).
+export function keepFocus(root, fn) {
+  const a = document.activeElement;
+  const key = a && a !== document.body && root.contains(a) && a.dataset ? a.dataset.fk : null;
+  fn();
+  if (!key || root.contains(document.activeElement)) return;
+  const n = root.querySelector(`[data-fk="${CSS.escape(key)}"]`);
+  if (n && !n.disabled) n.focus();
+}
+
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Path with an ellipsis in the middle: the start shrinks, the end (file name) stays.

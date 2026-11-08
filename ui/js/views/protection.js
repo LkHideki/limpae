@@ -3,7 +3,7 @@
 // The UI only sends backend ids, never paths, URLs or bundle ids. Names come from disk (untrusted):
 // only textContent / createElement.
 import { play } from '../sound.js';
-import { h, s, mount, mid } from '../dom.js';
+import { h, s, mount, mid, keepFocus } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
 import { store, bump } from '../store.js';
@@ -359,7 +359,8 @@ export function enter(ctx) {
       }));
     }
 
-    function paintPermPane() {
+    function paintPermPane() { keepFocus(ctx.root, drawPermPane); }
+    function drawPermPane() {
       if (S.tcc.needsFda || !S.tcc.groups.length) {
         mount(headEl, h('div', { class: 'fm-pane-t' }, h('h3', null, t('Permissões de apps')), h('p', null, t('O que cada app pode acessar no seu Mac.'))));
         mount(listEl, S.tcc.needsFda
@@ -385,9 +386,11 @@ export function enter(ctx) {
 
     function permRow(r) {
       const toggle = () => { S.rsel.has(r.id) ? S.rsel.delete(r.id) : S.rsel.add(r.id); paintPermCats(); paintPermPane(); paintPermFoot(); };
+      const cb = r.granted ? checkbox(S.rsel.has(r.id) ? 'on' : 'off', toggle, t('Selecionar {name}', { name: r.name })) : null;
+      if (cb) cb.dataset.fk = 'c:' + r.id;
       const sub = [r.bundleId, !r.installed ? t('app não encontrado') : null].filter(Boolean).join(' · ');
       const kids = [
-        r.granted ? checkbox(S.rsel.has(r.id) ? 'on' : 'off', toggle, t('Selecionar {name}', { name: r.name })) : h('span', { class: 'pr-nocb', 'aria-hidden': 'true' }),
+        cb || h('span', { class: 'pr-nocb', 'aria-hidden': 'true' }),
         appIcon(r),
         h('div', { class: 'fm-main' },
           h('div', { class: 'fm-name' }, h('span', { title: r.name }, r.name), r.limited ? h('span', { class: 'badge info' }, t('Acesso limitado')) : null, !r.granted ? h('span', { class: 'badge' }, t('Negado')) : null),
@@ -438,7 +441,8 @@ export function enter(ctx) {
       return items.every((i) => S.psel.has(i.id) === !!i.selected) ? 'smart' : 'part';
     }
 
-    function paintPrivPane() {
+    function paintPrivPane() { keepFocus(ctx.root, drawPrivPane); }
+    function drawPrivPane() {
       const c = privCats().find((x) => x.id === S.pcat);
       const isRecent = c.id === 'recent';
       pane(c.label, isRecent
@@ -472,14 +476,17 @@ export function enter(ctx) {
 
     function privSection(g) {
       const cb = checkbox(groupState(g.items, S.psel), (cur) => { for (const i of g.items) cur === 'on' ? S.psel.delete(i.id) : S.psel.add(i.id); paintPrivCats(); paintPrivPane(); paintPrivFoot(); }, t('Selecionar {name}', { name: tr(g.title) }));
+      cb.dataset.fk = 'g:' + g.id;
       const total = g.items.reduce((a, i) => a + i.size, 0);
       return h('section', { class: 'fm-sec', dataset: { group: g.id } },
         h('div', { class: 'fm-sec-head' }, cb, h('b', { title: tr(g.title) }, tr(g.title)), h('span', null, `${plural(g.items.length, 'item', 'itens')} · ${fmtBytes(total)}`)),
         g.items.map((it) => {
           const toggle = () => { S.psel.has(it.id) ? S.psel.delete(it.id) : S.psel.add(it.id); paintPrivCats(); paintPrivPane(); paintPrivFoot(); };
           const label = g.id === 'recent' ? recentLabel(it.name) : it.name;
+          const rowCb = checkbox(S.psel.has(it.id) ? 'on' : 'off', toggle, t('Selecionar {name}', { name: label }));
+          rowCb.dataset.fk = 'c:' + it.id;
           const row = h('div', { class: 'fm-row', onClick: toggle },
-            checkbox(S.psel.has(it.id) ? 'on' : 'off', toggle, t('Selecionar {name}', { name: label })),
+            rowCb,
             h('div', { class: 'fm-ic' }, icon('file', 16)),
             h('div', { class: 'fm-main' },
               h('div', { class: 'fm-name' }, h('span', { title: it.name }, label), it.note ? h('span', { class: 'badge info', title: tr(it.note) }, tr(it.note)) : null),

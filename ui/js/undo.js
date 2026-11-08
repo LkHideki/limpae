@@ -2,6 +2,7 @@
 import { api } from './api.js';
 import { toast, failuresSheet } from './ui.js';
 import { t, tn } from './i18n.js';
+import { play } from './sound.js';
 
 // Returns how many items came back; failures are listed in the usual failures sheet.
 export async function restoreBatches(batches) {
@@ -12,6 +13,7 @@ export async function restoreBatches(batches) {
   if (!out.length) toast(t('Nada para restaurar: os itens já saíram do Lixo.'), 'info');
   else if (ok) toast(tn(ok, '{n} item restaurado', '{n} itens restaurados'), 'ok');
   if (bad.length) {
+    if (!ok) play('error'); // nothing came back: 'error' (it also ducks the sheet's 'open' chime) instead of a bare dialog sound
     failuresSheet(bad, {
       title: t('Alguns itens não foram restaurados'),
       body: (n) => tn(n, '{n} item continua no Lixo.', '{n} itens continuam no Lixo.'),

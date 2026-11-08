@@ -621,17 +621,25 @@ export function enter(ctx) {
     const none = !sel.length;
     mount(M.foot,
       h('div', { class: 'rv-sel' }, none ? t('Nenhum app selecionado') : [h('b', null, tn(sel.length, '{n} app selecionado', '{n} apps selecionados')), h('small', null, fmtBytes(tot.bytes)), tot.loading ? h('span', { class: 'spin am-spin', title: t('Calculando restos…') }) : null]),
-      h('button', { class: 'btn primary', type: 'button', disabled: none, onClick: uninstallSelected }, icon('trash', 16), t('Desinstalar')));
+      preparing
+        ? h('button', { class: 'btn primary', type: 'button', disabled: true, 'aria-busy': 'true' }, h('span', { class: 'spin', 'aria-hidden': 'true' }), t('Calculando restos…'))
+        : h('button', { class: 'btn primary', type: 'button', disabled: none, onClick: uninstallSelected }, icon('trash', 16), t('Desinstalar')));
   }
 
   // ---------- batch uninstall ----------
+  // True while the leftovers scan that precedes the confirmation runs: the button shows it and ignores new clicks
+  // (a second click would stack a second confirmation for the same apps).
+  let preparing = false;
   async function uninstallSelected() {
+    if (preparing) return;
     const list = selectedApps().filter((a) => !a.running);
     if (!list.length) return;
+    preparing = true;
     ctx.setBusy(true);
-    await Promise.all(list.map((a) => ensureLo(a)));
-    ctx.setBusy(false);
+    if (list.some((a) => { const lo = U.lo.get(a.id); return !lo || lo.loading; })) paintFootApps();
+    try { await Promise.all(list.map((a) => ensureLo(a))); } finally { preparing = false; ctx.setBusy(false); }
     if (!ctx.alive) return;
+    if (M && U.pane === 'uninstaller') paintFootApps();
     const tot = totalFor(list);
     const ok = await confirmDialog({
       title: list.length === 1 ? t('Desinstalar {name}?', { name: list[0].name }) : t('Desinstalar {n} apps?', { n: fmtNum(list.length) }),
