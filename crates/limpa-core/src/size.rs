@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fs::{self, Metadata};
 use std::os::unix::fs::MetadataExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -33,12 +33,28 @@ pub(crate) fn in_app_container(path: &Path) -> bool {
 
 /// Entries of a directory with their lstat metadata, stat'ed sequentially: parallel lstat calls in one
 /// directory contend on its lock, so walkers parallelize across subdirectories only.
-pub(crate) fn stat_entries(rd: fs::ReadDir) -> Vec<(fs::DirEntry, Metadata)> {
+/// One directory entry, detached from its `ReadDir`. A `DirEntry` keeps the whole directory stream (its open
+/// descriptor and read buffer) alive; walkers hold a directory's entries while recursing into it, so with
+/// `DirEntry`s every open level of every parallel walk kept its stream, which dominated peak memory.
+pub(crate) struct Entry(PathBuf);
+
+impl Entry {
+    pub(crate) fn path(&self) -> PathBuf {
+        self.0.clone()
+    }
+
+    pub(crate) fn file_name(&self) -> std::ffi::OsString {
+        self.0.file_name().unwrap_or_default().to_os_string()
+    }
+}
+
+/// Entries of `rd` with their metadata (not following symlinks). The stream is fully read and closed on return.
+pub(crate) fn stat_entries(rd: fs::ReadDir) -> Vec<(Entry, Metadata)> {
     rd.filter_map(Result::ok)
         .filter_map(|e| {
             // DirEntry::metadata does not traverse symlinks on unix.
             let m = e.metadata().ok()?;
-            Some((e, m))
+            Some((Entry(e.path()), m))
         })
         .collect()
 }

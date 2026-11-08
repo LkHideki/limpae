@@ -380,7 +380,7 @@ fn walk_dir(path: &Path, md: &Metadata, ctx: &Ctx) -> Built {
     b
 }
 
-fn classify(e: &DirEntry, md: &Metadata, ctx: &Ctx) -> Part {
+fn classify(e: &crate::size::Entry, md: &Metadata, ctx: &Ctx) -> Part {
     if md.dev() != ctx.dev {
         return Part::Skip;
     }
