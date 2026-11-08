@@ -4,6 +4,7 @@ import { icon } from '../art.js';
 import { api, call } from '../api.js';
 import { bytesParts, fmtBytes, fmtNum, pct, plural } from '../format.js';
 import { t, tn, tr, lazyIntl } from '../i18n.js';
+import { openSettings } from '../fda.js';
 import { restoreBatches } from '../undo.js';
 
 const getHealth = () => call('health', undefined, { quiet: true });
@@ -67,7 +68,7 @@ function healthCard(hl) {
 function recommendations(ctx, hl) {
   const list = hl.factors || [];
   const go = (a) => {
-    if (a.module === 'fda') api.openFda().catch(() => {});
+    if (a.module === 'fda') openSettings().then(ctx.refreshDisk);
     else ctx.nav(a.module);
   };
   return h('section', { class: 'act-recs', 'aria-label': t('Recomendações') },
@@ -138,15 +139,23 @@ function statCards(ctx, a) {
 const RESTORE_SHOWN = 8;
 function restoreSection(ctx, batches, reload) {
   if (!batches.length) return null;
-  const row = (b) => {
+  const shown = batches.slice(0, RESTORE_SHOWN);
+  const row = (b, k) => {
     const ready = b.items.filter((i) => i.state === 'ready');
     const noAccess = b.items.some((i) => i.state === 'noAccess');
     const size = b.items.reduce((n, i) => n + i.size, 0);
     const names = b.items.map((i) => i.name).slice(0, 3).join(' · ') + (b.items.length > 3 ? ' …' : '');
     const btn = ready.length
-      ? h('button', { class: 'btn sm', type: 'button', onClick: async (e) => { e.currentTarget.disabled = true; await restoreBatches([b.id]); reload(); } }, t('Restaurar'))
+      ? h('button', { class: 'btn sm', type: 'button', dataset: { fk: 'rb:' + b.id }, onClick: async (e) => {
+        const btn = e.currentTarget, had = btn === document.activeElement;
+        btn.disabled = true;
+        // Same refresh as the undo toast: cached Trash/Sweep results and the free-space footer are stale now.
+        if (await restoreBatches([b.id])) { ctx.bump(); ctx.store.trash = null; ctx.refreshDisk(); }
+        // The restored row usually leaves the list: focus goes to the next row's button, else the previous one's.
+        reload(had ? [b.id, ...shown.slice(k + 1).map((x) => x.id), ...shown.slice(0, k).reverse().map((x) => x.id)] : null);
+      } }, t('Restaurar'))
       : noAccess
-        ? h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Conceder acesso'))
+        ? h('button', { class: 'btn sm', type: 'button', dataset: { fk: 'rb:' + b.id }, onClick: () => openSettings().then(ctx.refreshDisk) }, t('Conceder acesso'))
         : null;
     const why = !ready.length && !noAccess ? t('O local original está ocupado ou não existe mais.') : null;
     return h('li', { class: 'rec' },
@@ -160,7 +169,17 @@ function restoreSection(ctx, batches, reload) {
   return h('section', { class: 'act-recs act-restore', 'aria-label': t('Movidos para o Lixo') },
     h('h2', { class: 'act-h' }, t('Movidos para o Lixo')),
     h('p', { class: 'act-note' }, t('Itens que o Limpae moveu para o Lixo e que ainda podem voltar para onde estavam.')),
-    h('ul', { class: 'rec-list' }, batches.slice(0, RESTORE_SHOWN).map(row)));
+    h('ul', { class: 'rec-list' }, shown.map(row)));
+}
+
+// Async content arrives after the screen's entrance: a short rise instead of a pop-in. Skipped while the window is
+// idle (paused animations would hold it invisible); reduced motion is handled by the global CSS rule.
+function fill(box, kids) {
+  mount(box, kids);
+  box.classList.remove('fill-in');
+  if (document.body.classList.contains('idle')) return;
+  void box.offsetWidth;
+  box.classList.add('fill-in');
 }
 
 export function enter(ctx) {
@@ -168,28 +187,35 @@ export function enter(ctx) {
   const statsBox = h('div', { class: 'act-stats' });
   const recsBox = h('div', { class: 'act-recs-box' });
   const restoreBox = h('div', { class: 'act-restore-box' });
+  const title = h('h1', { class: 'h2', tabindex: '-1' }, t('Saúde'));
   mount(ctx.root, h('div', { class: 'act' },
-    h('header', { class: 'set-head' }, h('h1', { class: 'h2' }, t('Saúde'))),
+    h('header', { class: 'set-head' }, title),
     h('div', { class: 'act-grid' }, healthBox, statsBox),
     recsBox, restoreBox));
 
-  const loadRestore = () => api.trashHistory().then((batches) => {
-    if (ctx.alive) mount(restoreBox, restoreSection(ctx, batches, loadRestore));
-  }).catch(() => {});
+  // focusIds: batch ids, in order of preference, whose button takes focus after the reload (the section may be gone:
+  // then the screen title, so focus never falls to <body>).
+  const loadRestore = (focusIds = null) => api.trashHistory().then((batches) => {
+    if (!ctx.alive) return;
+    fill(restoreBox, restoreSection(ctx, batches, loadRestore));
+    if (!focusIds) return;
+    const n = focusIds.map((id) => restoreBox.querySelector(`[data-fk="${CSS.escape('rb:' + id)}"]:not(:disabled)`)).find(Boolean);
+    (n || title).focus();
+  }).catch(() => { if (focusIds && ctx.alive) title.focus(); });
   loadRestore();
 
   getHealth().then((hl) => {
     if (!ctx.alive) return;
-    mount(healthBox, healthCard(hl));
-    mount(recsBox, recommendations(ctx, hl));
+    fill(healthBox, healthCard(hl));
+    fill(recsBox, recommendations(ctx, hl));
   }).catch(() => {
     if (!ctx.alive) return;
-    mount(healthBox, h('section', { class: 'act-card act-health loading' }, t('Não foi possível avaliar a saúde do Mac agora.')));
+    fill(healthBox, h('section', { class: 'act-card act-health loading' }, t('Não foi possível avaliar a saúde do Mac agora.')));
   });
 
   getActivity().then((a) => {
-    if (ctx.alive) mount(statsBox, statCards(ctx, a));
+    if (ctx.alive) fill(statsBox, statCards(ctx, a));
   }).catch(() => {
-    if (ctx.alive) mount(statsBox, h('section', { class: 'act-card act-stat act-empty' }, h('h3', null, t('Histórico indisponível')), h('p', null, t('Não foi possível ler o registro de ações.'))));
+    if (ctx.alive) fill(statsBox, h('section', { class: 'act-card act-stat act-empty' }, h('h3', null, t('Histórico indisponível')), h('p', null, t('Não foi possível ler o registro de ações.'))));
   });
 }

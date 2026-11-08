@@ -9,9 +9,10 @@ import { api } from '../api.js';
 import { store, bump } from '../store.js';
 import { bytesParts, fmtBytes, fmtNum, plural } from '../format.js';
 import { confirmDialog, confirmRestart, failuresSheet, stage, checkbox, segmented, features, managerBar } from '../ui.js';
-import { outcomesToFailures, stopDock } from '../actions.js';
+import { outcomesToFailures, realFailures, stopDock } from '../actions.js';
 import { attachMenu, selectMenuButton } from '../menus.js';
 import { t, tn, tr, lazyIntl } from '../i18n.js';
+import { openSettings } from '../fda.js';
 
 const REMOVE_BATCH = 100;
 
@@ -195,6 +196,7 @@ export function enter(ctx) {
     ctx.onProgress((p) => { if (current && p.task === current) ticker.textContent = p.path || ''; });
     ctx.setDock({ label: t('Parar'), busy: true, mod: 'protect', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'protect' }); api.cancel().catch(() => {}); } });
     const out = {};
+    let okSteps = 0;
     for (const step of steps) {
       if (cancelled) break;
       current = step.task || '';
@@ -204,6 +206,7 @@ export function enter(ctx) {
         const r = await step.run();
         if (cancelled) break;
         out[step.k] = r;
+        okSteps++;
         mark(step.k, 'done', step.sum(r));
       } catch (e) {
         if (cancelled) break;
@@ -219,7 +222,7 @@ export function enter(ctx) {
     S.svc = null; S.pcat = 'recent';
     selectInitial();
     S.phase = 'results';
-    play('found');
+    play(okSteps ? 'found' : 'error'); // every step failed: no success chime over a screen of "not completed"
     render();
   }
 
@@ -251,7 +254,7 @@ export function enter(ctx) {
         h('span', { class: 'pr-tile-ic' }, icon('lock', 24)),
         h('div', { class: 'pr-tile-t' }, t('Permissões de apps')),
         h('div', { class: 'pr-tile-s' }, t('Para listar o que cada app pode acessar, conceda o Acesso Total ao Disco ao Limpae.')),
-        h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes')));
+        h('button', { class: 'btn sm', type: 'button', onClick: () => openSettings().then(ctx.refreshDisk) }, t('Abrir Ajustes')));
     } else {
       permTile = h('div', { class: 'pr-tile' + (S.tcc.apps ? '' : ' none'), dataset: { area: 'perms' } },
         h('span', { class: 'pr-tile-ic' }, pi('camera', 24)),
@@ -362,7 +365,7 @@ export function enter(ctx) {
         mount(listEl, S.tcc.needsFda
           ? h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('lock', 26)), h('b', null, t('É preciso o Acesso Total ao Disco')),
             h('p', null, t('O macOS guarda as permissões num banco protegido. Conceda o Acesso Total ao Disco ao Limpae em Ajustes do Sistema e analise de novo.')),
-            h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes')))
+            h('button', { class: 'btn sm', type: 'button', onClick: () => openSettings().then(ctx.refreshDisk) }, t('Abrir Ajustes')))
           : h('div', { class: 'rv-empty' }, t('Nenhuma permissão encontrada.')));
         return;
       }
@@ -460,7 +463,7 @@ export function enter(ctx) {
         mount(listEl, isRecent && S.priv.needsFda
           ? h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('lock', 26)), h('b', null, t('É preciso o Acesso Total ao Disco')),
             h('p', null, t('O macOS protege a pasta das listas de itens recentes. Conceda o acesso ao Limpae e analise de novo.')),
-            h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes')))
+            h('button', { class: 'btn sm', type: 'button', onClick: () => openSettings().then(ctx.refreshDisk) }, t('Abrir Ajustes')))
           : h('div', { class: 'rv-empty' }, t('Nada encontrado nesta categoria.')));
         return;
       }
@@ -619,12 +622,13 @@ export function enter(ctx) {
     bump(); store.trash = null;
     S.done = { kind: 'privacy', n: okIds.size, bytes: freed, failed: failures.length, permanent };
     S.phase = 'done';
-    play(okIds.size ? 'clean' : 'error');
+    const real = realFailures(failures);
+    if (okIds.size) play('clean'); else if (!sd.stopped() || real.length) play('error'); // a bare Stop is not an error
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
     render();
-    if (failures.length) failuresSheet(failures);
+    if (real.length) failuresSheet(real);
   }
 
   function renderDone() {
@@ -640,6 +644,7 @@ export function enter(ctx) {
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
         more ? h('button', { class: 'btn', type: 'button', onClick: () => { S.phase = 'review'; render(); } }, t('Revisar mais itens')) : null,
         h('button', { class: 'btn primary', type: 'button', onClick: () => { S.phase = 'results'; render(); } }, t('Concluir'))));
+    st.succeeded(d.n > 0); // celebrated only when something was actually handled
     ctx.setDock(null);
   }
 

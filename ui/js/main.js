@@ -35,7 +35,16 @@ let fdaDismissed = false;
 try { fdaDismissed = localStorage.getItem('limpae.fda.dismissed') === '1'; } catch (e) { /* storage unavailable */ }
 
 setNotifier((msg) => toast(tr(msg)));
-setUndoNotifier((batches, n) => toast(tn(n, '{n} item movido para o Lixo', '{n} itens movidos para o Lixo'), 'ok', { label: t('Desfazer'), onClick: () => restoreBatches(batches) }));
+// After an undo the files are back: cached Trash results and the free-space footer are stale. A Trash screen
+// showing the old list is reopened (not during an operation).
+setUndoNotifier((batches, n) => toast(tn(n, '{n} item movido para o Lixo', '{n} itens movidos para o Lixo'), 'ok', {
+  label: t('Desfazer'),
+  onClick: () => restoreBatches(batches).then((ok) => {
+    if (!ok) return;
+    bump(); store.trash = null; refreshDisk();
+    if (current === 'trash' && !store.busy) navigate('trash', true);
+  }),
+}));
 window.addEventListener('unhandledrejection', (e) => { if (!(e.reason && e.reason.reported)) toast(tr(String((e.reason && e.reason.message) || e.reason || t('Erro inesperado')))); });
 
 function setBusy(b) {
@@ -69,10 +78,22 @@ function navigate(id, force = false) {
   current = id;
   document.body.dataset.mod = id;
   navEl.querySelectorAll('.nav-item').forEach((b) => b.setAttribute('aria-current', b.dataset.id === id ? 'page' : 'false'));
+  // Focus inside the old screen dies with it (keyboard navigation from a tile, a link, the language switch):
+  // it moves to the new screen's heading, or the menu item, instead of falling back to <body>.
+  const lostFocus = view.contains(document.activeElement);
   clear(view);
   view.className = 'view';
   alive = true;
   VIEWS[id].enter(ctx);
+  if (lostFocus && (!document.activeElement || document.activeElement === document.body)) focusScreen(id);
+}
+
+function focusScreen(id) {
+  const head = view.querySelector('h1, h2');
+  const target = head || navEl.querySelector(`.nav-item[data-id="${id}"]`);
+  if (!target) return;
+  if (head && !head.hasAttribute('tabindex')) head.setAttribute('tabindex', '-1');
+  target.focus({ preventScroll: true });
 }
 
 function buildNav() {

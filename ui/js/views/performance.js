@@ -132,7 +132,8 @@ export function enter(ctx) {
     ctx.onProgress((p) => { if (p.task === 'perf') ticker.textContent = p.path || ''; });
     ctx.setDock({ label: t('Parar'), busy: true, mod: 'perf', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'perf' }); api.cancel().catch(() => {}); } });
     let res = null;
-    try { res = await api.perfScan(); } catch (e) { /* the warning was already shown by api.call */ }
+    // The toast's 'err' is gated on focus; 'error' also reaches a background window (the two duck each other).
+    try { res = await api.perfScan(); } catch (e) { /* toast already shown */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     if (!res || cancelled) { if (!cancelled) play('error'); S.phase = S.res ? 'results' : 'idle'; return render(); }
@@ -225,6 +226,14 @@ export function enter(ctx) {
     const footEl = h('div', { class: 'rv-sel' });
     const back = () => { S.note = null; S.phase = 'results'; render(); };
     const actionBtn = h('button', { class: 'btn primary', type: 'button', onClick: () => removeSelected() }, icon('trash', 16), t('Remover'));
+    // An operation (remove, thin) is in flight: no second confirmation or duplicate call for the same items.
+    let busy = false;
+    const lock = (b) => {
+      busy = b;
+      ctx.setBusy(b);
+      headEl.querySelectorAll('button').forEach((x) => { if (b) { x.dataset.wasDisabled = String(x.disabled); x.disabled = true; } else { x.disabled = x.dataset.wasDisabled === 'true'; delete x.dataset.wasDisabled; } });
+      if (b) actionBtn.disabled = true; else renderFoot();
+    };
 
     const summary = (id) => {
       const r = S.res;
@@ -250,7 +259,7 @@ export function enter(ctx) {
       else kids.push(flagged ? h('span', { class: 'pf-foot-warn' }, icon('alert', 14), tn(flagged, '{n} agente pede atenção', '{n} agentes pedem atenção')) : t('Tudo o que você desativar pode ser reativado.'));
       mount(footEl, kids);
       actionBtn.hidden = !sel;
-      actionBtn.disabled = !sel || !sel.size;
+      actionBtn.disabled = busy || !sel || !sel.size;
     }
     function showTab() {
       stopMonitor();
@@ -300,7 +309,8 @@ export function enter(ctx) {
       const actions = manageable
         ? [h('button', { class: 'pf-switch', type: 'button', role: 'switch', 'aria-checked': String(a.state !== 'disabled'), 'aria-label': a.state === 'disabled' ? t('Ativar {name}', { name: agentName(a) }) : t('Desativar {name}', { name: agentName(a) }), title: a.state === 'disabled' ? t('Ativar') : t('Desativar'), onClick: (e) => toggle(a, e.currentTarget.closest('.pf-row')) }, h('i'))]
         : [h('span', { class: 'pf-lock', title: user ? tr(a.note) : t('Do sistema · requer administrador') }, icon('lock', 15))];
-      const flip = () => { S.sel.has(a.id) ? S.sel.delete(a.id) : S.sel.add(a.id); cb.set(S.sel.has(a.id) ? 'on' : 'off'); renderFoot(); };
+      // A new selection replaces the "N removed" note: the footer must show what Remove will act on.
+      const flip = () => { if (busy) return; S.sel.has(a.id) ? S.sel.delete(a.id) : S.sel.add(a.id); S.note = null; cb.set(S.sel.has(a.id) ? 'on' : 'off'); renderFoot(); };
       const cb = manageable ? checkbox(S.sel.has(a.id) ? 'on' : 'off', flip, t('Selecionar {name}', { name: agentName(a) })) : h('span', { class: 'pf-nocb', 'aria-hidden': 'true' });
       const row = h('div', { class: 'pf-row', dataset: { state: a.state || 'system' }, onClick: manageable ? (e) => { if (!e.target.closest('button')) flip(); } : null }, cb, slot,
         h('div', { class: 'fm-main' },
@@ -313,22 +323,28 @@ export function enter(ctx) {
       return row;
     }
     async function toggle(a, row) {
+      if (busy) return;
       const enable = a.state === 'disabled';
       const sw = row.querySelector('.pf-switch');
+      const hadFocus = document.activeElement === sw; // read before disabling, which drops focus
       sw.disabled = true;
       sw.classList.add('busy');
       try {
         const r = await api.agentToggle(a.id, enable);
         a.state = r.state;
-        play('start');
+        // No sound of its own: the 'ok' toast is the feedback (a second sound would stack on it).
         if (ctx.alive) toast(enable ? t('{name} ativado.', { name: agentName(a) }) : t('{name} desativado. Dá para reativar quando quiser.', { name: agentName(a) }), 'ok');
-      } catch (e) { play('error'); }
+      } catch (e) { if (!e.reported) play('error'); }
       if (!ctx.alive || S.tab !== 'agents') return;
-      row.replaceWith(agentRow(a));
+      // The rebuilt row replaces the focused switch: focus moves to the new one so keyboard users keep their place.
+      const fresh = agentRow(a);
+      row.replaceWith(fresh);
+      if (hadFocus) { const nsw = fresh.querySelector('.pf-switch'); if (nsw) nsw.focus({ preventScroll: true }); }
       renderNav();
     }
     // Removes what is checked in the open tab (agents or login items), with confirmation.
     async function removeSelected() {
+      if (busy) return;
       const agents = S.tab === 'agents';
       const sel = agents ? S.sel : S.lsel;
       const list = agents ? S.res.agents.filter((x) => sel.has(x.id)) : S.res.login.items.filter((x) => sel.has(x.id));
@@ -342,11 +358,11 @@ export function enter(ctx) {
           ? h('span', null, one ? t('O agente será parado agora e o arquivo de configuração ({file}) irá para o Lixo, de onde dá para restaurar. Os apps donos não são removidos.', { file: list[0].file }) : t('Os agentes serão parados agora e os arquivos de configuração irão para o Lixo, de onde dá para restaurar. Os apps donos não são removidos.'))
           : h('span', null, t('Os apps deixam de abrir sozinhos quando você entra no Mac. Continuam instalados, e dá para adicioná-los de novo em Ajustes do Sistema › Geral › Itens de Início.')),
       });
-      if (!ok || !ctx.alive) return;
-      ctx.setBusy(true);
+      if (!ok || !ctx.alive || busy) return;
+      lock(true);
       let res = null;
-      try { res = await (agents ? api.agentRemove : api.loginItemRemove)(list.map((x) => x.id)); } catch (e) { play('error'); }
-      ctx.setBusy(false);
+      try { res = await (agents ? api.agentRemove : api.loginItemRemove)(list.map((x) => x.id)); } catch (e) { if (!e.reported) play('error'); }
+      lock(false);
       if (!res || !ctx.alive) return;
       const done = res.outcomes.filter((o) => o.ok).map((o) => o.id);
       const bad = res.outcomes.filter((o) => !o.ok);
@@ -355,12 +371,11 @@ export function enter(ctx) {
         for (const id of done) sel.delete(id);
         const nDone = done.length;
         S.note = () => tn(nDone, '{n} item removido.', '{n} itens removidos.');
-        play('clean');
       }
+      play(done.length ? 'clean' : 'error'); // exactly one result sound, even on a partial failure
       showTab();
       if (bad.length) {
         const byId = new Map(list.map((x) => [x.id, x]));
-        play('error');
         await failuresSheet(bad.map((o) => ({ id: o.id, name: byId.has(o.id) ? nameOf(byId.get(o.id)) : t('Item'), path: '', error: tr(o.error) })));
       }
     }
@@ -386,7 +401,7 @@ export function enter(ctx) {
     function loginRow(it) {
       const slot = h('div', { class: 'pf-ic' }, icon('restart', 17));
       if (it.path && it.path.endsWith('.app')) loadIcon(it.id, slot);
-      const flip = () => { S.lsel.has(it.id) ? S.lsel.delete(it.id) : S.lsel.add(it.id); cb.set(S.lsel.has(it.id) ? 'on' : 'off'); renderFoot(); };
+      const flip = () => { if (busy) return; S.lsel.has(it.id) ? S.lsel.delete(it.id) : S.lsel.add(it.id); S.note = null; cb.set(S.lsel.has(it.id) ? 'on' : 'off'); renderFoot(); };
       const cb = checkbox(S.lsel.has(it.id) ? 'on' : 'off', flip, t('Selecionar {name}', { name: it.name }));
       const row = h('div', { class: 'pf-row', onClick: (e) => { if (!e.target.closest('button')) flip(); } }, cb, slot,
         h('div', { class: 'fm-main' }, h('div', { class: 'fm-name' }, h('span', { title: it.name }, it.name)), h('div', { class: 'fm-meta pf-meta' }, it.path ? mid(it.path, 26) : h('span', null, t('Sem caminho')))));
@@ -429,16 +444,17 @@ export function enter(ctx) {
         })));
     }
     async function thin() {
+      if (busy) return;
       const n = S.res.snapshots.items.length;
       const ok = await confirmDialog({
         title: t('Afinar os snapshots locais?'), glyph: 'clock', danger: true, mod: 'perf', confirm: t('Afinar'),
         body: h('span', null, tn(n, 'O snapshot local será apagado. Não dá para desfazer, mas o Time Machine cria novos sozinho e seus arquivos não são afetados.', 'Os {n} snapshots locais serão apagados. Não dá para desfazer, mas o Time Machine cria novos sozinho e seus arquivos não são afetados.')),
       });
-      if (!ok || !ctx.alive) return;
-      ctx.setBusy(true);
+      if (!ok || !ctx.alive || busy) return;
+      lock(true);
       let res = null;
-      try { res = await api.tmThin(); } catch (e) { play('error'); }
-      ctx.setBusy(false);
+      try { res = await api.tmThin(); } catch (e) { if (!e.reported) play('error'); }
+      lock(false);
       if (!res || !ctx.alive) return;
       S.res.snapshots.items = res.snapshots;
       play('clean');

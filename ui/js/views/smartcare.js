@@ -9,7 +9,7 @@ import { store, selectedSize, selectedIds, pruneResult, countItems } from '../st
 import { fmtBytes } from '../format.js';
 import { t, tn, tr } from '../i18n.js';
 import { confirmDialog, failuresSheet, stage, features, checkbox } from '../ui.js';
-import { removeGroups, stopDock } from '../actions.js';
+import { removeGroups, realFailures, stopDock } from '../actions.js';
 
 // key = key in settings.smartCare; tasks = values of `task` from the scan-progress event; run = executes something on "Run".
 // Texts as getters: the language is only known after the module is loaded, and the key must stay literal.
@@ -40,6 +40,11 @@ export function enter(ctx) {
   let cancelled = false, active = null, hooked = false;
   const els = {};          // id -> {el, ticker, list, verb, cb}
   let head, rows, bento;
+  // While the column runs its own entrance (.col.enter), the head and tile texts drawn inside it skip their rise:
+  // one entrance layer, not two stacked offsets and fades.
+  let builtAt = -1e9;
+  const entering = () => performance.now() - builtAt < 360;
+  const SUCCESS = new Set(['cleaned', 'emptied', 'partial']);
 
   const enabled = () => {
     const sc = (store.settings && store.settings.smartCare) || {};
@@ -98,10 +103,12 @@ export function enter(ctx) {
     const sm = info(m);
     const o = S.out[m.id];
     const skip = checkable(m) && !S.inc[m.id] && (st === 'done' || st === 'final' || st === 'off');
+    const same = e.el.dataset.st === st && !!e.el.querySelector('.t-main'); // repaint in the same state (e.g. include toggled): no entrance replay
     e.el.dataset.st = st;
     e.el.classList.toggle('hot', st === 'hot' || st === 'clean');
     e.el.classList.toggle('skipped', skip);
     e.el.classList.toggle('dim', st === 'off' && !skip);
+    e.el.toggleAttribute('data-ok', st === 'final' && SUCCESS.has(o)); // celebration anchor (motion.js)
     e.verb.textContent = st === 'clean' ? (m.id === 'trash' ? t('Esvaziando a Lixeira…') : t('Limpando lixo…')) : m.verb;
     let main = null;
     const num = (txt, small) => h('div', { class: 't-num' + (small ? ' sm' : '') }, txt);
@@ -130,12 +137,12 @@ export function enter(ctx) {
     }
     const old = e.el.querySelector('.t-main');
     if (old) old.remove();
-    if (main) e.el.append(main);
+    if (main) { if (same || entering()) main.classList.add('still'); e.el.append(main); }
     const rv = e.el.querySelector('.t-review');
     if (rv) rv.remove();
     e.el.classList.toggle('has-rv', st === 'done' && S.phase === 'results' && !!sm.review);
     if (st === 'done' && S.phase === 'results' && sm.review) {
-      e.el.append(h('div', { class: 't-review' }, h('button', { class: 'btn sm', type: 'button', 'aria-label': t('Revisar {name}', { name: m.title }), onClick: () => go(m) }, t('Revisar'))));
+      e.el.append(h('div', { class: 't-review' + ((same && rv) || entering() ? ' still' : '') }, h('button', { class: 'btn sm', type: 'button', 'aria-label': t('Revisar {name}', { name: m.title }), onClick: () => go(m) }, t('Revisar'))));
     }
     if (e.cb) {
       e.cb.parentElement.hidden = !checkable(m);
@@ -170,7 +177,7 @@ export function enter(ctx) {
   }
 
   function setHead(text, left) {
-    mount(head, h('span', null, text), left || null);
+    mount(head, h('span', { class: entering() ? 'still' : null }, text), left || null);
   }
 
   function buildBento() {
@@ -198,6 +205,7 @@ export function enter(ctx) {
       return h('div', { class: 'brow' }, kids);
     });
     bento = h('div', { class: 'bento', dataset: { n: list.length, phase: S.phase } }, rows);
+    builtAt = performance.now();
     mount(root, h('div', { class: 'col enter' }, head, bento));
   }
 
@@ -422,18 +430,21 @@ export function enter(ctx) {
     store.trash = null;
     S.phase = 'done'; S.rev = store.rev;
     S.stopped = stopped;
-    play(anyOk || !anyFail ? 'clean' : 'error');
+    const real = realFailures(failures);
+    if (anyOk || !anyFail) play('clean'); else if (!stopped || real.length) play('error'); // a bare Stop is not an error
     if (anyOk && !stopped) api.markSmartCare().catch(() => {});
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
     renderDone();
-    if (failures.length) failuresSheet(failures);
+    if (real.length) failuresSheet(real);
   }
 
   function renderDone() {
-    bento.dataset.phase = 'done';
     mods().forEach((m) => paint(m, 'final'));
+    // Celebrated (motion.js) only when at least one task actually removed something.
+    if (Object.values(S.out).some((o) => SUCCESS.has(o))) bento.dataset.result = 'ok'; else delete bento.dataset.result;
+    bento.dataset.phase = 'done';
     // The title says what actually happened: failures and still-open items do not become "great shape".
     const outs = Object.values(S.out);
     const failed = outs.some((o) => o === 'failed' || o === 'partial');

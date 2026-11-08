@@ -84,9 +84,10 @@ const isMenuKey = (e) => e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F1
 // "Quick Look" (opening an iCloud file would download it again).
 // simulate: offers "Simulate" (a dry run of the removal, with a report file); off for actions that are not removals.
 // Dry run: the backend runs every removal check without removing anything and writes a report.
-async function simulateRemoval(ids, mod) {
+// onReady runs once the dry run returns (before the report dialog opens), to end the button's busy state.
+async function simulateRemoval(ids, mod, onReady = () => {}) {
   let r;
-  try { r = await api.simulate(ids, false); } catch (e) { return; }
+  try { r = await api.simulate(ids, false); } catch (e) { return; } finally { onReady(); }
   const line = (label, tally) => h('li', null, h('span', null, label), h('b', { class: 'num' }, tn(tally.count, '{n} item', '{n} itens'), ' · ', fmtBytes(tally.bytes)));
   const reasons = new Map();
   for (const x of r.refused) reasons.set(x.error, (reasons.get(x.error) || 0) + 1);
@@ -107,7 +108,17 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
   const itemsEl = h('div', { class: 'rv-items-wrap' });
   const selEl = h('div', { class: 'rv-sel' });
   const actionBtn = h('button', { class: 'btn primary', type: 'button', onClick: () => onAction(new Set(sel)) }, actionLabel);
-  const simBtn = simulate ? h('button', { class: 'btn ghost', type: 'button', title: t('Mostra o que aconteceria, sem remover nada'), onClick: () => simulateRemoval([...sel], mod) }, t('Simular')) : null;
+  // The dry run can take seconds on big selections: the button turns busy and ignores clicks, so a second click
+  // cannot stack another simulation dialog.
+  let simBusy = false;
+  const simBtn = simulate ? h('button', { class: 'btn ghost', type: 'button', title: t('Mostra o que aconteceria, sem remover nada'), onClick: () => {
+    if (simBusy) return;
+    simBusy = true;
+    simBtn.disabled = true;
+    simBtn.setAttribute('aria-busy', 'true');
+    mount(simBtn, h('span', { class: 'spin', 'aria-hidden': 'true' }), t('Simulando…'));
+    simulateRemoval([...sel], mod, () => { simBusy = false; simBtn.removeAttribute('aria-busy'); mount(simBtn, t('Simular')); renderFooter(); });
+  } }, t('Simular')) : null;
 
   const sorter = () => (st.sort === 'size' ? (a, b) => b.size - a.size : (a, b) => cmp(a.name, b.name));
   const visible = (g) => {
@@ -115,10 +126,14 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     const items = q ? g.items.filter((i) => i.name.toLowerCase().includes(q) || i.path.toLowerCase().includes(q)) : g.items;
     return [...items].sort(sorter());
   };
+  // With a search active, the group checkbox reads and toggles only the rows the search shows (like ⌘A and
+  // the Select menu): checking it never queues items the user cannot see.
+  const groupItems = (g) => (st.q.trim() ? visible(g) : g.items);
   const groupState = (g) => {
+    const items = groupItems(g);
     let n = 0;
-    for (const i of g.items) if (sel.has(i.id)) n++;
-    return n === 0 ? 'off' : n === g.items.length ? 'on' : 'mixed';
+    for (const i of items) if (sel.has(i.id)) n++;
+    return n === 0 ? 'off' : n === items.length ? 'on' : 'mixed';
   };
   const groupsShown = () => {
     const gs = st.q.trim() ? result.groups.filter((g) => visible(g).length) : result.groups.slice();
@@ -132,24 +147,25 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     if (!count) mount(selEl, t('Nenhum item selecionado'));
     else mount(selEl, t('Selecionado: '), h('b', null, fmtBytes(bytes)), h('small', null, cats > 1 ? tn(count, '{n} item em {cats}', '{n} itens em {cats}', { cats: tn(cats, '{n} categoria', '{n} categorias') }) : tn(count, '{n} item', '{n} itens')));
     actionBtn.disabled = count === 0;
-    if (simBtn) simBtn.disabled = count === 0;
+    if (simBtn) simBtn.disabled = count === 0 || simBusy;
   }
 
   function renderGroups() {
     const gs = groupsShown();
     if (!gs.some((g) => g.id === st.gid)) st.gid = gs[0] ? gs[0].id : null;
     mount(groupsEl, gs.map((g) => {
-      const cb = checkbox(groupState(g), (s0) => { for (const i of g.items) s0 === 'on' ? sel.delete(i.id) : sel.add(i.id); refresh(); }, t('Selecionar grupo {name}', { name: tr(g.title) }));
+      const cb = checkbox(groupState(g), (s0) => { for (const i of groupItems(g)) s0 === 'on' ? sel.delete(i.id) : sel.add(i.id); refresh(); }, t('Selecionar grupo {name}', { name: tr(g.title) }));
+      cb.dataset.fk = 'g:' + g.id;
       return h('div', { class: 'rv-group', 'aria-current': String(g.id === st.gid) },
         cb,
-        h('button', { class: 'rv-group-main', type: 'button', onClick: () => { if (st.gid !== g.id) { st.gid = g.id; st.limit = CHUNK; renderGroups(); renderItems(); } } },
+        h('button', { class: 'rv-group-main', type: 'button', dataset: { fk: 'gm:' + g.id }, onClick: () => { if (st.gid !== g.id) { st.gid = g.id; st.limit = CHUNK; keepFocus(() => { renderGroups(); renderItems(); }); } } },
           h('span', { class: 'rv-gic' }, icon(groupIcon(g.id), 15)),
           h('span', { class: 'rv-gtxt' }, h('b', { title: tr(g.title) }, tr(g.title)), h('span', null, `${fmtBytes(g.total)} · ${tn(g.items.length, '{n} item', '{n} itens')}`))));
     }));
   }
 
   // Removes the item from the review (it already went to the ignored list in the backend): adjusts groups and totals in place.
-  function dropLocal(it) {
+  function dropLocal(it, fallback = []) {
     for (const g of result.groups) {
       const i = g.items.indexOf(it);
       if (i < 0) continue;
@@ -160,14 +176,18 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
       break;
     }
     sel.delete(it.id);
-    refresh();
+    refresh(fallback);
   }
 
   async function ignoreItem(it) {
     try {
       await api.ignore(it.id);
     } catch (e) { return; } // the error was already shown
-    dropLocal(it);
+    // The row (and its focused "More actions" button) disappears: focus moves to the next row's, else the previous one's.
+    const g = result.groups.find((x) => x.items.includes(it));
+    const list = g ? visible(g) : [];
+    const k = list.indexOf(it);
+    dropLocal(it, [list[k + 1], list[k - 1]].filter(Boolean).map((x) => 'im:' + x.id));
     toast(t('“{name}” não aparecerá mais nas análises. Gerencie em Ajustes.', { name: it.name }), 'ok');
   }
 
@@ -202,8 +222,9 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
       st.anchor = it.id;
       cb.set(on ? 'on' : 'off'); renderGroups(); renderFooter(); renderHead(g, list);
     };
+    cb.dataset.fk = 'i:' + it.id;
     const more = h('button', {
-      class: 'icon-btn rv-act', type: 'button', title: t('Mais ações'), 'aria-label': t('Mais ações para {name}', { name: it.name }), 'aria-haspopup': 'menu',
+      class: 'icon-btn rv-act', type: 'button', dataset: { fk: 'im:' + it.id }, title: t('Mais ações'), 'aria-label': t('Mais ações para {name}', { name: it.name }), 'aria-haspopup': 'menu',
       onClick: (e) => { e.stopPropagation(); rowMenu(g, it, list, row, below(more), more); },
     }, icon('more', 16));
     // Short notes become a badge next to the name; long ones (e.g. missing path) get their own line.
@@ -220,7 +241,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
       h('div', { class: 'rv-meta' }, mid(it.path, 26)),
       longNote ? h('div', { class: 'rv-note' + (it.selected ? ' info' : ''), title: tr(it.note) }, tr(it.note)) : null),
     h('span', { class: 'rv-size' }, fmtBytes(it.size), showAge && it.modified ? h('small', { class: 'rv-age' }, ageText(it.modified)) : null),
-    h('button', { class: 'icon-btn rv-act', type: 'button', title: t('Mostrar no Finder'), 'aria-label': t('Mostrar {name} no Finder', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)),
+    h('button', { class: 'icon-btn rv-act', type: 'button', dataset: { fk: 'ir:' + it.id }, title: t('Mostrar no Finder'), 'aria-label': t('Mostrar {name} no Finder', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)),
     more);
     return row;
   }
@@ -252,7 +273,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
   function renderHead(g, list) {
     if (!headEl) return;
     const mode = selectMode(list);
-    const btn = h('button', { class: 'btn sm ghost sel-btn', type: 'button', disabled: !list.length, 'aria-haspopup': 'menu', 'aria-expanded': 'false', onClick: () => openSelectMenu(list, btn) },
+    const btn = h('button', { class: 'btn sm ghost sel-btn', type: 'button', dataset: { fk: 'sel' }, disabled: !list.length, 'aria-haspopup': 'menu', 'aria-expanded': 'false', onClick: () => openSelectMenu(list, btn) },
       t('Selecionar: '), h('b', null, modeLabel(mode)), icon('chevron', 14));
     mount(headEl, h('div', { class: 't' }, h('b', null, tr(g.title)), h('span', { title: tr(g.description) }, tr(g.description))), btn);
   }
@@ -266,14 +287,36 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     const shown = list.slice(0, st.limit);
     body.append(...shown.map((it) => itemRow(g, it, list)));
     if (list.length > shown.length) {
-      body.append(h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { st.limit += CHUNK; renderItems(); } }, t('Mostrar mais ({count})', { count: tn(list.length - shown.length, '{n} item', '{n} itens') }))));
+      body.append(h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => {
+        // The button is replaced by the new rows: focus goes to the first of them instead of falling to <body>.
+        const first = list[shown.length];
+        st.limit += CHUNK;
+        renderItems();
+        const n = first && itemsEl.querySelector(`[data-fk="${CSS.escape('i:' + first.id)}"]`);
+        if (n) n.focus();
+      } }, t('Mostrar mais ({count})', { count: tn(list.length - shown.length, '{n} item', '{n} itens') }))));
     }
     if (!list.length) body.append(h('div', { class: 'rv-empty' }, t('Nenhum item corresponde à busca.')));
     mount(itemsEl, headEl, body);
     renderHead(g, list);
   }
 
-  function refresh() { renderGroups(); renderItems(); renderFooter(); }
+  // Re-renders replace the focused control (group checkbox, row menu opener, "Select"): its key (data-fk) is
+  // recorded first and the matching new node refocused, so keyboard users keep their place.
+  // fallback: keys tried in order when the focused control's own node is gone (its row was removed); without a
+  // match, focus lands on the first row's menu button or the first group, never on <body>.
+  function keepFocus(fn, fallback = null) {
+    const a = document.activeElement;
+    const key = a && el && el.contains(a) && a.dataset ? a.dataset.fk : null;
+    fn();
+    if (!key || el.contains(document.activeElement)) return;
+    const find = (k) => { const n = el.querySelector(`[data-fk="${CSS.escape(k)}"]`); return n && !n.disabled ? n : null; };
+    let n = find(key);
+    if (!n && fallback) n = fallback.map(find).find(Boolean) || el.querySelector('[data-fk^="im:"], [data-fk^="gm:"]');
+    if (n) n.focus();
+  }
+
+  function refresh(fallback = null) { keepFocus(() => { renderGroups(); renderItems(); renderFooter(); }, fallback); }
 
   const search = h('label', { class: 'search' }, icon('search', 16),
     h('input', { type: 'search', placeholder: t('Buscar'), 'aria-label': t('Buscar itens'), spellcheck: 'false', onInput: (e) => { st.q = e.target.value; st.limit = CHUNK; refresh(); } }));

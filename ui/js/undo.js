@@ -9,7 +9,7 @@ export async function restoreBatches(batches) {
   try { out = await api.restoreTrashed(batches); } catch (e) { return 0; }
   const ok = out.filter((o) => o.ok).length;
   const bad = out.filter((o) => !o.ok).map((o) => ({ name: o.from.split('/').pop(), path: o.from, error: o.error }));
-  if (!out.length) toast(t('Nada para restaurar: os itens já saíram do Lixo.'));
+  if (!out.length) toast(t('Nada para restaurar: os itens já saíram do Lixo.'), 'info');
   else if (ok) toast(tn(ok, '{n} item restaurado', '{n} itens restaurados'), 'ok');
   if (bad.length) {
     failuresSheet(bad, {

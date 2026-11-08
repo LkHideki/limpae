@@ -3,7 +3,6 @@
 // One observer per target, work deferred to a single rAF; no setInterval. Missing selector = nothing happens.
 const view = document.getElementById('view');
 const nav = document.getElementById('nav');
-const dock = document.getElementById('dock');
 const RM = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 const calm = () => RM.matches || document.hidden || document.body.classList.contains('idle');
 const SPRING = 'cubic-bezier(.22, .7, .2, 1)';
@@ -22,9 +21,10 @@ function enterScreen() {
   if (!view || calm() || !view.animate) return;
   let kids = [...view.children];
   // Single-child screen (stage): staggers its children.
-  if (kids.length === 1 && !kids[0].classList.contains('enter')) kids = [...kids[0].children];
-  // Anything that already enters with its own animation (.enter) or has such a child is not animated again: avoids stacking offsets.
-  kids = kids.filter((el) => !el.hidden && !el.classList.contains('enter') && !el.querySelector(':scope > .enter')).slice(0, 6);
+  if (kids.length === 1 && !kids[0].matches('.enter, .own-enter')) kids = [...kids[0].children];
+  // Anything that already enters with its own animation (.enter), whose children do (.own-enter), or has such a
+  // child is not animated again: avoids stacking offsets.
+  kids = kids.filter((el) => !el.hidden && !el.matches('.enter, .own-enter') && !el.querySelector(':scope > .enter, :scope > .own-enter')).slice(0, 6);
   kids.forEach((el, i) => {
     enterAnims.push(el.animate(
       [{ opacity: 0, transform: 'translate3d(0, 12px, 0)' }, { opacity: 1, transform: 'none' }],
@@ -164,30 +164,45 @@ function burst(anchor) {
   setTimeout(() => box.remove(), 1400);
 }
 
+// Runs fn once the element's running CSS transitions end (capped), so a burst is anchored where the element
+// comes to rest instead of where it was when the transition started.
+function afterSettle(el, fn) {
+  const runs = el && el.getAnimations ? el.getAnimations().filter((a) => a.playState === 'running' && 'transitionProperty' in a) : [];
+  if (!runs.length) return fn();
+  let fired = false;
+  const go = () => { if (!fired) { fired = true; fn(); } };
+  Promise.all(runs.map((a) => a.finished.catch(() => {}))).then(go);
+  setTimeout(go, 800);
+}
+
 function checkDone() {
   if (!view) return;
   const mod = document.body.dataset.mod || '';
   // Back to working (scanning/cleaning): the next completion is a new one.
   if (view.querySelector('.orb.busy, .bento[data-phase="scan"], .bento[data-phase="cleaning"]')) { celebrated.clear(); return; }
-  let anchor = null, sig = '';
+  // Only a real success celebrates: views set data-result="ok" when the action handled something (never for a
+  // result of 0 B, all failures or a Stop before anything was removed).
+  let anchor = null, sig = '', settle = null;
   const stage = view.querySelector('.stage');
-  const bento = view.querySelector('.bento[data-phase="done"]');
+  const bento = view.querySelector('.bento[data-phase="done"][data-result="ok"]');
   if (stage) {
-    const text = stage.querySelector('.stage-text');
-    const big = text && text.querySelector('.big');
-    const dockOff = !dock || dock.classList.contains('off'); // with the round button active it is still pre-cleanup
-    if ((big && dockOff) || stage.querySelector('.orb-glyph.i-check')) {
+    const text = stage.querySelector('.stage-text[data-result="ok"]');
+    if (text) {
       anchor = stage.querySelector('.stage-art .orb');
-      sig = mod + '|' + (text ? text.textContent.slice(0, 80) : '');
+      sig = mod + '|' + text.textContent.slice(0, 80);
     }
   } else if (bento) {
-    anchor = bento.querySelector('.tile[data-st="final"]:not(.skipped):not(.dim) .orb') || bento.parentElement.querySelector('.bento-head');
+    anchor = bento.querySelector('.tile[data-ok] .orb');
+    settle = anchor && anchor.closest('.tile-orb'); // the last tile is still flying back to its corner
     sig = mod + '|bento';
   }
   if (!anchor || celebrated.has(sig)) return;
+  // Finished in the background (window hidden or unfocused): not marked yet, so the burst plays when the user
+  // comes back (see the focus listener below). Reduced motion still marks it: it never plays.
+  if (document.hidden || document.body.classList.contains('idle')) return;
   celebrated.add(sig);
   if (performance.now() - navAt < 700) return; // re-entry into an already completed screen
-  burst(anchor);
+  afterSettle(settle, () => { if (anchor.isConnected) burst(anchor); }); // burst() re-checks calm()
 }
 
 // ---------- Observing #view ----------
@@ -235,6 +250,11 @@ watch(document.body, { attributes: true, attributeFilter: ['data-mod'] }, enterS
 watch(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-current'] }, schedulePill);
 watch(view, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-phase'] }, onView);
 window.addEventListener('resize', schedulePill);
+// Back to the window: a completion that happened while away celebrates now. Deferred a frame so main.js has
+// already cleared body.idle (its focus listener is registered after this module runs).
+const onReturn = () => requestAnimationFrame(checkDone);
+window.addEventListener('focus', onReturn);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) onReturn(); });
 schedulePill();
 // Disconnects observers when the window closes.
 window.addEventListener('pagehide', () => { observers.forEach((o) => o.disconnect()); observers.length = 0; });

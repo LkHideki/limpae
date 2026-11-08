@@ -8,7 +8,7 @@ import { store, selectedSize, selectedIds, pruneResult, bump } from '../store.js
 import { fmtBytes, fmtNum } from '../format.js';
 import { t, tn, tr, lazyIntl, cmp } from '../i18n.js';
 import { checkbox, confirmDialog, failuresSheet, stage, features, toast, managerBar } from '../ui.js';
-import { removeGroups, stopDock } from '../actions.js';
+import { removeGroups, realFailures, stopDock } from '../actions.js';
 import { attachMenu, selectMenuButton } from '../menus.js';
 
 const NAME_MATCH = 'Correspondência pelo nome'; // i18n-ignore (backend value, comparison only)
@@ -188,7 +188,7 @@ export function enter(ctx) {
       const ov = await api.appsOverview();
       const meta = await api.appMeta().catch(() => []);
       if (!cancelled) { applyOverview(ov); applyMeta(meta); ok = true; }
-    } catch (e) { /* error already shown in a toast */ }
+    } catch (e) { if (!cancelled) play('error'); /* the toast's 'err' is gated on focus, while 'error' is a result cue that also reaches a background window (the two duck each other) */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     U.phase = ok ? 'results' : 'idle';
@@ -256,13 +256,14 @@ export function enter(ctx) {
       })
       : tile({ mod: 'files', glyph: 'disk', title: t('Sem instaladores'), sub: t('Nenhum .dmg, .pkg ou .xip em Downloads ou na Mesa.'), body: empty(t('Tudo limpo')), actions: [] });
 
-    mount(root, h('div', { class: 'ax enter', dataset: { mod: 'apps' } },
-      h('div', { class: 'ax-head' },
+    // One entrance layer: the head rises as a block and each tile rises on its own (apps.css), so the wrapper does not.
+    mount(root, h('div', { class: 'ax', dataset: { mod: 'apps' } },
+      h('div', { class: 'ax-head enter' },
         h('h2', null, tn(n, 'Encontramos {n} app no seu Mac.', 'Encontramos {n} apps no seu Mac.')),
         h('div', { class: 'ax-head-row' },
           h('button', { class: 'btn primary', type: 'button', onClick: review('uninstaller', { group: 'all' }) }, icon('apps', 15), t('Gerenciar meus aplicativos')),
           h('button', { class: 'btn ghost', type: 'button', onClick: () => { U.phase = 'idle'; render(); } }, icon('restart', 14), t('Analisar de novo')))),
-      h('div', { class: 'ax-tiles' }, tUpdates, tUnused, tLeft, tInst)));
+      h('div', { class: 'ax-tiles own-enter' }, tUpdates, tUnused, tLeft, tInst)));
   }
 
   // ---------- updates (only opens the page; nothing is installed) ----------
@@ -322,20 +323,22 @@ export function enter(ctx) {
     const pruned = pruneResult(res, r.okIds);
     if (kind === 'installers') { U.over.installers = pruned; r.okIds.forEach((id) => U.instSel.delete(id)); } else { U.over.leftovers = pruned; r.okIds.forEach((id) => U.leftSel.delete(id)); }
     bump(); store.trash = null;
-    play(r.handled ? 'clean' : 'error');
+    const real = realFailures(r.failures);
+    if (r.handled) play('clean'); else if (!sd.stopped() || real.length) play('error'); // a bare Stop is not an error
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
-    U.done = { headline: kind === 'installers' ? tn(r.okIds.size, '{n} instalador removido', '{n} instaladores removidos') : tn(r.okIds.size, '{n} resto de app removido', '{n} restos de apps removidos'), freed: r.handled, failed: r.failures.length, permanent: ok === 'permanent', again: () => { U.pane = 'leftovers'; U.restGroup = kind; } };
+    U.done = { headline: kind === 'installers' ? tn(r.okIds.size, '{n} instalador removido', '{n} instaladores removidos') : tn(r.okIds.size, '{n} resto de app removido', '{n} restos de apps removidos'), ok: r.okIds.size, freed: r.handled, failed: r.failures.length, permanent: ok === 'permanent', again: () => { U.pane = 'leftovers'; U.restGroup = kind; } };
     U.phase = 'done';
     render();
-    if (r.failures.length) failuresSheet(r.failures);
+    if (real.length) failuresSheet(real);
   }
 
   // ---------- done ----------
   function renderDone() {
     const d = U.done;
-    const st = stage('apps', 'check', 260);
+    // The check glyph (and the celebration) only when something was actually removed.
+    const st = stage('apps', d.ok ? 'check' : 'apps', 260);
     mount(root, st.el);
     ctx.reserveDock(false);
     const finish = () => { U.done = null; U.phase = U.over ? 'results' : 'idle'; render(); };
@@ -347,6 +350,7 @@ export function enter(ctx) {
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
         h('button', { class: 'btn', type: 'button', onClick: more }, t('Gerenciar mais')),
         h('button', { class: 'btn primary', type: 'button', onClick: finish }, t('Concluir'))));
+    st.succeeded(d.ok > 0);
   }
 
   // =====================================================================================================
@@ -684,14 +688,15 @@ export function enter(ctx) {
     }
     await sleep(400);
     bump(); store.trash = null;
-    play(okCount ? 'clean' : 'error');
+    const real = realFailures(failures);
+    if (okCount) play('clean'); else if (!sd.stopped() || real.length) play('error'); // a bare Stop is not an error
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
-    U.done = { headline: tn(okCount, '{n} aplicativo desinstalado', '{n} aplicativos desinstalados'), freed, failed: failures.length, permanent, again: () => { U.pane = 'uninstaller'; U.group = 'all'; } };
+    U.done = { headline: tn(okCount, '{n} aplicativo desinstalado', '{n} aplicativos desinstalados'), ok: okCount, freed, failed: failures.length, permanent, again: () => { U.pane = 'uninstaller'; U.group = 'all'; } };
     U.phase = okCount || failures.length ? 'done' : back;
     render();
-    if (failures.length) failuresSheet(failures);
+    if (real.length) failuresSheet(real);
   }
 
   // ---------- Updater ----------

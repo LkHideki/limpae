@@ -9,7 +9,7 @@ import { api } from '../api.js';
 import { store, selectedSize, pruneResult, bump, countItems } from '../store.js';
 import { bytesParts, fmtBytes, fmtNum, plural } from '../format.js';
 import { confirmDialog, confirmRestart, failuresSheet, stage, chipRow, checkbox, segmented, managerBar } from '../ui.js';
-import { outcomesToFailures, stopDock } from '../actions.js';
+import { outcomesToFailures, realFailures, stopDock } from '../actions.js';
 import { attachMenu, selectMenuButton } from '../menus.js';
 
 const OPTIONS = [{ value: 50, label: '50 MB' }, { value: 100, label: '100 MB' }, { value: 500, label: '500 MB' }, { value: 1000, label: '1 GB' }];
@@ -247,6 +247,7 @@ export function enter(ctx) {
     ctx.onProgress((p) => { if (p.task === current) ticker.textContent = p.path || ''; });
     ctx.setDock({ label: t('Parar'), busy: true, mod: 'files', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'files' }); api.cancel().catch(() => {}); } });
     const out = {};
+    let okSteps = 0;
     for (const step of steps) {
       if (cancelled) break;
       current = step.task;
@@ -256,6 +257,7 @@ export function enter(ctx) {
         const r = await step.run();
         if (cancelled) break;
         out[step.k] = r;
+        okSteps++;
         mark(step.k, 'done', plural(countItems(r), 'item', 'itens'));
       } catch (e) {
         if (cancelled) break;
@@ -273,7 +275,7 @@ export function enter(ctx) {
     S.res.largeRef = store.large;
     bump();
     F.phase = 'results';
-    play('found');
+    play(okSteps ? 'found' : 'error'); // every step failed: no success chime over a screen of "not completed"
     render();
   }
 
@@ -606,12 +608,13 @@ export function enter(ctx) {
     prune(okIds);
     bump(); store.trash = null;
     F.moved = freed; F.failed = failures.length; F.permanent = permanent; F.phase = 'done';
-    play(freed ? 'clean' : 'error');
+    const real = realFailures(failures);
+    if (freed) play('clean'); else if (!sd.stopped() || real.length) play('error'); // a bare Stop is not an error
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
     render();
-    if (failures.length) failuresSheet(failures);
+    if (real.length) failuresSheet(real);
   }
 
   function renderDone() {
@@ -622,6 +625,7 @@ export function enter(ctx) {
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
         left ? h('button', { class: 'btn', type: 'button', onClick: () => { F.phase = S.res.full ? 'results' : 'review'; render(); } }, t('Revisar mais itens')) : null,
         h('button', { class: 'btn primary', type: 'button', onClick: () => { S.res = null; F.phase = 'idle'; render(); } }, t('Concluir'))));
+    st.succeeded(F.moved > 0); // celebrated only when something was actually handled
     ctx.setDock(null);
   }
 

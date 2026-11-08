@@ -10,6 +10,7 @@ import { confirmDialog, failuresSheet, stage, features } from '../ui.js';
 import { outcomesToFailures } from '../actions.js';
 import { createReview } from './review.js';
 import { t } from '../i18n.js';
+import { openSettings, reopenButton } from '../fda.js';
 
 const MARK = '\u0001'; // {b} marker where the bold fragment goes
 const withNode = (s, node) => { const [a, b = ''] = s.split(MARK); return [a, node, b]; };
@@ -65,7 +66,7 @@ export function enter(ctx) {
     try {
       const r = await api.cloudScan();
       if (!cancelled) { C.result = r; C.sel = new Set(); ok = true; }
-    } catch (e) { /* toast already shown */ }
+    } catch (e) { if (!cancelled) play('error'); /* the toast's 'err' is gated on focus, while 'error' is a result cue that also reaches a background window (the two duck each other) */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     C.phase = ok ? 'summary' : 'idle';
@@ -81,8 +82,9 @@ export function enter(ctx) {
       h('p', null, t('O macOS protege a pasta do iCloud Drive. Para o Limpae listar os arquivos baixados, conceda acesso:')),
       h('ol', null, h('li', null, t('Abra Ajustes do Sistema › Privacidade e Segurança.')), h('li', null, t('Entre em Acesso Total ao Disco e ative o Limpae.')), h('li', null, t('Volte aqui e analise de novo.'))),
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn primary', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes')),
-        h('button', { class: 'btn', type: 'button', onClick: () => { C.phase = 'idle'; C.result = null; render(); ctx.refreshDisk(); } }, t('Voltar')))));
+        h('button', { class: 'btn primary', type: 'button', onClick: () => openSettings().then(ctx.refreshDisk) }, t('Abrir Ajustes')),
+        h('button', { class: 'btn', type: 'button', onClick: () => { C.phase = 'idle'; C.result = null; render(); ctx.refreshDisk(); } }, t('Voltar')),
+        reopenButton())));
     ctx.setDock(null);
   }
 
@@ -190,6 +192,7 @@ export function enter(ctx) {
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
         left ? h('button', { class: 'btn', type: 'button', onClick: () => { C.phase = 'review'; st = null; render(); } }, icon('search', 15), t('Revisar itens restantes')) : null,
         h('button', { class: 'btn primary', type: 'button', onClick: () => { C.phase = 'idle'; C.result = null; render(); } }, t('Concluir'))));
+    st.succeeded(C.freed > 0); // celebrated only when something was actually handled
     ctx.setDock(null);
   }
 

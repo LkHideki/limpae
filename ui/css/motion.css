@@ -49,7 +49,13 @@
 /* ============ Notices: drop from the top; the exit is a transition (the entrance does not hold the final state) ============ */
 @keyframes mo-toast-in { from { opacity: 0; transform: translate3d(0, -16px, 0) scale(.97); } to { opacity: 1; transform: none; } }
 .toast { animation: mo-toast-in .44s var(--mo-soft) backwards; }
-.toast.out { opacity: 0; transform: translate3d(0, -10px, 0) scale(.98); transition: opacity .18s ease-in, transform .18s ease-in; }
+.toast.out {
+  opacity: 0; transform: translate3d(0, -10px, 0) scale(.98); overflow: hidden; pointer-events: none;
+  /* The collapse (set inline by toast()) starts once the fade is under way: the stack closes up smoothly. */
+  transition: opacity .18s ease-in, transform .18s ease-in, height .2s var(--ease) .06s, padding .2s var(--ease) .06s, border-width .2s var(--ease) .06s, margin .2s var(--ease) .06s;
+}
+/* With an action ("Undo"), the whole toast takes the pointer: hovering it pauses the countdown. */
+.toast.has-act { pointer-events: auto; }
 
 /* ============ Celebration: light ring + sparks, on a fixed layer that removes itself ============ */
 .mo-fx { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 40; pointer-events: none; }
@@ -75,5 +81,6 @@ body.idle .mo-fx { display: none; }
   .btn, .go, .chip, .seg button, .nav-item, .cb, .switch { transition-duration: .01s; }
   .btn:active:not(:disabled), .go:active:not(:disabled), .chip:active, .seg button:active, .nav-item:active, .cb:active:not(:disabled), .switch:active { transform: none; }
   .toast { animation: none; }
+  .toast.out { transition-duration: .01s; transition-delay: 0s; }
   .mo-fx { display: none; }
 }

@@ -2,6 +2,16 @@
 import { api } from './api.js';
 import { t } from './i18n.js';
 
+// What a user Stop left in place is not a failure: the result sound and the failures sheet skip it.
+// Matches the backend's untranslated text (remove.rs CANCELLED) and the views' translated one.
+export function realFailures(failures) {
+  const cancelled = new Set([
+    'cancelado; o item continua no lugar', // i18n-ignore: the backend's text, before translation
+    t('cancelado; o item continua no lugar'), t('cancelado; o app continua instalado'),
+  ]);
+  return failures.filter((f) => !cancelled.has(f.error));
+}
+
 export function outcomesToFailures(outcomes, byId) {
   return outcomes.filter((o) => !o.ok).map((o) => {
     const it = byId.get(o.id);

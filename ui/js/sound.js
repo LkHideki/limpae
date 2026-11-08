@@ -1,6 +1,6 @@
 // Sound feedback for the main actions, synthesized with WebAudio (no audio files, nothing over the network).
 // Chain: voices → (dry + generated reverb) → compressor → output. Bells with inharmonic partials sound like glass.
-let ac = null, bus = null, enabled = true;
+let ac = null, bus = null, enabled = true, sleeping = false;
 
 export const setSoundEnabled = (b) => { enabled = !!b; };
 
@@ -27,7 +27,8 @@ function audio() {
     bus.connect(comp); bus.connect(verb); verb.connect(wet); wet.connect(comp);
     comp.connect(out); out.connect(ac.destination);
   }
-  if (ac.state === 'suspended') ac.resume().catch(() => {});
+  // `sleeping`: a suspend() may still be pending (state reads 'running'); resume() queues after it.
+  if (sleeping || ac.state === 'suspended') { sleeping = false; ac.resume().catch(() => {}); }
   return ac;
 }
 
@@ -119,27 +120,42 @@ const SOUNDS = {
 
 // Approximate duration (ms) of each voice, to count the active ones without tracking each node.
 const LIFE = { start: 1500, found: 1600, clean: 2700, stop: 600, error: 600, tick: 250, untick: 200, 'switch-on': 350, 'switch-off': 300, nav: 350, pop: 250, open: 350, close: 250, warn: 350, menu: 200, ok: 900, err: 450 };
-// A toast that accompanies an already-played result sound does not sound again.
-const DUCK = { ok: ['clean', 'found'], err: ['error'] };
-const MIN_GAP = 40, DUCK_MS = 400, MAX_VOICES = 6;
+// A toast that accompanies an already-played result sound does not sound again. Each pair has its own window:
+// the undo toast arrives ~900 ms after the cleanup ends, while 'clean' is still ringing. 'error' and 'err' duck
+// each other because api.call shows the error toast before the view's catch runs.
+// 'open' is ducked after a result cue: a failures sheet opening right after 'clean'/'error'/'ok' belongs to that
+// same outcome and must not add a rising chime over it.
+const DUCK = { ok: [['clean', 2000], ['found', 1700]], err: [['error', 600]], error: [['err', 600]], open: [['clean', 1500], ['error', 1500], ['ok', 1500]] };
+// Completion cues of long operations: they still play with the window in the background (that is when the user
+// needs them). Every other sound answers a gesture, so it stays gated on focus.
+const RESULT = new Set(['found', 'clean', 'error', 'stop']);
+const MIN_GAP = 40, MAX_VOICES = 6;
 const last = new Map();
-let active = 0, lastAt = 0;
+let active = 0, lastAt = 0, sleepTimer = 0;
+// Once the last voice and the reverb tail (impulse of 1.8 s) are over, the context is suspended so the audio
+// thread and output device stop rendering silence; audio() resumes it on the next sound.
+const TAIL = 2000;
+function sleepLater() {
+  clearTimeout(sleepTimer);
+  sleepTimer = setTimeout(() => { sleepTimer = 0; if (!active && ac && ac.state === 'running') { sleeping = true; ac.suspend().catch(() => {}); } }, TAIL);
+}
 
 // Instant (performance.now) of the last sound that actually played; feel.js uses it to avoid adding the 'pop' to a view's sound.
 export const lastPlayedAt = () => lastAt;
 
 export function play(name) {
   if (!enabled || !SOUNDS[name]) return;
-  if (!document.hasFocus() || document.body.classList.contains('idle')) return;
+  if (!RESULT.has(name) && (!document.hasFocus() || document.body.classList.contains('idle'))) return;
   const now = performance.now();
   if (now - (last.get(name) ?? -1e9) < MIN_GAP) return;
-  if (DUCK[name] && DUCK[name].some((n) => now - (last.get(n) ?? -1e9) < DUCK_MS)) return;
+  if (DUCK[name] && DUCK[name].some(([n, ms]) => now - (last.get(n) ?? -1e9) < ms)) return;
   if (active >= MAX_VOICES) return;
   try {
     const a = audio();
     if (!a) return;
+    clearTimeout(sleepTimer); sleepTimer = 0;
     SOUNDS[name](a);
     last.set(name, now); lastAt = now; active++;
-    setTimeout(() => { active = Math.max(0, active - 1); }, LIFE[name] || 800);
+    setTimeout(() => { active = Math.max(0, active - 1); if (!active) sleepLater(); }, LIFE[name] || 800);
   } catch (e) { /* sound is optional */ }
 }

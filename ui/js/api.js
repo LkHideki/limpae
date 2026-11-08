@@ -10,17 +10,26 @@ let cancelRequested = false;
 export const setNotifier = (fn) => { notifier = fn; };
 
 // Undo: removals that sent items to the Trash return a batch id per item. Batches from removals that follow each
-// other (a Sweep removes group by group) are gathered and offered as one "Undo" once the burst ends.
+// other (a Sweep removes group by group) are gathered and offered as one "Undo" once the burst ends. The burst stays
+// open while any removal is in flight: the 900 ms timer is armed only when the last one settles, so a group that
+// takes longer than that to remove does not split the operation into several toasts.
 let undoNotifier = () => {};
-let undoBatches = new Set(), undoCount = 0, undoTimer = null;
+let undoBatches = new Set(), undoCount = 0, undoTimer = null, undoInflight = 0;
 export const setUndoNotifier = (fn) => { undoNotifier = fn; };
-function collectUndo(res) {
-  for (const o of (res && res.outcomes) || []) if (o.ok && o.undo) { undoBatches.add(o.undo); undoCount++; }
-  if (undoBatches.size) {
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => { const b = [...undoBatches], n = undoCount; undoBatches = new Set(); undoCount = 0; undoNotifier(b, n); }, 900);
-  }
-  return res;
+function armUndo() {
+  clearTimeout(undoTimer);
+  if (undoInflight || !undoBatches.size) return;
+  undoTimer = setTimeout(() => { const b = [...undoBatches], n = undoCount; undoBatches = new Set(); undoCount = 0; undoNotifier(b, n); }, 900);
+}
+function withUndo(p) {
+  undoInflight++;
+  clearTimeout(undoTimer);
+  return p.then((res) => {
+    undoInflight--;
+    for (const o of (res && res.outcomes) || []) if (o.ok && o.undo) { undoBatches.add(o.undo); undoCount++; }
+    armUndo();
+    return res;
+  }, (e) => { undoInflight--; armUndo(); throw e; });
 }
 
 export function onProgress(cb) {
@@ -54,8 +63,8 @@ export const api = {
   apps: () => call('list_apps'),
   icon: (appId) => call('app_icon', { appId }, { quiet: true }),
   leftovers: (appId) => call('app_leftovers', { appId }),
-  remove: (ids, permanent = false) => call('remove', { ids, permanent }).then(collectUndo),
-  uninstall: (appId, leftoverIds, permanent = false) => call('uninstall', { appId, leftoverIds, permanent }).then(collectUndo),
+  remove: (ids, permanent = false) => withUndo(call('remove', { ids, permanent })),
+  uninstall: (appId, leftoverIds, permanent = false) => withUndo(call('uninstall', { appId, leftoverIds, permanent })),
   trashHistory: () => call('trash_history', undefined, { quiet: true }),
   restoreTrashed: (batches) => call('restore_trashed', { batches }),
   simulate: (ids, permanent = false) => call('simulate_removal', { ids, permanent }),
@@ -93,7 +102,7 @@ export const api = {
   tccPermissions: () => call('tcc_permissions'),
   tccRevoke: (ids) => call('tcc_revoke', { ids }),
   privacyScan: () => call('privacy_scan'),
-  privacyRemove: (ids, permanent = false) => call('privacy_remove', { ids, permanent }).then(collectUndo),
+  privacyRemove: (ids, permanent = false) => withUndo(call('privacy_remove', { ids, permanent })),
   perfScan: () => call('perf_scan'),
   perfMonitor: () => call('perf_monitor', undefined, { quiet: true }),
   perfIcon: (id) => call('perf_icon', { id }, { quiet: true }),

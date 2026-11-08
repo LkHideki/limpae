@@ -4,15 +4,50 @@ import { icon, orb } from './art.js';
 import { plural } from './format.js';
 import { t, tn, tr } from './i18n.js';
 
+// kind: 'err' (default), 'ok' or 'info' (neutral outcome, e.g. nothing to do: no error styling or sound).
 // action: { label, onClick } adds a button (e.g. "Undo"); the toast then stays longer and closes when clicked.
+// The countdown only runs while the toast can be read: it waits while the window is idle (the entrance animation
+// is paused there, so the toast is invisible) and, with an action, while the pointer or focus is on it.
+const liveToasts = new Set();
+const isIdle = () => document.hidden || document.body.classList.contains('idle');
+if (window.MutationObserver) new MutationObserver(() => liveToasts.forEach((f) => f())).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+document.addEventListener('visibilitychange', () => liveToasts.forEach((f) => f()));
+
 export function toast(msg, kind = 'err', action = null) {
   const root = document.getElementById('toast-root');
-  let gone = false;
-  const close = () => { if (gone) return; gone = true; el.classList.add('out'); setTimeout(() => el.remove(), 320); };
+  let gone = false, hold = false, timer = 0, deadline = 0, left = action ? 9000 : 5200;
+  const sync = () => {
+    if (gone) return;
+    const paused = hold || isIdle();
+    if (paused && timer) { clearTimeout(timer); timer = 0; left = Math.max(0, deadline - performance.now()); }
+    else if (!paused && !timer) { deadline = performance.now() + left; timer = setTimeout(close, left); }
+  };
+  const close = () => {
+    if (gone) return;
+    gone = true;
+    clearTimeout(timer);
+    liveToasts.delete(sync);
+    // Fades while its height, padding and the stack gap collapse, so the toasts below slide up instead of jumping.
+    el.style.height = el.offsetHeight + 'px';
+    el.classList.add('out');
+    requestAnimationFrame(() => Object.assign(el.style, { height: '0px', paddingTop: '0px', paddingBottom: '0px', borderTopWidth: '0px', borderBottomWidth: '0px', marginTop: '-8px' }));
+    el.addEventListener('transitionend', (e) => { if (e.target === el && e.propertyName === 'height') el.remove(); });
+    setTimeout(() => el.remove(), 450);
+  };
   const btn = action ? h('button', { class: 'toast-act', type: 'button', onClick: () => { close(); action.onClick(); } }, action.label) : null;
-  const el = h('div', { class: 'toast ' + (kind === 'ok' ? 'ok' : ''), role: 'status' }, icon(kind === 'ok' ? 'check' : 'alert', 16), h('span', null, msg), btn);
+  const el = h('div', { class: 'toast ' + (kind === 'ok' || kind === 'info' ? kind : '') + (action ? ' has-act' : ''), role: 'status' }, icon(kind === 'ok' ? 'check' : kind === 'info' ? 'info' : 'alert', 16), h('span', null, msg), btn);
+  if (action) {
+    // Reaching for "Undo" near the deadline must not make it vanish: paused while hovered or focused, then a short grace.
+    const pause = () => { hold = true; sync(); };
+    const resume = () => { if (el.matches(':hover') || el.contains(document.activeElement)) return; hold = false; left = Math.max(left, 4000); sync(); };
+    el.addEventListener('mouseenter', pause);
+    el.addEventListener('focusin', pause);
+    el.addEventListener('mouseleave', resume);
+    el.addEventListener('focusout', () => setTimeout(resume, 0));
+  }
   root.append(el);
-  setTimeout(close, action ? 9000 : 5200);
+  liveToasts.add(sync);
+  sync();
 }
 
 function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, extra }) {
@@ -41,9 +76,12 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
     function onKey(e) {
       if (e.key === 'Escape') { e.stopPropagation(); finish(buttons[0].value); }
       else if (e.key === 'Tab') {
-        const i = btns.indexOf(document.activeElement);
+        // Cycles through every control in the card (the permanent-delete switch, links in the body), not only the footer.
+        const list = [...card.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter((el) => !el.closest('[hidden]'));
+        if (!list.length) return;
+        const i = list.indexOf(document.activeElement);
         e.preventDefault();
-        btns[(i + (e.shiftKey ? btns.length - 1 : 1)) % btns.length].focus();
+        list[i < 0 ? (e.shiftKey ? list.length - 1 : 0) : (i + (e.shiftKey ? list.length - 1 : 1)) % list.length].focus();
       }
     }
     document.addEventListener('keydown', onKey, true);
@@ -63,7 +101,9 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
 export function confirmDialog({ title, body, confirm = t('Confirmar'), cancel = t('Cancelar'), danger = false, glyph = 'alert', mod, permanentChoice = false, permanentDefault = false, trashCount = null, permanentTitle = null }) {
   let permanent = permanentChoice && permanentDefault;
   const mixed = trashCount != null && danger;
-  const confirmBtn = { label: confirm, value: true, kind: danger ? 'danger' : 'primary' };
+  // "Delete permanently" preselected: the card is born red, titled and labelled for it, so initial focus goes to
+  // Cancel and the dialog sound is 'warn' (both are decided on insertion, before paint() runs).
+  const confirmBtn = { label: permanent ? t('Apagar definitivamente') : confirm, value: true, kind: danger || permanent ? 'danger' : 'primary' };
   let extra = null;
   if (permanentChoice) {
     const note = h('p', { class: 'perm-note' });
@@ -94,7 +134,8 @@ export function confirmDialog({ title, body, confirm = t('Confirmar'), cancel = 
     extra = row;
     requestAnimationFrame(() => paint(row));
   }
-  return modal({ title, body, danger, glyph, mod, extra, buttons: [{ label: cancel, value: false }, confirmBtn] }).then((ok) => (ok && permanent ? 'permanent' : ok));
+  const firstTitle = permanent ? (permanentTitle || t('Apagar definitivamente?')) : title;
+  return modal({ title: firstTitle, body, danger: danger || permanent, glyph, mod, extra, buttons: [{ label: cancel, value: false }, confirmBtn] }).then((ok) => (ok && permanent ? 'permanent' : ok));
 }
 
 // "Start over" discards results and marks: always with confirmation (nothing was removed up to that point).
@@ -152,10 +193,16 @@ export function failuresSheet(failures, copy = null) {
 }
 
 // Tri-state checkbox: data-state = on | off | mixed.
+const RM = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 export function checkbox(state, onToggle, label) {
   const b = h('button', { class: 'cb', type: 'button', role: 'checkbox', 'aria-label': label || t('Selecionar') }, icon('check', 14), icon('dash', 14));
+  let pop = null;
   b.set = (st) => {
-    if (b.dataset.state && b.dataset.state !== st) { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
+    // Restarted through WAAPI: no forced layout per checkbox, so bulk refreshes (select all in long lists) stay cheap.
+    if (b.dataset.state && b.dataset.state !== st && b.animate && !RM.matches) {
+      if (pop) pop.cancel();
+      pop = b.animate([{ transform: 'scale(.82)' }, { transform: 'scale(1)' }], { duration: 320, easing: 'cubic-bezier(.3, 1.6, .4, 1)' });
+    }
     b.dataset.state = st; b.setAttribute('aria-checked', st === 'mixed' ? 'mixed' : String(st === 'on'));
   };
   b.set(state);
@@ -211,8 +258,21 @@ export function stage(mod, glyph, size = 260) {
   const el = h('div', { class: 'stage', dataset: { mod } }, h('div', { class: 'stage-art' }, art), text);
   return {
     el, art, text,
-    show(...nodes) { mount(text, h('div', { class: 'enter' }, nodes)); },
-    busy(b) { art.classList.toggle('busy', b); },
+    // Each new text drops the success mark; a done screen sets it again with succeeded().
+    show(...nodes) { delete text.dataset.result; mount(text, h('div', { class: 'enter' }, nodes)); },
+    // Marks a done screen whose action really handled something: motion.js celebrates only these.
+    succeeded(ok) { if (ok) text.dataset.result = 'ok'; else delete text.dataset.result; },
+    // Busy speeds the float/breathe loops up through playbackRate, which keeps their phase (no jump).
+    // Before the orb is attached it has no running animations yet: retried on the next frame.
+    busy(b) {
+      art.classList.toggle('busy', b);
+      const rate = () => art.getAnimations && art.getAnimations({ subtree: true }).forEach((a) => {
+        const r = a.animationName === 'float' ? 2.2 : a.animationName === 'breathe' ? 2.5 : 0;
+        if (r) a.updatePlaybackRate(b ? r : 1);
+      });
+      rate();
+      if (!art.isConnected) requestAnimationFrame(rate);
+    },
   };
 }
 

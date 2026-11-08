@@ -6,7 +6,7 @@ import { api } from '../api.js';
 import { store, selectedIds, selectedSize, pruneResult, bump, countItems } from '../store.js';
 import { bytesParts, fmtBytes } from '../format.js';
 import { confirmDialog, failuresSheet, stage, features } from '../ui.js';
-import { removeGroups, stopDock } from '../actions.js';
+import { removeGroups, realFailures, stopDock } from '../actions.js';
 import { createReview } from './review.js';
 import { t, tn, tr } from '../i18n.js';
 import { showGuide } from '../fda.js';
@@ -74,7 +74,7 @@ export function enter(ctx) {
     try {
       const r = await api.junk();
       if (!cancelled) { store.junk = r; store.junkSel = selectedIds(r); bump(); C.phase = 'summary'; play('found'); }
-    } catch (e) { /* error already shown in a toast */ }
+    } catch (e) { if (!cancelled) play('error'); /* the toast's 'err' is gated on focus, while 'error' is a result cue that also reaches a background window (the two duck each other) */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     if (C.phase !== 'summary') C.phase = 'idle';
@@ -171,15 +171,19 @@ export function enter(ctx) {
     store.junk = pruneResult(store.junk, res.okIds);
     for (const id of res.okIds) store.junkSel.delete(id);
     bump();
+    store.trash = null; // items may have gone to the Trash: the cached Trash result is stale
     // "freed" only counts what was deleted for good; what went to Trash appears separately.
     C.freed = res.freed; C.trashed = res.trashed; C.failed = res.failures.length; C.phase = 'done';
     C.moved = ok === 'permanent' ? 0 : [...moved].filter((id) => res.okIds.has(id)).length;
-    play(res.handled ? 'clean' : 'error');
+    // A Stop before anything was handled already sounded 'stop' on the click: no 'error' on top, and the
+    // sheet opens only for real failures, never for the items the user chose to leave.
+    const real = realFailures(res.failures);
+    if (res.handled) play('clean'); else if (!sd.stopped() || real.length) play('error');
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
     render();
-    if (res.failures.length) failuresSheet(res.failures);
+    if (real.length) failuresSheet(real);
   }
 
   function ensureStageFresh() { if (!st) ensureStage(); }
@@ -195,6 +199,7 @@ export function enter(ctx) {
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
         remaining ? h('button', { class: 'btn', type: 'button', onClick: () => { focusGid = null; C.phase = 'review'; render(); } }, icon('search', 15), t('Revisar itens restantes')) : null,
         h('button', { class: 'btn primary', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, t('Concluir'))));
+    st.succeeded(C.freed + C.trashed > 0); // celebrated only when something was actually handled
     ctx.setDock(null);
   }
 

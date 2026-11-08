@@ -14,6 +14,12 @@ const set = (k, v) => { try { if (v) localStorage.setItem(k, '1'); else localSto
 export const visitedSettings = () => get(KEY_VISITED);
 export const relaunch = () => call('relaunch').catch(() => {});
 
+// "Reopen Limpae" wherever access is asked for, once the user has been to System Settings: dismissing the
+// sidebar banner must not remove the only way to relaunch. Null before that visit.
+export function reopenButton(cls = 'btn') {
+  return visitedSettings() ? h('button', { class: cls, type: 'button', onClick: relaunch }, t('Reabrir o Limpae')) : null;
+}
+
 export function openSettings() {
   set(KEY_VISITED, true);
   return api.openFda().catch(() => {});
@@ -27,6 +33,7 @@ function body() {
       step(1, t('Clique em Abrir Ajustes.')),
       step(2, t('Ative o Limpae na lista (ou use + e escolha o app em Aplicativos).')),
       step(3, t('Volte para cá. Se o macOS pedir, reabra o Limpae.'))),
+    visitedSettings() ? h('p', { class: 'fda-fine' }, t('Já ativou o Limpae? Alguns macOS só aplicam o acesso depois que o app reabre.') + ' ', reopenButton('link')) : null,
     h('p', { class: 'fda-fine' }, t('O Limpae só lê seus arquivos até você confirmar uma limpeza, e não usa a rede.')));
 }
 

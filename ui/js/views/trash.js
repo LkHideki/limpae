@@ -7,9 +7,10 @@ import { api } from '../api.js';
 import { store, countItems, bump, selectedSize, pruneResult } from '../store.js';
 import { bytesParts, fmtBytes, plural } from '../format.js';
 import { confirmDialog, failuresSheet, stage, features } from '../ui.js';
-import { removeGroups, stopDock } from '../actions.js';
+import { removeGroups, realFailures, stopDock } from '../actions.js';
 import { createReview } from './review.js';
 import { t, tn, tr } from '../i18n.js';
+import { openSettings, reopenButton } from '../fda.js';
 
 const MARK = '\u0001'; // {b} marker where the bold fragment goes
 const withNode = (s, node) => { const [a, b = ''] = s.split(MARK); return [a, node, b]; };
@@ -105,7 +106,7 @@ export function enter(ctx) {
       : tn(picked.count, '{n} item selecionado de {size}', '{n} itens selecionados de {size}', { size: fmtBytes(r.total) })),
       h('p', { class: 'sub' }, t('Esvaziar remove de forma permanente: depois disso não há como recuperar. Revise para manter algum item.')),
       multi ? volumeList(r.groups) : null,
-      r.needsFda ? h('p', { class: 'fda-hint' }, t('A Lixeira do Mac não foi lida: ela exige Acesso Total ao Disco.') + ' ', h('button', { class: 'link', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes'))) : null,
+      r.needsFda ? h('p', { class: 'fda-hint' }, t('A Lixeira do Mac não foi lida: ela exige Acesso Total ao Disco.') + ' ', h('button', { class: 'link', type: 'button', onClick: () => openSettings().then(ctx.refreshDisk) }, t('Abrir Ajustes'))) : null,
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => { T.phase = 'review'; render(); } }, icon('search', 15), t('Revisar itens')),
         h('button', { class: 'btn', type: 'button', onClick: load }, icon('refresh', 15), t('Atualizar'))));
@@ -128,8 +129,9 @@ export function enter(ctx) {
       h('p', null, t('O macOS protege a Lixeira. Para o Limpae ver e esvaziar o que está nela, conceda acesso:')),
       h('ol', null, h('li', null, t('Abra Ajustes do Sistema › Privacidade e Segurança.')), h('li', null, t('Entre em Acesso Total ao Disco e ative o Limpae.')), h('li', null, t('Volte aqui e toque em Verificar de novo.'))),
       h('div', { class: 'row-actions' },
-        h('button', { class: 'btn primary', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes')),
-        h('button', { class: 'btn', type: 'button', onClick: async () => { await load(); ctx.refreshDisk(); } }, t('Verificar de novo')))));
+        h('button', { class: 'btn primary', type: 'button', onClick: () => openSettings().then(ctx.refreshDisk) }, t('Abrir Ajustes')),
+        h('button', { class: 'btn', type: 'button', onClick: async () => { await load(); ctx.refreshDisk(); } }, t('Verificar de novo')),
+        reopenButton())));
     ctx.setDock(null);
   }
 
@@ -182,13 +184,15 @@ export function enter(ctx) {
     store.trashSelRef = left;
     for (const id of res.okIds) sel.delete(id);
     T.freed = res.freed; T.failed = res.failures.length; T.phase = 'done';
-    play(res.freed ? 'clean' : 'error');
+    // A bare Stop already sounded 'stop': no 'error' on top, and the items the user chose to leave are not failures.
+    const real = realFailures(res.failures);
+    if (res.freed) play('clean'); else if (!sd.stopped() || real.length) play('error');
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
     st.busy(false);
     render();
-    if (res.failures.length) failuresSheet(res.failures);
+    if (real.length) failuresSheet(real);
   }
 
   function renderDone() {
@@ -199,6 +203,7 @@ export function enter(ctx) {
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
         left ? h('button', { class: 'btn', type: 'button', onClick: () => { T.phase = 'ready'; render(); } }, icon('search', 15), t('Revisar itens restantes')) : null,
         h('button', { class: 'btn primary', type: 'button', onClick: () => { T.phase = 'idle'; store.trash = null; render(); } }, t('Concluir'))));
+    st.succeeded(T.freed > 0); // celebrated only when something was actually handled
     ctx.setDock(null);
   }
 

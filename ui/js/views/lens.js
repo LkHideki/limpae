@@ -7,7 +7,7 @@ import { api } from '../api.js';
 import { store, bump } from '../store.js';
 import { bytesParts, fmtBytes, fmtNum, plural, pct } from '../format.js';
 import { confirmDialog, confirmRestart, failuresSheet, stage, checkbox } from '../ui.js';
-import { removeGroups, stopDock } from '../actions.js';
+import { removeGroups, realFailures, stopDock } from '../actions.js';
 import { fitBubbles } from '../pack.js';
 import { createReview, openMenu } from './review.js';
 
@@ -254,7 +254,7 @@ export function enter(ctx) {
         S.cache = new Map([[r.root.id, r.root]]); S.sel = new Set(); S.hist = []; S.pos = -1; S.cur = null; S.icons = new Map();
         ok = true;
       }
-    } catch (e) { /* toast already shown */ }
+    } catch (e) { if (!cancelled) play('error'); /* the toast's 'err' is gated on focus, while 'error' is a result cue that also reaches a background window (the two duck each other) */ }
     ctx.setBusy(false);
     if (!ctx.alive) return;
     if (ok) {
@@ -654,12 +654,14 @@ export function enter(ctx) {
     const res = await removeGroups(result, sel, (g, status, info) => { if (status !== 'run') sd.progress(info.done / info.total); }, { permanent, stopped: sd.stopped });
     bump(); store.trash = null;
     S.moved = res.handled; S.permanent = permanent; S.phase = 'done'; S.hasMap = false; S.cur = null; S.review = null; S.sel = new Set();
-    play(res.handled ? 'clean' : 'error');
+    // A bare Stop already sounded 'stop': no 'error' on top, and the items the user chose to leave are not failures.
+    const real = realFailures(res.failures);
+    if (res.handled) play('clean'); else if (!sd.stopped() || real.length) play('error');
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return;
     render();
-    if (res.failures.length) failuresSheet(res.failures);
+    if (real.length) failuresSheet(real);
   }
 
   function renderDone() {
@@ -669,6 +671,7 @@ export function enter(ctx) {
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
         S.permanent ? null : h('button', { class: 'btn', type: 'button', onClick: () => ctx.nav('trash') }, icon('trash', 15), t('Ir para a Lixeira')),
         h('button', { class: 'btn primary', type: 'button', onClick: () => { S.phase = 'idle'; st = null; render(); } }, t('Concluir'))));
+    st.succeeded(S.moved > 0); // celebrated only when something was actually handled
     ctx.setDock(null);
   }
 
