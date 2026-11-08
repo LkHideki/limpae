@@ -1,7 +1,7 @@
 // iCloud (iCloud Drive): lists files downloaded to the Mac and removes only the local copy ("unsync").
 // The file stays in iCloud and downloads again when opened. Nothing here deletes cloud data.
 import { play } from '../sound.js';
-import { h, mount } from '../dom.js';
+import { h, mount, keepPhaseFocus } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
 import { selectedSize, pruneResult, countItems } from '../store.js';
@@ -30,7 +30,9 @@ export function enter(ctx) {
     st.busy(false);
   }
 
-  function render() {
+  function render() { return keepPhaseFocus(ctx.root, paintScreen); }
+
+  function paintScreen() {
     ctx.onBack(null);
     if (['summary', 'review'].includes(C.phase) && C.result) {
       if (C.result.needsFda) return renderFda();
@@ -112,7 +114,7 @@ export function enter(ctx) {
       h('div', { class: 'fl-tile-s' }, extra),
       h('div', { class: 'cl-tile-act' },
         h('button', { class: 'btn sm', type: 'button', onClick: () => { C.phase = 'review'; render(); } }, t('Revisar')),
-        h('button', { class: 'btn sm primary', type: 'button', onClick: async () => { C.sel = new Set(list.map((i) => i.id)); if (!(await evict())) C.sel = new Set(); } }, t('Liberar do Mac'))));
+        h('button', { class: 'btn sm primary', type: 'button', onClick: async () => { const prev = C.sel; C.sel = new Set(list.map((i) => i.id)); if (!(await evict())) C.sel = prev; } }, t('Liberar do Mac'))));
     mount(ctx.root, h('section', { class: 'fl-results cl-results enter', dataset: { mod: 'cloud' }, 'aria-label': t('Resultados do iCloud') },
       h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('cloud')) { C.result = null; C.sel = new Set(); C.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar'))),
       h('h2', { class: 'fl-title' }, t('{size} de arquivos do iCloud neste Mac.', { size: fmtBytes(C.result.total) })),

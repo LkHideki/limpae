@@ -27,7 +27,9 @@
 .chip:active { transform: scale(.97); transition: transform .09s var(--ease), background-color .2s var(--ease), color .2s, border-color .2s, box-shadow .2s; }
 .seg button { transition: background-color .2s, color .2s, transform .38s var(--mo-spring); }
 .seg button:active { transform: scale(.97); transition: transform .09s var(--ease), background-color .2s, color .2s; }
-.nav-item { transition: background-color .2s var(--ease), color .2s, transform .38s var(--mo-spring); }
+.nav-item { transition: background-color .2s var(--ease), color .2s, transform .38s var(--mo-spring), opacity .2s var(--ease); }
+/* Dimmed with a short delay while locked, so a quick scan never flashes the sidebar; back to full opacity at once. */
+body.locked .nav-item { transition: background-color .2s var(--ease), color .2s, transform .38s var(--mo-spring), opacity .25s var(--ease) .12s; }
 .nav-item:active { transform: scale(.98); transition: transform .09s var(--ease), background-color .2s var(--ease), color .2s; }
 .cb { transition: background-color .18s, border-color .18s, box-shadow .2s, transform .36s var(--mo-spring); }
 .cb:active:not(:disabled) { transform: scale(.9); transition: transform .09s var(--ease), background-color .18s, border-color .18s, box-shadow .2s; }
@@ -49,6 +51,7 @@
 /* ============ Notices: rise from below (bottom-centre, above the dock); the exit is a transition (the entrance does not hold the final state) ============ */
 @keyframes mo-toast-in { from { opacity: 0; transform: translate3d(0, 16px, 0) scale(.97); } to { opacity: 1; transform: none; } }
 .toast { animation: mo-toast-in .44s var(--mo-soft) backwards; }
+.toast.grow { transition: height .3s var(--ease), padding .3s var(--ease), border-width .3s var(--ease), margin .3s var(--ease); }
 .toast.out {
   opacity: 0; transform: translate3d(0, 10px, 0) scale(.98); overflow: hidden; pointer-events: none;
   /* The collapse (set inline by toast()) starts once the fade is under way: the stack closes up smoothly. */
@@ -79,8 +82,10 @@ body.idle .mo-fx { display: none; }
   /* The rules above come after each screen's own and would override its reduced-motion: reasserted here. */
   .fl-tile, .cl-tile, .pf-tile, .pr-tile, .tl-tile { transition: none; }
   .btn, .go, .chip, .seg button, .nav-item, .cb, .switch { transition-duration: .01s; }
+  body.locked .nav-item { transition-duration: .01s; transition-delay: 0s; }
   .btn:active:not(:disabled), .go:active:not(:disabled), .chip:active, .seg button:active, .nav-item:active, .cb:active:not(:disabled), .switch:active { transform: none; }
   .toast { animation: none; }
+  .toast.grow { transition: none; }
   .toast.out { transition-duration: .01s; transition-delay: 0s; }
   .mo-fx { display: none; }
 }

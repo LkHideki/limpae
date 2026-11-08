@@ -56,9 +56,29 @@ export function toast(msg, kind = 'err', action = null) {
     el.addEventListener('mouseleave', resume);
     el.addEventListener('focusout', () => setTimeout(resume, 0));
   }
+  const stacked = root.children.length > 0;
   root.append(el);
+  if (stacked && !RM.matches) growIn(el);
   liveToasts.add(sync);
   sync();
+}
+
+// A toast joining a stack grows into place (the reverse of close()), so the ones already there slide up with it
+// instead of jumping by its height in one frame.
+function growIn(el) {
+  const full = el.offsetHeight;
+  Object.assign(el.style, { height: '0px', paddingTop: '0px', paddingBottom: '0px', borderTopWidth: '0px', borderBottomWidth: '0px', marginTop: '-8px', overflow: 'hidden' });
+  void el.offsetHeight;
+  el.classList.add('grow');
+  requestAnimationFrame(() => {
+    if (el.classList.contains('out')) return; // closed in the meantime: close() drives it
+    Object.assign(el.style, { height: full + 'px', paddingTop: '', paddingBottom: '', borderTopWidth: '', borderBottomWidth: '', marginTop: '' });
+  });
+  setTimeout(() => {
+    if (el.classList.contains('out')) return;
+    el.classList.remove('grow');
+    Object.assign(el.style, { height: '', paddingTop: '', paddingBottom: '', borderTopWidth: '', borderBottomWidth: '', marginTop: '', overflow: '' }); // also if the frame never ran (hidden window)
+  }, 360);
 }
 
 function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, extra }) {
@@ -83,7 +103,7 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
       h('div', { class: 'modal-icon' }, h('i', { class: 'ring', 'aria-hidden': 'true' }), h('div', { class: 'glyph-chip' }, icon(glyph, 26))),
       h('h3', { id: titleId }, title), h('div', { class: 'body' }, body), extra,
       h('div', { class: 'btns' + (btns.length === 1 ? ' single' : '') }, btns));
-    const back = h('div', { class: 'modal-back', role: 'presentation', onMouseDown: (e) => { if (e.target === back) finish(buttons[0].value); } }, card);
+    const back = h('div', { class: 'modal-back', role: 'presentation', onMouseDown: (e) => { if (e.target === back && e.detail <= 1) finish(buttons[0].value); } }, card);
     function onKey(e) {
       // Stacked dialogs: only the top-most one reacts (one Esc closes one dialog, not all of them).
       const open = root.querySelectorAll('.modal-back:not(.out)');
@@ -253,7 +273,9 @@ export function createGo(host) {
     btn.classList.remove('busy', 'det');
     arc.style.transition = 'none'; arc.setAttribute('stroke-dashoffset', '0'); arc.getBoundingClientRect(); arc.style.transition = '';
   };
-  btn.addEventListener('click', () => handler && handler());
+  // The first click swaps the handler (Analyze becomes Stop; Clean opens a dialog over the button): the second click of a
+  // double click must not land on the new state.
+  btn.addEventListener('click', (e) => { if (e.detail > 1) return; if (handler) handler(); });
   host.append(btn);
   return {
     set(cfg) {

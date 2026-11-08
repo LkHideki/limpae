@@ -2,7 +2,7 @@
 // Runs only the modules turned on in Settings (store.settings.smartCare; missing = on). Only Junk and Trash execute anything;
 // Security, Speed, Apps and Files are review-only.
 import { play } from '../sound.js';
-import { h, mount, sleep } from '../dom.js';
+import { h, mount, sleep, keepPhaseFocus } from '../dom.js';
 import { orb, icon } from '../art.js';
 import { api } from '../api.js';
 import { store, selectedSize, selectedIds, pruneResult, countItems } from '../store.js';
@@ -477,7 +477,7 @@ export function enter(ctx) {
   function restart() {
     S.phase = 'idle'; S.out = {}; S.sum = {}; S.snap = {}; S.freed = {}; S.trashed = {}; S.inc = {}; S.apps = null; S.stopped = false;
     Object.keys(els).forEach((k) => delete els[k]);
-    renderIdle();
+    keepPhaseFocus(root, renderIdle);
   }
 
   if (!store.settings) api.settings().then((st) => { store.settings = st; if (ctx.alive && S.phase === 'idle') renderIdle(); }).catch(() => {});

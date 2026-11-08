@@ -174,8 +174,11 @@ function restoreSection(ctx, batches, reload) {
 
 // Async content arrives after the screen's entrance: a short rise instead of a pop-in. Reduced motion is handled by
 // the global CSS rule.
+// Only the first fill of a box rises: a reload (e.g. after a Restore) repaints the list in place.
 function fill(box, kids) {
   mount(box, kids);
+  if (box.dataset.filled) return;
+  box.dataset.filled = '1';
   box.classList.remove('fill-in');
   void box.offsetWidth;
   box.classList.add('fill-in');

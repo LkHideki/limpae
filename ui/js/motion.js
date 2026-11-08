@@ -66,6 +66,7 @@ const DUR = 700;
 const active = [];
 const seen = new WeakMap(); // hero -> text node already animated
 const slots = new Map();    // hero repainted in the same place (tile) -> last text, to avoid pointless recounting
+const bigSeen = new Map();  // screen|big hero -> last value shown, kept across navigation: a re-entry does not recount it
 let loop = 0;
 const fmtCache = new Map();
 
@@ -114,6 +115,12 @@ function startCount(el) {
     if (prev === text) return;
     const pp = prev && parse(prev);
     if (pp && pp.tail === p.tail && pp.value < p.value) from = pp.value;
+  } else {
+    // A finished screen visited again shows its number as it was (same re-entry rule as the celebration).
+    const key = (document.body.dataset.mod || '') + '|' + slotKey(el), val = p.value + '|' + p.tail;
+    const prev = bigSeen.get(key);
+    bigSeen.set(key, val);
+    if (prev === val && performance.now() - navAt < 700) return;
   }
   if (p.value <= from || (p.value < 1 && p.dec === 0)) return;
   active.push({ tn, text, p, from, t0: 0 });
@@ -201,6 +208,8 @@ function checkDone() {
   // Finished in the background (window hidden or unfocused): not marked yet, so the burst plays when the user
   // comes back (see the focus listener below). Reduced motion still marks it: it never plays.
   if (document.hidden || document.body.classList.contains('idle')) return;
+  // A dialog is up (e.g. the failures sheet of a partial success): the burst waits for it to go (see the #modal-root observer).
+  if (document.querySelector('.modal-back:not(.out)')) return;
   celebrated.add(sig);
   if (performance.now() - navAt < 700) return; // re-entry into an already completed screen
   afterSettle(settle, () => { if (anchor.isConnected) burst(anchor); }); // burst() re-checks calm()
@@ -251,6 +260,8 @@ watch(document.body, { attributes: true, attributeFilter: ['data-mod'] }, enterS
 watch(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-current'] }, schedulePill);
 watch(view, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-phase'] }, onView);
 window.addEventListener('resize', schedulePill);
+// A dialog leaving may release a celebration held back while it was open.
+watch(document.getElementById('modal-root'), { childList: true }, () => requestAnimationFrame(checkDone));
 // Back to the window: a completion that happened while away celebrates now. Deferred a frame so main.js has
 // already cleared body.idle (its focus listener is registered after this module runs).
 const onReturn = () => requestAnimationFrame(checkDone);

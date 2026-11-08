@@ -2,7 +2,7 @@
 // The UI only sends ids; labels, paths and names stay in the backend. Names and paths come from disk
 // (untrusted): only textContent / createElement. Everything that is disabled can be re-enabled; removing goes to Trash.
 import { play } from '../sound.js';
-import { h, s, mount, mid, keepFocus } from '../dom.js';
+import { h, s, mount, mid, keepFocus, keepPhaseFocus } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
 import { fmtBytes, fmtNum } from '../format.js';
@@ -84,11 +84,14 @@ export function enter(ctx) {
   if (!S.res) S.phase = 'idle';
   if (S.phase === 'scanning') S.phase = 'idle';
 
-  function render() {
+  // fresh: false when the manager is rebuilt in place ("Try again"), so it does not replay its rise.
+  function render(fresh = true) { return keepPhaseFocus(ctx.root, () => paintScreen(fresh)); }
+
+  function paintScreen(fresh) {
     stopMonitor();
     ctx.onBack(null);
     if (S.phase === 'results' && S.res) return renderResults();
-    if (S.phase === 'manager' && S.res) return renderManager();
+    if (S.phase === 'manager' && S.res) return renderManager(fresh);
     return renderIdle();
   }
 
@@ -212,11 +215,11 @@ export function enter(ctx) {
     try { res = await api.perfScan(); } catch (e) { /* warning already shown */ }
     if (!ctx.alive) return;
     if (res) { S.res = res; S.icons = new Map(); S.sysLimit = SYS_STEP; S.sel = new Set(); S.lsel = new Set(); }
-    render();
+    render(false);
   }
 
   // ---------- Manager ----------
-  function renderManager() {
+  function renderManager(fresh = true) {
     st = null;
     ctx.reserveDock(false);
     ctx.setDock(null);
@@ -288,7 +291,14 @@ export function enter(ctx) {
         kids.push(h('section', { class: 'fm-sec' },
           h('div', { class: 'fm-sec-head' }, h('b', null, t('Do sistema · requer administrador')), h('span', null, t('{items} · somente leitura', { items: tn(sys.length, '{n} item', '{n} itens') }))),
           shown.map(agentRow),
-          sys.length > shown.length ? h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.sysLimit += SYS_STEP * 2; listAgents(); } }, tn(sys.length - shown.length, 'Mostrar mais ({n} item)', 'Mostrar mais ({n} itens)'))) : null));
+          sys.length > shown.length ? h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => {
+            // The button is replaced by the new rows (system agents have no control of their own): focus goes to the first new row.
+            const first = sys[S.sysLimit];
+            S.sysLimit += SYS_STEP * 2;
+            listAgents();
+            const n = first && bodyEl.querySelector(`.pf-row[data-id="${CSS.escape(first.id)}"]`);
+            if (n) { n.tabIndex = -1; n.focus(); }
+          } }, tn(sys.length - shown.length, 'Mostrar mais ({n} item)', 'Mostrar mais ({n} itens)'))) : null));
       }
       if (kids.length === 1) kids.push(h('div', { class: 'rv-empty' }, S.filter === 'flag' ? t('Nenhum agente pede atenção.') : t('Nenhum agente encontrado.')));
       mount(bodyEl, kids);
@@ -312,7 +322,7 @@ export function enter(ctx) {
       // A new selection replaces the "N removed" note: the footer must show what Remove will act on.
       const flip = () => { if (busy) return; S.sel.has(a.id) ? S.sel.delete(a.id) : S.sel.add(a.id); S.note = null; cb.set(S.sel.has(a.id) ? 'on' : 'off'); renderFoot(); };
       const cb = manageable ? checkbox(S.sel.has(a.id) ? 'on' : 'off', flip, t('Selecionar {name}', { name: agentName(a) })) : h('span', { class: 'pf-nocb', 'aria-hidden': 'true' });
-      const row = h('div', { class: 'pf-row', dataset: { state: a.state || 'system' }, onClick: manageable ? (e) => { if (!e.target.closest('button')) flip(); } : null }, cb, slot,
+      const row = h('div', { class: 'pf-row', dataset: { state: a.state || 'system', id: a.id }, onClick: manageable ? (e) => { if (!e.target.closest('button')) flip(); } : null }, cb, slot,
         h('div', { class: 'fm-main' },
           h('div', { class: 'fm-name' }, h('span', { title: agentName(a) }, agentName(a)), pills),
           h('div', { class: 'fm-meta pf-meta' }, h('span', { class: 'pf-label', title: a.label }, a.label), a.program ? mid(a.program, 26) : h('span', null, t('Sem programa'))),
@@ -463,7 +473,7 @@ export function enter(ctx) {
       if (S.tab === 'snaps') showTab(); else renderNav();
     }
 
-    const el = h('section', { class: 'review fm pf enter', dataset: { mod: 'perf' }, 'aria-label': t('Gerenciador de velocidade') },
+    const el = h('section', { class: 'review fm pf' + (fresh ? ' enter' : ''), dataset: { mod: 'perf' }, 'aria-label': t('Gerenciador de velocidade') },
       managerBar({ title: t('Velocidade'), subtitle: t('Revise o que roda sozinho e acompanhe o uso do Mac.'), onBack: back }),
       h('div', { class: 'fm-body' }, navEl, h('div', { class: 'fm-pane' }, headEl, bodyEl)),
       h('div', { class: 'rv-foot' }, footEl, actionBtn));

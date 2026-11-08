@@ -418,7 +418,14 @@ export function enter(ctx) {
       out.push(otherRow(rest.length, rest.reduce((a, c) => a + c.size, 0)));
       if (S.expanded) {
         out.push(...rest.slice(0, S.listLimit).map((n, i) => row(n, i)));
-        if (rest.length > S.listLimit) out.push(h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.listLimit += LIST_CHUNK; drawList(); } }, `${t('Mostrar mais')} (${plural(rest.length - S.listLimit, 'item', 'itens')})`)));
+        if (rest.length > S.listLimit) out.push(h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => {
+          // The button is replaced by the new rows: focus goes to the first of them instead of falling to <body>.
+          const first = rest[S.listLimit];
+          S.listLimit += LIST_CHUNK;
+          drawList();
+          const n = first && rows.get(first.id);
+          if (n) n.focus();
+        } }, `${t('Mostrar mais')} (${plural(rest.length - S.listLimit, 'item', 'itens')})`)));
       }
     }
     if (!kids.length) out.push(h('div', { class: 'rv-empty' }, t('Esta pasta está vazia.')));

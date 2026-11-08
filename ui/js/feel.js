@@ -71,7 +71,8 @@ document.addEventListener('click', (e) => {
 document.addEventListener('contextmenu', afterMenuOpener, true);
 
 // Presses that usually answer with a sound wake the audio device on the way down (see warm() in sound.js).
-const SOUNDING = 'button, a, input, .cb, .switch, .bub, [role="switch"], [role="checkbox"], [role="radio"], [aria-haspopup], ' + ROWS; // i18n-ignore: CSS selector
+// Text fields are left out: typing in them plays nothing, so waking the device would only cycle it.
+const SOUNDING = 'button, a, input[type="checkbox"], input[type="radio"], .cb, .switch, .bub, [role="switch"], [role="checkbox"], [role="radio"], [aria-haspopup], ' + ROWS; // i18n-ignore: CSS selector
 document.addEventListener('pointerdown', (e) => { if (e.target instanceof Element && e.target.closest(SOUNDING)) warm(); }, true);
 
 // Keyboard toggles handled in keydown (no click event): Space/Enter on image cards and Space Lens rows/bubbles.
@@ -79,6 +80,7 @@ document.addEventListener('keydown', (e) => {
   if ((e.key !== ' ' && e.key !== 'Enter') || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
   const el = e.target instanceof Element ? e.target : null;
   if (!el) return;
+  if (el.closest('input:not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable]')) return; // i18n-ignore: CSS selector
   warm();
   if (el.matches('.fm-img')) { const cb = el.querySelector(':scope > .cb'); if (cb) afterCheckbox(cb, cb.dataset.state); }
   else if (el.matches('.ln-row:not(.other), .bub:not(.k-other)')) afterSel(el);
@@ -107,7 +109,8 @@ if (toastRoot) {
   new MutationObserver((list) => {
     for (const m of list) for (const n of m.addedNodes) {
       if (n.nodeType !== 1 || !n.classList.contains('toast') || n.classList.contains('info')) continue;
-      play(n.classList.contains('ok') ? 'ok' : 'err');
+      // The toast with an action is the Undo offer that follows a cleanup (ducked); a plain one, e.g. "restored", answers the user.
+      play(n.classList.contains('ok') ? (n.classList.contains('has-act') ? 'ok-offer' : 'ok') : 'err');
     }
   }).observe(toastRoot, { childList: true });
 }

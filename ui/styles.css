@@ -65,9 +65,10 @@ input { font: inherit; color: inherit; }
 .aurora i { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .34; }
 .aurora .b1 { width: 620px; height: 480px; right: -140px; top: -180px; background: var(--teal); opacity: .26; }
 .aurora .b2 { width: 640px; height: 520px; left: -120px; bottom: -260px; background: var(--blue); opacity: .3; }
-.aurora .b3 { width: 460px; height: 380px; left: 46%; top: 52%; background: var(--m2); opacity: .16; transition: background-color .8s ease; }
+.aurora .b3 { width: 460px; height: 380px; left: 46%; top: 52%; background: var(--m2); opacity: .16; }
 /* Static on purpose: blurred blobs moving behind backdrop-filter panels force WebKit to
-   redo the blur of everything every frame (measured: ~35% CPU with the app idle). */
+   redo the blur of everything every frame (measured: ~35% CPU with the app idle). The same goes for a colour
+   transition on a blob: it snaps on a screen change (measured: a crossfade halved the frame rate while navigating). */
 .drag { position: fixed; top: 0; left: 0; right: 0; height: 40px; z-index: 50; }
 .app { position: relative; z-index: 1; display: flex; height: 100vh; }
 

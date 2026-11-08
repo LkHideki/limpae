@@ -864,3 +864,220 @@ test.describe('gauntlet round 2', () => {
     await page.mouse.up();
   });
 });
+
+// ---- gauntlet round 3 ----
+
+const SLOW_JUNK = (ms) => JUNK.replace('scan_junk: () => ({', `scan_junk: () => new Promise((r) => setTimeout(() => r({`).replace(/\] \}\] \}\),\n  remove/, `] }] }), ${ms})),\n  remove`);
+
+test.describe('gauntlet round 3', () => {
+  const dbl = (page, sel) => page.locator(sel).dblclick();
+
+  test('double-clicking Analyze starts the scan and does not stop it; double-clicking Clean keeps the confirmation open', async ({ page }) => {
+    await boot(page, SLOW_JUNK(900));
+    await nav(page, 'Entulho').click();
+    await dbl(page, '#dock .go');
+    await page.waitForTimeout(300);
+    expect(await calls(page, 'cancel_scan')).toHaveLength(0);
+    await expect(page.locator('#dock .go')).toContainText(en('Parar'));
+    await expect(page.getByRole('button', { name: en('Revisar todo o lixo') })).toBeVisible({ timeout: 8000 });
+    await dbl(page, '#dock .go');
+    await page.waitForTimeout(500);
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+  });
+
+  test('clicking the opener of an open menu closes it without opening a new one', async ({ page }) => {
+    await boot(page, SECURITY);
+    await nav(page, 'Segurança').click();
+    await page.locator('#dock .go').click();
+    await page.locator('.pr-tile[data-area="perms"] button').click();
+    const sel = page.locator('.sel-btn');
+    await sel.click();
+    await expect(page.locator('.ctx-menu')).toHaveCount(1);
+    await expect(sel).toHaveAttribute('aria-expanded', 'true');
+    await sel.click();
+    await expect(page.locator('.ctx-menu')).toHaveCount(0);
+    await expect(sel).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('keyboard focus survives phase changes inside a screen (summary, review, back)', async ({ page }) => {
+    await boot(page, JUNK);
+    await scanJunk(page);
+    const inView = () => page.evaluate(() => !!document.activeElement && document.activeElement !== document.body && !!document.activeElement.closest('#view'));
+    const review = page.getByRole('button', { name: en('Revisar todo o lixo') });
+    await review.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.rv-foot')).toBeVisible();
+    expect(await inView()).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(review).toBeVisible();
+    expect(await inView()).toBe(true);
+  });
+
+  test('a failed security read shows an unavailable state in the manager, and a good recheck clears it', async ({ page }) => {
+    await boot(page, `{ security_checks: (a, calls) => { if (calls.filter((c) => c.cmd === 'security_checks').length < 2) throw 'falha ao ler o estado do sistema'; return [{ id: 'fv', title: 'FileVault', detail: '', ok: true, fix: null }]; },
+      tcc_permissions: () => ({ needsFda: false, groups: [], cameraMicApps: 0, apps: 0 }), privacy_scan: () => ({ groups: [], total: 0, browsers: [], needsFda: false }) }`);
+    await nav(page, 'Segurança').click();
+    await page.locator('#dock .go').click();
+    await page.getByRole('button', { name: en('Revisar tudo') }).click();
+    await expect(page.locator('.pr-check')).toHaveCount(0);
+    await expect(page.locator('.rv-foot')).not.toContainText(en('Tudo em ordem'));
+    await expect(page.locator('.rv-foot')).toContainText(en('Verificação indisponível'));
+    await page.locator('.rv-foot .btn.primary').click();
+    await expect(page.locator('.pr-check')).toHaveCount(1);
+    await page.getByRole('button', { name: en('Voltar'), exact: true }).first().click();
+    await expect(page.locator('.fl-title')).not.toHaveText(en('Não foi possível verificar a segurança.'));
+  });
+
+  test('when every Files scan step fails the results say so instead of "nothing found"', async ({ page }) => {
+    const boom = `() => { throw 'falhou'; }`;
+    await boot(page, `{ scan_large_at: ${boom}, scan_downloads: ${boom}, scan_duplicates: ${boom}, scan_similar: ${boom} }`);
+    await nav(page, 'Arquivos').click();
+    await page.locator('#dock .go').click();
+    await expect(page.locator('.fl-title')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.fl-title')).toHaveText(en('Não foi possível analisar.'));
+    await expect(page.locator('.fl-tile-s').first()).toHaveText(en('Não foi possível analisar esta categoria.'));
+    await expect(page.locator('.fl-all')).toHaveText(en('Analisar de novo'));
+  });
+
+  test('cancelling a Cloud tile eviction keeps the selection made in the review', async ({ page }) => {
+    const item = (id, name, size) => `{ id: ${id}, name: '${name}', path: '/Users/u/Library/Mobile Documents/${name}', size: ${size}, selected: false, note: null, modified: null, trash: false, accessed: null }`;
+    await boot(page, `{ cloud_scan: () => ({ total: 100 + 600e6, needsFda: false, groups: [{ id: 'g', title: 'Documentos', description: '', total: 100 + 600e6, items: [${item(1, 'c.txt', 100)}, ${item(2, 'big.mov', 600e6)}] }] }) }`);
+    await nav(page, 'iCloud').click();
+    await page.locator('#dock .go').click();
+    await page.getByRole('button', { name: en('Revisar todos os arquivos') }).click();
+    await page.getByRole('checkbox', { name: en('Selecionar {name}', { name: 'c.txt' }) }).click();
+    await expect(page.locator('.rv-sel')).not.toContainText(en('Nenhum item selecionado'));
+    await page.locator('.mgr-back').click();
+    await page.locator('.cl-tile[data-tile="big"] .btn.primary').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Cancelar') }).click();
+    await page.getByRole('button', { name: en('Revisar todos os arquivos') }).click();
+    await expect(page.locator('.rv-sel')).not.toContainText(en('Nenhum item selecionado'));
+  });
+});
+
+test.describe('gauntlet round 3 (motion)', () => {
+  test.use({ reducedMotion: 'no-preference' });
+  const bursts = (page) => page.evaluate(() => window.__bursts);
+  const countBursts = (page) => page.addInitScript(() => {
+    window.__bursts = 0;
+    new MutationObserver((l) => l.forEach((m) => m.addedNodes.forEach((n) => { if (n.classList && n.classList.contains('mo-fx')) window.__bursts++; })))
+      .observe(document, { childList: true, subtree: true });
+  });
+
+  test('a partial success celebrates only after the failures sheet is dismissed', async ({ page }) => {
+    await countBursts(page);
+    await boot(page, JUNK.replace(/remove: \(\{ ids \}\) => \(\{[^\n]*\n/, "remove: ({ ids }) => ({ freed: 0, outcomes: ids.map((id) => ({ id, ok: id === 1, freed: 1000, error: 'em uso' })) }),\n"));
+    await scanJunk(page);
+    await page.locator('#dock .go').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Limpar'), exact: true }).click();
+    await expect(page.getByRole('alertdialog', { name: en('Alguns itens não foram removidos') })).toBeVisible();
+    await page.waitForTimeout(600);
+    expect(await bursts(page)).toBe(0);
+    await page.getByRole('button', { name: en('Entendi') }).click();
+    await expect.poll(() => bursts(page)).toBe(1);
+  });
+
+  test('switching the Security area repaints in place without replaying the rise', async ({ page }) => {
+    await boot(page, SECURITY);
+    await nav(page, 'Segurança').click();
+    await page.locator('#dock .go').click();
+    await page.locator('.pr-tile[data-area="perms"] button').click();
+    await page.waitForTimeout(700);
+    await page.locator('.seg button').first().click();
+    const anims = await page.evaluate(() => document.querySelector('.pr-manager').getAnimations().map((a) => a.animationName));
+    expect(anims).not.toContain('rise');
+  });
+
+  test('locking the sidebar fades the other items instead of snapping them', async ({ page }) => {
+    await boot(page, SLOW_JUNK(900));
+    await nav(page, 'Entulho').click();
+    await page.evaluate(() => {
+      window.__ops = new Set();
+      const el = [...document.querySelectorAll('.nav-item')].find((b) => b.dataset.id === 'trash');
+      const tick = () => { window.__ops.add(Number(getComputedStyle(el).opacity).toFixed(2)); requestAnimationFrame(tick); };
+      tick();
+    });
+    await page.locator('#dock .go').click();
+    await expect(page.getByRole('button', { name: en('Revisar todo o lixo') })).toBeVisible({ timeout: 8000 });
+    const seen = (await page.evaluate(() => [...window.__ops])).map(Number);
+    expect(seen.some((v) => v > 0.46 && v < 0.99)).toBe(true);
+  });
+
+  test('a second toast grows into the stack instead of pushing the first one up in a single frame', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => { setTimeout(() => Promise.reject(new Error('first problem'))); });
+    await expect(page.locator('.toast')).toHaveCount(1);
+    await page.waitForTimeout(700);
+    await page.evaluate(() => {
+      window.__tops = [];
+      const first = document.querySelector('.toast');
+      const tick = () => { window.__tops.push(first.getBoundingClientRect().top); if (window.__tops.length < 40) requestAnimationFrame(tick); };
+      tick();
+      setTimeout(() => Promise.reject(new Error('second problem')));
+    });
+    await expect(page.locator('.toast')).toHaveCount(2);
+    await page.waitForTimeout(700);
+    const tops = await page.evaluate(() => window.__tops);
+    const full = tops[0] - tops[tops.length - 1];
+    expect(full).toBeGreaterThan(20);
+    const maxStep = Math.max(...tops.slice(1).map((v, i) => Math.abs(v - tops[i])));
+    expect(maxStep).toBeLessThan(full * 0.7);
+  });
+
+  test('re-entering a finished screen does not count its hero up again', async ({ page }) => {
+    await boot(page, JUNK);
+    await scanJunk(page);
+    await page.locator('#dock .go').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Limpar'), exact: true }).click();
+    await expect(page.getByRole('button', { name: en('Concluir') })).toBeVisible();
+    await page.waitForTimeout(1200);
+    const final = await page.locator('.big').first().textContent();
+    await nav(page, 'Lixeira').click();
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      window.__bigs = [];
+      const tick = () => { const b = document.querySelector('.big'); if (b) window.__bigs.push(b.textContent); if (window.__bigs.length < 40) requestAnimationFrame(tick); };
+      document.querySelector('#nav .nav-item[data-id="clean"]').click();
+      tick();
+    });
+    await page.waitForTimeout(900);
+    const bigs = await page.evaluate(() => window.__bigs);
+    expect(bigs.length).toBeGreaterThan(0);
+    expect(new Set(bigs)).toEqual(new Set([final]));
+  });
+});
+
+test.describe('gauntlet round 3 (sound)', () => {
+  test('the "restored" confirmation after Undo is not ducked by the cleanup cue', async ({ page }) => {
+    await recordTones(page);
+    await boot(page, JUNK.replace('{', '{ ' + SOUND_ON + ','));
+    await scanJunk(page);
+    await page.locator('#dock .go').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Limpar'), exact: true }).click();
+    const undo = page.getByRole('button', { name: en('Desfazer') });
+    await expect(undo).toBeVisible();
+    await page.evaluate(() => { window.__tones = []; });
+    await undo.click();
+    await expect(page.locator('.toast').filter({ hasText: en('{n} item restaurado', { n: 1 }) })).toBeVisible();
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => window.__tones)).toContain(1319); // 'ok'
+  });
+
+  test('typing in a text field does not wake the audio device', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__resumes = 0;
+      const C = window.AudioContext || window.webkitAudioContext;
+      const orig = C.prototype.resume;
+      C.prototype.resume = function () { window.__resumes++; return orig.call(this); };
+    });
+    await boot(page, JUNK.replace('{', '{ ' + SOUND_ON + ','));
+    await scanJunk(page); // cues create the context
+    await page.getByRole('button', { name: en('Revisar todo o lixo') }).click();
+    await page.waitForTimeout(3400); // voices and reverb tail are over: the context is suspended
+    const before = await page.evaluate(() => window.__resumes);
+    await page.locator('.search input').click();
+    await page.keyboard.type('a b c');
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => window.__resumes)).toBe(before);
+  });
+});

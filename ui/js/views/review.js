@@ -11,11 +11,13 @@ import { selectedSize } from '../store.js';
 const CHUNK = 250;
 
 // ---- Accessible DOM menu (context and "Select") ----
-let closeActive = null;
+let closeActive = null, activeOpener = null;
 
 // items: { label, icon?, checked?, disabled?, danger?, onSelect } | { sep: true }.
 // `at` = { x, y } in viewport coordinates; `opener` receives focus on close.
 export function openMenu({ items, at, label, opener, onClose }) {
+  // Clicking the opener of the open menu toggles it closed (no new menu, so no second 'menu' cue).
+  if (opener && closeActive && activeOpener === opener) { closeActive(true); return { close() {} }; }
   if (closeActive) closeActive(false);
   const menu = h('div', { class: 'ctx-menu', role: 'menu', 'aria-label': label || t('Ações'), style: 'visibility:hidden' });
   const btns = [];
@@ -43,11 +45,12 @@ export function openMenu({ items, at, label, opener, onClose }) {
     else if (e.key === 'End') { e.preventDefault(); focusAt(-1); }
     else if (e.key === 'Tab') close(false);
   }
-  const onDown = (e) => { if (!menu.contains(e.target)) close(false); };
+  // The opener counts as inside: its own click closes the menu (see the top of openMenu).
+  const onDown = (e) => { if (!menu.contains(e.target) && !(opener && opener.contains(e.target))) close(false); };
   const onAway = () => close(false);
   function close(restoreFocus) {
     if (closeActive !== close) return;
-    closeActive = null;
+    closeActive = null; activeOpener = null;
     document.removeEventListener('keydown', onKey, true);
     document.removeEventListener('pointerdown', onDown, true);
     document.removeEventListener('scroll', onAway, true);
@@ -57,7 +60,7 @@ export function openMenu({ items, at, label, opener, onClose }) {
     if (onClose) onClose();
     if (restoreFocus && opener && opener.isConnected) opener.focus();
   }
-  closeActive = close;
+  closeActive = close; activeOpener = opener || null;
   document.addEventListener('keydown', onKey, true);
   document.addEventListener('pointerdown', onDown, true);
   document.addEventListener('scroll', onAway, true);

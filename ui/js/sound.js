@@ -119,16 +119,19 @@ const SOUNDS = {
   err: (a) => { tone(a, 494, 0, { dur: 0.14, type: 'triangle', gain: 0.095, lp: 1800 }); tone(a, 392, 0.1, { dur: 0.24, type: 'triangle', gain: 0.095, lp: 1700 }); },
 };
 
+// The toast that offers "Undo" is the same cue as 'ok' under its own name, so it alone is ducked after a result cue.
+SOUNDS['ok-offer'] = SOUNDS.ok;
+
 // Approximate duration (ms) of each voice, to count the active ones without tracking each node.
-const LIFE = { start: 1500, found: 1600, clean: 2700, stop: 600, error: 600, tick: 250, untick: 200, 'switch-on': 350, 'switch-off': 300, nav: 350, pop: 250, open: 350, close: 250, warn: 350, menu: 200, ok: 900, err: 450 };
+const LIFE = { start: 1500, found: 1600, clean: 2700, stop: 600, error: 600, tick: 250, untick: 200, 'switch-on': 350, 'switch-off': 300, nav: 350, pop: 250, open: 350, close: 250, warn: 350, menu: 200, ok: 900, 'ok-offer': 900, err: 450 };
 // A toast that accompanies an already-played result sound does not sound again. Each pair has its own window:
-// the undo toast arrives ~900 ms after the cleanup ends, while 'clean' is still ringing. 'error' and 'err' duck
+// the undo offer (toast with an action: 'ok-offer', see feel.js) arrives ~900 ms after the cleanup ends, while 'clean' is still ringing. 'error' and 'err' duck
 // each other because api.call shows the error toast before the view's catch runs.
 // 'err' also ducks itself: a failing multi-group removal shows one toast per group, which must sound once (a
 // failures sheet opening right after those toasts belongs to the same outcome, hence 'err' in 'open' too).
 // 'open' is ducked after a result cue: a failures sheet opening right after 'clean'/'error'/'ok' belongs to that
 // same outcome and must not add a rising chime over it.
-const DUCK = { ok: [['clean', 2000], ['found', 1700]], err: [['error', 600], ['err', 1500]], error: [['err', 600]], open: [['clean', 1500], ['error', 1500], ['ok', 1500], ['err', 1500]] };
+const DUCK = { 'ok-offer': [['clean', 2000], ['found', 1700]], err: [['error', 600], ['err', 1500]], error: [['err', 600]], open: [['clean', 1500], ['error', 1500], ['ok', 1500], ['ok-offer', 1500], ['err', 1500]] };
 // Completion cues of long operations: they still play with the window in the background (that is when the user
 // needs them). Every other sound answers a gesture, so it stays gated on focus.
 const RESULT = new Set(['found', 'clean', 'error', 'stop']);

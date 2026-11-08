@@ -1,7 +1,7 @@
 // Trash: landing -> check -> summary (per trash) -> item-by-item review -> empty what was checked.
 // Emptying is permanent: everything comes checked, but the user can keep items in the review.
 import { play } from '../sound.js';
-import { h, mount } from '../dom.js';
+import { h, mount, keepPhaseFocus } from '../dom.js';
 import { icon, groupIcon } from '../art.js';
 import { api } from '../api.js';
 import { store, countItems, bump, selectedSize, pruneResult } from '../store.js';
@@ -63,7 +63,9 @@ export function enter(ctx) {
     render();
   }
 
-  function render() {
+  function render() { return keepPhaseFocus(ctx.root, paintScreen); }
+
+  function paintScreen() {
     ctx.onBack(null);
     if (T.phase === 'review' && store.trash) return renderReview();
     ensureStage();

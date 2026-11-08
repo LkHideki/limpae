@@ -1,6 +1,6 @@
 // Junk: landing -> scan -> summary -> review -> cleanup -> done.
 import { play } from '../sound.js';
-import { h, mount } from '../dom.js';
+import { h, mount, keepPhaseFocus } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
 import { store, selectedIds, selectedSize, pruneResult, bump, countItems } from '../store.js';
@@ -44,7 +44,9 @@ export function enter(ctx) {
     return st;
   }
 
-  function render() {
+  function render() { return keepPhaseFocus(ctx.root, paintScreen); }
+
+  function paintScreen() {
     ctx.onBack(null);
     if (C.phase === 'review' && store.junk) return renderReview();
     if (C.phase === 'summary' && store.junk) return renderSummary();

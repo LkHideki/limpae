@@ -57,6 +57,26 @@ export function keepFocus(root, fn) {
   if (n && !n.disabled) n.focus();
 }
 
+// A phase change rebuilds the whole screen with mount(): focus that was inside it (a button the keyboard user pressed)
+// would fall to <body>, and the next Tab would start over from the sidebar. After fn(), lost focus goes to the control
+// with the same data-fk, or to the new screen's heading (like focusScreen in main.js).
+export function keepPhaseFocus(root, fn) {
+  const a = document.activeElement;
+  const inside = !!a && a !== document.body && root.contains(a);
+  const key = inside && a.dataset ? a.dataset.fk : null;
+  const r = fn();
+  if (!inside) return r;
+  const now = document.activeElement;
+  if (now && now !== document.body && root.contains(now)) return r;
+  let n = key ? root.querySelector(`[data-fk="${CSS.escape(key)}"]`) : null;
+  if (!n || n.disabled) {
+    n = root.querySelector('h1, h2');
+    if (n && !n.hasAttribute('tabindex')) n.setAttribute('tabindex', '-1');
+  }
+  if (n) n.focus({ preventScroll: true });
+  return r;
+}
+
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Path with an ellipsis in the middle: the start shrinks, the end (file name) stays.

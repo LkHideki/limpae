@@ -3,7 +3,7 @@
 // The UI only sends backend ids, never paths, URLs or bundle ids. Names come from disk (untrusted):
 // only textContent / createElement.
 import { play } from '../sound.js';
-import { h, s, mount, mid, keepFocus } from '../dom.js';
+import { h, s, mount, mid, keepFocus, keepPhaseFocus } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
 import { store, bump } from '../store.js';
@@ -123,9 +123,12 @@ function groupState(items, sel) {
   return n === 0 ? 'off' : n === items.length ? 'on' : 'mixed';
 }
 
+function selectPrivacy() {
+  S.psel = new Set(privItems().filter((i) => i.selected).map((i) => i.id));
+}
 function selectInitial() {
   S.rsel = new Set();
-  S.psel = new Set(privItems().filter((i) => i.selected).map((i) => i.id));
+  selectPrivacy();
 }
 
 function appIcon(row, size = 34) {
@@ -150,7 +153,9 @@ export function enter(ctx) {
     st.busy(false);
   }
 
-  function render() {
+  function render() { return keepPhaseFocus(ctx.root, paintScreen); }
+
+  function paintScreen() {
     teardown();
     ctx.onBack(null);
     if (S.phase === 'review') return renderReview();
@@ -287,7 +292,8 @@ export function enter(ctx) {
   function open(area) { S.area = area; S.phase = 'review'; render(); }
 
   // ---------- Manager ----------
-  function renderReview() {
+  // fresh: the manager is entered (with its rise); false when it is rebuilt in place (area switch, recheck, rescan).
+  function renderReview(fresh = true) {
     st = null;
     ctx.reserveDock(false);
     ctx.setDock(null);
@@ -302,7 +308,7 @@ export function enter(ctx) {
 
     function paintAreas() {
       const opts = areas();
-      mount(areaSeg, segmented(opts, S.area, (v) => { S.area = v; keepFocus(ctx.root, renderReview); }, t('Área de segurança')));
+      mount(areaSeg, segmented(opts, S.area, (v) => { S.area = v; keepFocus(ctx.root, () => renderReview(false)); }, t('Área de segurança')));
       areaSeg.querySelectorAll('button').forEach((b, i) => { b.dataset.fk = 'area:' + opts[i].value; }); // renderReview rebuilds them: focus is restored by key
     }
 
@@ -319,13 +325,16 @@ export function enter(ctx) {
       bodyEl.className = 'fm-body pr-single';
       mount(bodyEl, h('div', { class: 'fm-pane' }, headEl, listEl));
       pane(t('Verificação de segurança'), t('Estado das proteções do macOS. Somente leitura: o Limpae não altera nenhuma configuração.'));
-      mount(listEl, S.checks.map((c) => h('div', { class: 'pr-check', dataset: { id: c.id } },
+      // The read itself failed: an empty list must not pass for an all-clear.
+      const unavailable = S.checksFailed && !S.checks.length;
+      if (unavailable) mount(listEl, h('div', { class: 'rv-empty' }, t('Não foi possível ler o estado das proteções do macOS. Tente de novo.')));
+      else mount(listEl, S.checks.map((c) => h('div', { class: 'pr-check', dataset: { id: c.id } },
         h('span', { class: 'pr-st', dataset: { s: c.ok === true ? 'ok' : c.ok === false ? 'bad' : 'unk' }, 'aria-label': c.ok === true ? t('Em ordem') : c.ok === false ? t('Atenção') : t('Não verificado') }, icon(c.ok === true ? 'check' : c.ok === false ? 'alert' : 'dash', 17)),
         h('div', { class: 'pr-check-t' }, h('b', null, tr(c.title)), h('span', null, trDetail(c.detail))),
         c.fix ? h('button', { class: 'btn sm', type: 'button', onClick: () => api.openSecurityFix(c.id).catch(() => {}) }, tr(c.fix.label)) : null)),
         h('p', { class: 'pr-note' }, t('Os botões abrem o painel certo dos Ajustes do Sistema. As configurações ficam sob o seu controle.')));
       const bad = attention();
-      mount(selEl, bad ? [h('b', null, plural(bad, 'ponto de atenção', 'pontos de atenção'))] : [t('Tudo em ordem')]);
+      mount(selEl, unavailable ? [h('b', null, t('Verificação indisponível'))] : bad ? [h('b', null, plural(bad, 'ponto de atenção', 'pontos de atenção'))] : [t('Tudo em ordem')]);
       actionBtn.textContent = t('Verificar de novo');
       actionBtn.disabled = false;
       actionBtn.onclick = recheck;
@@ -334,8 +343,8 @@ export function enter(ctx) {
     async function recheck() {
       actionBtn.disabled = true;
       actionBtn.textContent = t('Verificando…');
-      try { S.checks = await api.securityChecks(); } catch (e) { /* the error was already shown */ }
-      if (ctx.alive && S.phase === 'review') renderReview();
+      try { S.checks = await api.securityChecks(); S.checksFailed = false; } catch (e) { /* the error was already shown */ }
+      if (ctx.alive && S.phase === 'review') renderReview(false);
     }
 
     // ---- Permissions ----
@@ -465,7 +474,7 @@ export function enter(ctx) {
       if (c.running) {
         mount(listEl, h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, pi('globe', 26)), h('b', null, t('Feche o {browser} para limpar', { browser: c.label })),
           h('p', null, t('Os dados só podem ser limpos com o navegador fechado, para não corromper o que ele está usando.')),
-          h('button', { class: 'btn sm', type: 'button', onClick: rescanPrivacy }, t('Analisar de novo'))));
+          h('button', { class: 'btn sm', type: 'button', onClick: (e) => rescanPrivacy(e.currentTarget) }, t('Analisar de novo'))));
         return;
       }
       if (!items.length) {
@@ -514,13 +523,18 @@ export function enter(ctx) {
       actionBtn.onclick = removePrivacy;
     }
 
-    async function rescanPrivacy() {
+    let rescanning = false;
+    async function rescanPrivacy(btn) {
+      if (rescanning) return;
+      rescanning = true;
+      if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.textContent = t('Verificando…'); }
       try {
         const r = await api.privacyScan();
         S.priv = r;
-        selectInitial();
+        selectPrivacy(); // the permissions marked for revoking stay as they were
       } catch (e) { /* the error was already shown */ }
-      if (ctx.alive && S.phase === 'review') renderReview();
+      rescanning = false;
+      if (ctx.alive && S.phase === 'review') renderReview(false);
     }
 
     // ---- assembly ----
@@ -529,7 +543,7 @@ export function enter(ctx) {
     else if (S.area === 'perms') viewPerms();
     else viewPrivacy();
     const subtitle = { checks: t('Verificação de segurança'), perms: t('Permissões de apps'), privacy: t('Privacidade') }[S.area];
-    mount(ctx.root, h('section', { class: 'review fm pr-manager enter', dataset: { mod: 'protect' }, 'aria-label': t('Gerenciador de segurança') },
+    mount(ctx.root, h('section', { class: 'review fm pr-manager' + (fresh ? ' enter' : ''), dataset: { mod: 'protect' }, 'aria-label': t('Gerenciador de segurança') },
       managerBar({ title: t('Segurança'), subtitle, onBack: back, controls: [areaSeg] }),
       bodyEl,
       h('div', { class: 'rv-foot' }, selEl, actionBtn)));

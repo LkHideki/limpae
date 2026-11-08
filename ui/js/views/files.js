@@ -3,7 +3,7 @@
 // Names and paths come from disk (untrusted): only textContent / createElement.
 import { play } from '../sound.js';
 import { t, tn, tr, lazyIntl, cmp } from '../i18n.js';
-import { h, s, mount, mid, keepFocus } from '../dom.js';
+import { h, s, mount, mid, keepFocus, keepPhaseFocus } from '../dom.js';
 import { icon, groupIcon } from '../art.js';
 import { api } from '../api.js';
 import { store, selectedSize, pruneResult, bump, countItems } from '../store.js';
@@ -178,6 +178,9 @@ export function enter(ctx) {
     S.res = { large: null, dups: store.filesFrom, sim: null, dl: null, loc: 0, locName: 'Downloads', minMb: store.largeMb, full: false, largeRef: null, ownsStore: false, fromRef: store.filesFrom, fromSmart: true };
     S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.limits = new Map(); S.thumbs = new Map(); S.cat = 'dups'; S.q = ''; S.show = 'all';
   }
+  // Back goes to Sweep only when the manager was entered from it in this visit; a handed-over result reopened from
+  // the landing ("Back to results") returns to the landing.
+  const cameFromSweep = !!(S.res && S.res.fromSmart && F.phase === 'review');
   if (!S.res && !['idle', 'scanning'].includes(F.phase)) F.phase = 'idle';
   if (F.phase === 'scanning' || F.phase === 'moving') F.phase = 'idle';
 
@@ -187,7 +190,9 @@ export function enter(ctx) {
     st.busy(false);
   }
 
-  function render() {
+  function render() { return keepPhaseFocus(ctx.root, paintScreen); }
+
+  function paintScreen() {
     teardown();
     ctx.onBack(null);
     if (F.phase === 'review' && S.res) return renderManager();
@@ -246,7 +251,7 @@ export function enter(ctx) {
     let current = '';
     ctx.onProgress((p) => { if (p.task === current) ticker.textContent = p.path || ''; });
     ctx.setDock({ label: t('Parar'), busy: true, mod: 'files', onClick: () => { cancelled = true; ctx.setDock({ label: t('Parando'), busy: true, disabled: true, mod: 'files' }); api.cancel().catch(() => {}); } });
-    const out = {};
+    const out = {}, failed = new Set(); // failed: steps that threw, so their empty result is not read as "nothing found"
     let okSteps = 0;
     for (const step of steps) {
       if (cancelled) break;
@@ -262,6 +267,7 @@ export function enter(ctx) {
       } catch (e) {
         if (cancelled) break;
         out[step.k] = { groups: [], total: 0, needsFda: false };
+        failed.add(step.k);
         mark(step.k, 'skip', t('não concluído'));
       }
     }
@@ -269,7 +275,7 @@ export function enter(ctx) {
     if (!ctx.alive) return;
     if (cancelled) { F.phase = 'idle'; return render(); }
     const empty = { groups: [], total: 0, needsFda: false };
-    S.res = { large: out.large || empty, dl: out.dl || (home ? empty : null), dups: out.dups || empty, sim: out.sim || empty, loc, locName: S.locs && S.locs[loc] ? S.locs[loc].name : HOME_NAME, minMb: mb, full: true, largeRef: null, ownsStore: home };
+    S.res = { large: out.large || empty, dl: out.dl || (home ? empty : null), dups: out.dups || empty, sim: out.sim || empty, loc, locName: S.locs && S.locs[loc] ? S.locs[loc].name : HOME_NAME, minMb: mb, full: true, largeRef: null, ownsStore: home, failed, steps: steps.length };
     S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.limits = new Map(); S.thumbs = new Map();
     if (home) { store.large = S.res.large; store.largeSel = S.lsel; }
     S.res.largeRef = store.large;
@@ -288,6 +294,8 @@ export function enter(ctx) {
     const dup = reclaim(r.dups), sim = reclaim(r.sim);
     const dlTop = r.dl && r.dl.groups[0];
     const total = countOf('large') + dup.n + sim.n + countOf('dl');
+    const failed = r.failed || new Set();
+    const allFailed = failed.size > 0 && failed.size >= (r.steps || 0);
     const tiles = [
       {
         cat: 'dups', ic: 'copy', n: dup.n, label: t('Duplicados'),
@@ -313,14 +321,16 @@ export function enter(ctx) {
     ];
     const el = h('section', { class: 'fl-results enter', dataset: { mod: 'files' }, 'aria-label': t('Resultados') },
       h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('files')) { F.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar')), h('span', { class: 'fl-where-tag' }, locLabel(r.locName))),
-      h('h2', { class: 'fl-title' }, total ? t('Você tem {files} para revisar.', { files: plural(total, 'arquivo', 'arquivos') }) : t('Nada para revisar por aqui.')),
-      h('p', { class: 'sub fl-sub' }, total ? t('Revise cada categoria. Nada é selecionado nem removido sem a sua escolha.') : t('Tente outro local ou um tamanho mínimo menor.')),
+      h('h2', { class: 'fl-title' }, allFailed ? t('Não foi possível analisar.') : total ? t('Você tem {files} para revisar.', { files: plural(total, 'arquivo', 'arquivos') }) : t('Nada para revisar por aqui.')),
+      h('p', { class: 'sub fl-sub' }, allFailed ? t('Tente de novo em instantes.') : total ? t('Revise cada categoria. Nada é selecionado nem removido sem a sua escolha.') : t('Tente outro local ou um tamanho mínimo menor.')),
+      allFailed ? h('button', { class: 'btn primary fl-all', type: 'button', onClick: scan }, t('Analisar de novo')) : null,
       total ? h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => open(CATS.find((c) => countOf(c.id))?.id || 'large') }, t('Revisar todos os arquivos')) : null,
-      h('div', { class: 'fl-tiles' }, tiles.map((tile) => h('div', { class: 'fl-tile' + (tile.n ? '' : ' none'), dataset: { cat: tile.cat } },
+      h('div', { class: 'fl-tiles' }, tiles.map((tile) => h('div', { class: 'fl-tile' + (tile.n ? '' : ' none') + (failed.has(tile.cat) ? ' failed' : ''), dataset: { cat: tile.cat } },
         h('span', { class: 'fl-tile-ic' }, fi(tile.ic, 26)),
         h('div', { class: 'fl-tile-t' }, tile.n ? tile.title : tile.label),
-        h('div', { class: 'fl-tile-s' }, tile.n ? tile.sub : tile.empty),
-        tile.n ? h('button', { class: 'btn sm', type: 'button', onClick: () => open(tile.cat) }, t('Revisar')) : null))));
+        h('div', { class: 'fl-tile-s' }, tile.n ? tile.sub : failed.has(tile.cat) ? t('Não foi possível analisar esta categoria.') : tile.empty),
+        tile.n ? h('button', { class: 'btn sm', type: 'button', onClick: () => open(tile.cat) }, t('Revisar'))
+          : failed.has(tile.cat) && !allFailed ? h('button', { class: 'btn sm', type: 'button', onClick: scan }, t('Analisar de novo')) : null))));
     mount(ctx.root, el);
   }
 
@@ -432,8 +442,14 @@ export function enter(ctx) {
       return row;
     }
 
-    function more(key, total, shown, step = CHUNK) {
-      return h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.limits.set(key, (S.limits.get(key) || step) + step * 3); renderList(); } }, t('Mostrar mais ({items})', { items: plural(total - shown, 'item', 'itens') })));
+    // The "Show more" button is replaced by the new rows: focus goes to the first of them (its data-fk) instead of <body>.
+    function focusFirstNew(fk) {
+      const n = fk && listEl.querySelector(`[data-fk="${CSS.escape(fk)}"]`);
+      if (n) n.focus();
+    }
+
+    function more(key, total, shown, next, step = CHUNK) {
+      return h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.limits.set(key, (S.limits.get(key) || step) + step * 3); renderList(); focusFirstNew(next && 'c:' + next.id); } }, t('Mostrar mais ({items})', { items: plural(total - shown, 'item', 'itens') })));
     }
 
     function section(sec, sel, key, opts) {
@@ -445,7 +461,7 @@ export function enter(ctx) {
       return h('section', { class: 'fm-sec' },
         h('div', { class: 'fm-sec-head' }, cb, h('b', { title: sec.title }, sec.title), h('span', null, t('{items} · {size}', { items: plural(sec.items.length, 'item', 'itens'), size: fmtBytes(total) }))),
         shown.map((it) => fileRow(it, sel, opts)),
-        sec.items.length > shown.length ? more(key, sec.items.length, shown.length) : null);
+        sec.items.length > shown.length ? more(key, sec.items.length, shown.length, sec.items[shown.length]) : null);
     }
 
     function dupSet(g) {
@@ -539,7 +555,7 @@ export function enter(ctx) {
         const shown = groups.slice(0, limit);
         body = groups.length
           ? [shown.map((g) => (c === 'dups' ? dupSet(g) : simCluster(g, index.get(g)))),
-            groups.length > shown.length ? h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { S.limits.set(c, limit + SETS_CHUNK); renderList(); } }, t('Mostrar mais ({items})', { items: plural(groups.length - shown.length, 'grupo', 'grupos') }))) : null]
+            groups.length > shown.length ? h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => { const next = groups[shown.length]; S.limits.set(c, limit + SETS_CHUNK); renderList(); focusFirstNew(next && (c === 'dups' ? 'sh:' : 'sg:') + next.id); } }, t('Mostrar mais ({items})', { items: plural(groups.length - shown.length, 'grupo', 'grupos') }))) : null]
           : noMatch();
       }
       mount(listEl, body);
@@ -547,7 +563,7 @@ export function enter(ctx) {
     }
 
     const back = () => {
-      if (S.res.fromSmart) { F.phase = 'idle'; ctx.nav('smart'); return; }
+      if (S.res.fromSmart && cameFromSweep) { F.phase = 'idle'; ctx.nav('smart'); return; }
       F.phase = S.res.full ? 'results' : 'idle';
       render();
     };
