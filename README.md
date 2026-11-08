@@ -163,6 +163,7 @@ Design choices that follow from "light and fast":
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 node scripts/check-i18n.mjs
+(cd tests/ui && npm install && npx playwright install webkit && npx playwright test)   # UI end-to-end, mocked backend
 cargo run -p limpae            # runs the app serving ./ui
 ```
 

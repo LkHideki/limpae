@@ -38,9 +38,9 @@ export async function showGuide() {
   return !!ok;
 }
 
-// First launch without access: the guide shows once by itself.
+// First launch without access: the guide shows once by itself. Resolves when it was closed (or not shown).
 export function maybeOnboard(disk) {
-  if (disk && disk.fda === false && !get(KEY_SEEN)) showGuide();
+  return disk && disk.fda === false && !get(KEY_SEEN) ? showGuide() : Promise.resolve(false);
 }
 
 // Called with the old and new disk overview: access just appeared → thank and let the caller refresh.

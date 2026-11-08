@@ -43,3 +43,23 @@ jobs:
           node-version: 22
       - name: Translations complete
         run: node scripts/check-i18n.mjs
+
+  ui-e2e:
+    name: UI (WebKit end-to-end)
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: tests/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install webkit
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: tests/ui/test-results

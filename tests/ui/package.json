@@ -1,0 +1,12 @@
+{
+  "name": "limpae-ui-tests",
+  "private": true,
+  "description": "End-to-end tests of the Limpae UI in WebKit with a mocked Tauri backend. The app itself has no npm dependencies.",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.0"
+  }
+}

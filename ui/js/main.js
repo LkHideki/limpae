@@ -145,6 +145,6 @@ api.settings().catch(() => null).then((st) => {
   if (st) { store.settings = st; setSoundEnabled(st.sounds); }
   applyLangSetting(st && st.language);
   buildNav();
-  refreshDisk().then(() => maybeOnboard(store.disk));
+  refreshDisk().then(() => maybeOnboard(store.disk)).then(renderFoot);
   navigate('smart');
 });
