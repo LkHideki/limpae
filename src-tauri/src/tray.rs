@@ -55,22 +55,55 @@ struct Texts {
 const fn texts(lang: Lang) -> &'static Texts {
     match lang {
         Lang::En => &Texts {
-            health: "Health", free_loading: "Free: …", memory_loading: "Memory: …", trash_loading: "Trash: …",
-            open: "Open Limpae", smart: "Sweep…", empty: "Empty Trash…", settings: "Settings…", quit: "Quit",
-            free_of: "Free", free_na: "Free: unavailable", memory: "Memory", trash: "Trash",
-            trash_fda: "Trash: requires Full Disk Access", trash_calc: "Trash: calculating…",
+            health: "Health",
+            free_loading: "Free: …",
+            memory_loading: "Memory: …",
+            trash_loading: "Trash: …",
+            open: "Open Limpae",
+            smart: "Sweep…",
+            empty: "Empty Trash…",
+            settings: "Settings…",
+            quit: "Quit",
+            free_of: "Free",
+            free_na: "Free: unavailable",
+            memory: "Memory",
+            trash: "Trash",
+            trash_fda: "Trash: requires Full Disk Access",
+            trash_calc: "Trash: calculating…",
         },
         Lang::Pt => &Texts {
-            health: "Saúde", free_loading: "Livre: …", memory_loading: "Memória: …", trash_loading: "Lixeira: …",
-            open: "Abrir Limpae", smart: "Faxina…", empty: "Esvaziar Lixeira…", settings: "Ajustes…", quit: "Sair",
-            free_of: "Livre", free_na: "Livre: indisponível", memory: "Memória", trash: "Lixeira",
-            trash_fda: "Lixeira: requer Acesso Total ao Disco", trash_calc: "Lixeira: calculando…",
+            health: "Saúde",
+            free_loading: "Livre: …",
+            memory_loading: "Memória: …",
+            trash_loading: "Lixeira: …",
+            open: "Abrir Limpae",
+            smart: "Faxina…",
+            empty: "Esvaziar Lixeira…",
+            settings: "Ajustes…",
+            quit: "Sair",
+            free_of: "Livre",
+            free_na: "Livre: indisponível",
+            memory: "Memória",
+            trash: "Lixeira",
+            trash_fda: "Lixeira: requer Acesso Total ao Disco",
+            trash_calc: "Lixeira: calculando…",
         },
         Lang::Id => &Texts {
-            health: "Kesehatan", free_loading: "Kosong: …", memory_loading: "Memori: …", trash_loading: "Tempat Sampah: …",
-            open: "Buka Limpae", smart: "Sapu Bersih…", empty: "Kosongkan Tempat Sampah…", settings: "Pengaturan…", quit: "Keluar",
-            free_of: "Kosong", free_na: "Kosong: tidak tersedia", memory: "Memori", trash: "Tempat Sampah",
-            trash_fda: "Tempat Sampah: perlu Akses Disk Penuh", trash_calc: "Tempat Sampah: menghitung…",
+            health: "Kesehatan",
+            free_loading: "Kosong: …",
+            memory_loading: "Memori: …",
+            trash_loading: "Tempat Sampah: …",
+            open: "Buka Limpae",
+            smart: "Sapu Bersih…",
+            empty: "Kosongkan Tempat Sampah…",
+            settings: "Pengaturan…",
+            quit: "Keluar",
+            free_of: "Kosong",
+            free_na: "Kosong: tidak tersedia",
+            memory: "Memori",
+            trash: "Tempat Sampah",
+            trash_fda: "Tempat Sampah: perlu Akses Disk Penuh",
+            trash_calc: "Tempat Sampah: menghitung…",
         },
     }
 }
@@ -289,7 +322,8 @@ mod tests {
             for l in [Level::Excelente, Level::Boa, Level::Regular, Level::RequerAtencao, Level::Critica] {
                 assert!(!level_label(lang, l).is_empty());
             }
-            for m in [None, Some(MemoryPressure::Normal), Some(MemoryPressure::Warning), Some(MemoryPressure::Critical)] {
+            for m in [None, Some(MemoryPressure::Normal), Some(MemoryPressure::Warning), Some(MemoryPressure::Critical)]
+            {
                 assert!(!memory_label(lang, m).is_empty());
             }
         }

@@ -630,10 +630,7 @@ mod tests {
         let mut i = healthy();
         i.days_since_smart_care = None;
         assert_eq!(score(&i).factors[0].title, "Nenhuma Faxina ainda");
-        assert_eq!(
-            score(&i).factors[0].action,
-            Some(Action { label: "Executar Faxina", module: "smart" })
-        );
+        assert_eq!(score(&i).factors[0].action, Some(Action { label: "Executar Faxina", module: "smart" }));
     }
 
     #[test]
