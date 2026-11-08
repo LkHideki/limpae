@@ -5,7 +5,7 @@ import { icon, groupIcon } from '../art.js';
 import { api } from '../api.js';
 import { fmtBytes, ageText } from '../format.js';
 import { t, tn, tr, cmp } from '../i18n.js';
-import { checkbox, segmented, toast, managerBar } from '../ui.js';
+import { checkbox, confirmDialog, segmented, toast, managerBar } from '../ui.js';
 import { selectedSize } from '../store.js';
 
 const CHUNK = 250;
@@ -82,12 +82,32 @@ const isMenuKey = (e) => e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F1
 // title = module name (top bar, with "Back"); subtitle = what this review shows.
 // ignore: false hides "Ignore" (Trash is not sent to the ignored list); quickLook: false hides
 // "Quick Look" (opening an iCloud file would download it again).
-export function createReview({ result, sel, mod, title, subtitle, actionLabel, showAge = false, extra = null, onBack, onAction, emptyText = null, ignore = true, quickLook = true, gid = null }) {
+// simulate: offers "Simulate" (a dry run of the removal, with a report file); off for actions that are not removals.
+// Dry run: the backend runs every removal check without removing anything and writes a report.
+async function simulateRemoval(ids, mod) {
+  let r;
+  try { r = await api.simulate(ids, false); } catch (e) { return; }
+  const line = (label, tally) => h('li', null, h('span', null, label), h('b', { class: 'num' }, tn(tally.count, '{n} item', '{n} itens'), ' · ', fmtBytes(tally.bytes)));
+  const reasons = new Map();
+  for (const x of r.refused) reasons.set(x.error, (reasons.get(x.error) || 0) + 1);
+  const body = h('div', { class: 'sim' },
+    h('p', null, t('Nada foi removido. Se você limpar agora:')),
+    h('ul', { class: 'sim-list' },
+      line(t('Apagados definitivamente'), r.delete),
+      line(t('Movidos para o Lixo (recuperáveis)'), r.trash),
+      r.refused.length ? h('li', { class: 'bad' }, h('span', null, t('Recusados pela verificação de segurança')), h('b', { class: 'num' }, tn(r.refused.length, '{n} item', '{n} itens'))) : null),
+    reasons.size ? h('ul', { class: 'sim-why' }, [...reasons].map(([why, n]) => h('li', null, tr(why), n > 1 ? ' (' + n + ')' : ''))) : null);
+  const show = await confirmDialog({ title: t('Simulação da limpeza'), body, confirm: r.report ? t('Ver relatório') : t('Fechar'), cancel: t('Fechar'), glyph: 'search', mod });
+  if (show && r.report) api.revealReport(r.report).catch(() => {});
+}
+
+export function createReview({ result, sel, mod, title, subtitle, actionLabel, showAge = false, extra = null, onBack, onAction, emptyText = null, ignore = true, quickLook = true, gid = null, simulate = true }) {
   const st = { q: '', sort: 'size', gid: result.groups.some((g) => g.id === gid) ? gid : (result.groups[0] ? result.groups[0].id : null), limit: CHUNK, anchor: null };
   const groupsEl = h('div', { class: 'rv-groups' });
   const itemsEl = h('div', { class: 'rv-items-wrap' });
   const selEl = h('div', { class: 'rv-sel' });
   const actionBtn = h('button', { class: 'btn primary', type: 'button', onClick: () => onAction(new Set(sel)) }, actionLabel);
+  const simBtn = simulate ? h('button', { class: 'btn ghost', type: 'button', title: t('Mostra o que aconteceria, sem remover nada'), onClick: () => simulateRemoval([...sel], mod) }, t('Simular')) : null;
 
   const sorter = () => (st.sort === 'size' ? (a, b) => b.size - a.size : (a, b) => cmp(a.name, b.name));
   const visible = (g) => {
@@ -112,6 +132,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     if (!count) mount(selEl, t('Nenhum item selecionado'));
     else mount(selEl, t('Selecionado: '), h('b', null, fmtBytes(bytes)), h('small', null, cats > 1 ? tn(count, '{n} item em {cats}', '{n} itens em {cats}', { cats: tn(cats, '{n} categoria', '{n} categorias') }) : tn(count, '{n} item', '{n} itens')));
     actionBtn.disabled = count === 0;
+    if (simBtn) simBtn.disabled = count === 0;
   }
 
   function renderGroups() {
@@ -262,7 +283,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     managerBar({ title, subtitle, onBack, controls: [search, sort] }),
     extra ? h('div', { class: 'rv-extra' }, extra) : null,
     h('div', { class: 'rv-body' }, groupsEl, itemsEl),
-    h('div', { class: 'rv-foot' }, selEl, actionBtn));
+    h('div', { class: 'rv-foot' }, selEl, simBtn, actionBtn));
   // ⌘A selects all visible items of the open group; ⌘⇧A deselects (outside text fields).
   el.addEventListener('keydown', (e) => {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'a' || e.target.tagName === 'INPUT') return;

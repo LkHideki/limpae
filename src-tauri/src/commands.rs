@@ -36,11 +36,11 @@ pub(crate) const ERR_CANCELLED: &str = "Varredura cancelada.";
 const ERR_APP_GONE: &str = "App não encontrado. Atualize a lista de apps.";
 const ERR_APP_KEPT: &str = "mantido porque o app não pôde ser removido";
 const ERR_NOT_RECONFIRMED: &str = "não foi confirmado como parte do app na verificação final";
-const ERR_APP_OPEN: &str = "o app dono deste cache está aberto; feche-o e tente de novo";
+pub(crate) const ERR_APP_OPEN: &str = "o app dono deste cache está aberto; feche-o e tente de novo";
 const NOTE_OTHER_COPY: &str = "Outra cópia deste app está instalada";
 
 /// A `~/Library/Caches` entry, deleted permanently, whose owner app is running right now.
-fn cache_of_running_app(item: &Item, keys: &std::collections::HashSet<String>) -> bool {
+pub(crate) fn cache_of_running_app(item: &Item, keys: &std::collections::HashSet<String>) -> bool {
     matches!(&item.policy, Policy::DeleteJunk { root } if root.ends_with("Library/Caches"))
         && cache_in_use(&item.name, keys)
 }

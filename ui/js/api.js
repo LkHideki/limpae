@@ -58,6 +58,8 @@ export const api = {
   uninstall: (appId, leftoverIds, permanent = false) => call('uninstall', { appId, leftoverIds, permanent }).then(collectUndo),
   trashHistory: () => call('trash_history', undefined, { quiet: true }),
   restoreTrashed: (batches) => call('restore_trashed', { batches }),
+  simulate: (ids, permanent = false) => call('simulate_removal', { ids, permanent }),
+  revealReport: (path) => call('reveal_report', { path }),
   cancel: () => { play('stop'); return call('cancel_scan', undefined, { quiet: true }); },
   reveal: (id) => call('reveal', { id }),
   openApp: (appId) => call('open_app', { appId }),

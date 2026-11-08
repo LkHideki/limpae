@@ -127,7 +127,7 @@ export function enter(ctx) {
     const n = countItems(C.result);
     const back = () => { C.phase = 'summary'; render(); };
     const rv = createReview({
-      result: C.result, sel: C.sel, mod: 'cloud', title: t('iCloud'),
+      result: C.result, sel: C.sel, mod: 'cloud', title: t('iCloud'), simulate: false,
       subtitle: t('{files} do iCloud neste Mac · {size} ocupados · continuam no iCloud', { files: plural(n, 'arquivo', 'arquivos'), size: fmtBytes(C.result.total) }),
       actionLabel: t('Liberar do Mac'), showAge: true, emptyText: t('Nenhum arquivo baixado.'), quickLook: false,
       onBack: back, onAction: () => evict(),

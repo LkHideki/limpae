@@ -233,7 +233,8 @@ pub fn activity_from<R: BufRead>(mut reader: R, today: Ymd) -> Activity {
     a
 }
 
-fn local_time() -> String {
+/// Local time as "YYYY-MM-DD HH:MM:SS".
+pub fn local_time() -> String {
     // SAFETY: time/localtime_r/strftime only write into the buffers we pass.
     unsafe {
         let t = libc::time(std::ptr::null_mut());

@@ -179,6 +179,35 @@ fn remove_one(item: &Item, guard: &Guard, r: &dyn Remover, log: &ActionLog, opts
     Outcome { path: item.path.clone(), ok: error.is_none(), freed, error }
 }
 
+/// What removing one item would do right now, found by running every removal check without touching the disk.
+#[derive(Debug, Clone, Serialize)]
+pub struct Plan {
+    pub path: PathBuf,
+    /// The action-log verb the removal would use ("apagar", "lixo", "esvaziar", "apagar-definitivo").
+    pub action: &'static str,
+    pub size: u64,
+    /// Why the removal would be refused; `None` = it would go ahead.
+    pub error: Option<String>,
+}
+
+/// Dry run of [`remove_items_with`]: the same Guard and identity checks, in input order, with no removal and no
+/// log line. The disk can still change before a real removal, which checks everything again.
+pub fn preflight(items: &[Item], guard: &Guard, permanent: bool) -> Vec<Plan> {
+    items
+        .iter()
+        .map(|item| {
+            let action = match item.policy {
+                Policy::DeleteJunk { .. } => "apagar",
+                Policy::EmptyTrashEntry => "esvaziar",
+                Policy::MoveToTrash if permanent => "apagar-definitivo",
+                Policy::MoveToTrash => "lixo",
+            };
+            let error = guard.check(&item.path, &item.policy).and_then(|real| same_file(item, real)).err();
+            Plan { path: item.path.clone(), action, size: item.size, error: error.map(|e| e.to_string()) }
+        })
+        .collect()
+}
+
 /// Removes `items` and returns one outcome per item, in input order. Permanent deletes run in parallel; Trash
 /// moves stay sequential so NSFileManager is used from one thread, in order.
 pub fn remove_items(items: &[Item], guard: &Guard, r: &dyn Remover, log: &ActionLog) -> Vec<Outcome> {
@@ -578,6 +607,25 @@ mod tests {
         let out = remove_items(&[f.item(other, Policy::MoveToTrash)], &f.guard, &MovingRemover(f.home.clone()), &f.log);
         assert!(out[0].ok);
         assert!(journal.batches().is_empty());
+    }
+
+    #[test]
+    fn preflight_reports_without_touching_anything() {
+        let f = fixture();
+        let dir = f.cache_dir("com.foo");
+        let doc = f.home.join("Documents/d.txt");
+        fs::write(&doc, b"d").unwrap();
+        let items = vec![
+            f.item(dir.clone(), f.junk()),
+            f.item(doc.clone(), Policy::MoveToTrash),
+            f.item(doc.clone(), f.junk()), // outside its root
+        ];
+        let plans = preflight(&items, &f.guard, false);
+        let got: Vec<_> = plans.iter().map(|p| (p.action, p.error.as_deref())).collect();
+        assert_eq!(got, [("apagar", None), ("lixo", None), ("apagar", Some("fora da área permitida"))]);
+        assert_eq!(preflight(&items[1..2], &f.guard, true)[0].action, "apagar-definitivo");
+        assert!(dir.exists() && doc.exists());
+        assert!(f.log_lines().is_empty(), "a dry run writes nothing to the log");
     }
 
     #[test]

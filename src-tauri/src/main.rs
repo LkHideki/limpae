@@ -5,6 +5,7 @@ mod cmd_health;
 mod cmd_lens;
 mod cmd_perf;
 mod cmd_security;
+mod cmd_simulate;
 mod commands;
 mod dto;
 mod registry;
@@ -61,6 +62,8 @@ fn main() {
             commands::reveal_log,
             commands::open_fda_settings,
             commands::relaunch,
+            cmd_simulate::simulate_removal,
+            cmd_simulate::reveal_report,
             commands::get_settings,
             commands::set_settings,
             commands::ignore_item,
