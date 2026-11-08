@@ -116,11 +116,12 @@ function startCount(el) {
     const pp = prev && parse(prev);
     if (pp && pp.tail === p.tail && pp.value < p.value) from = pp.value;
   } else {
-    // A finished screen visited again shows its number as it was (same re-entry rule as the celebration).
+    // A hero whose value is unchanged since it was last shown does not recount, however it came back (screen revisited,
+    // or a manager's Back re-mounting the stage). A new scan/removal resets it: see the busy branch of checkDone.
     const key = (document.body.dataset.mod || '') + '|' + slotKey(el), val = p.value + '|' + p.tail;
     const prev = bigSeen.get(key);
     bigSeen.set(key, val);
-    if (prev === val && performance.now() - navAt < 700) return;
+    if (prev === val) return;
   }
   if (p.value <= from || (p.value < 1 && p.dec === 0)) return;
   active.push({ tn, text, p, from, t0: 0 });
@@ -186,7 +187,11 @@ function checkDone() {
   if (!view) return;
   const mod = document.body.dataset.mod || '';
   // Back to working (scanning/cleaning): the next completion is a new one.
-  if (view.querySelector('.orb.busy, .bento[data-phase="scan"], .bento[data-phase="cleaning"]')) { celebrated.clear(); return; }
+  if (view.querySelector('.orb.busy, .bento[data-phase="scan"], .bento[data-phase="cleaning"]')) {
+    celebrated.clear();
+    for (const k of bigSeen.keys()) if (k.startsWith(mod + '|')) bigSeen.delete(k); // its hero counts again when the result lands
+    return;
+  }
   // Only a real success celebrates: views set data-result="ok" when the action handled something (never for a
   // result of 0 B, all failures or a Stop before anything was removed).
   let anchor = null, sig = '', settle = null;

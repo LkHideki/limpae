@@ -14,13 +14,15 @@ import { attachMenu, selectMenuButton } from '../menus.js';
 const NAME_MATCH = 'Correspondência pelo nome'; // i18n-ignore (backend value, comparison only)
 const UNUSED_DAYS = 180;
 const DEFAULT_DIR = { size: 'desc', name: 'asc', last: 'desc' };
+let opening = false; // openUpdates in progress
 const rtf = lazyIntl('RelativeTimeFormat', { numeric: 'always' });
 
 // ---------- on-demand icons ----------
 const queue = [];
 let active = 0;
-function setIcon(box, url) {
-  if (typeof url === 'string' && url.startsWith('data:image/')) mount(box, h('img', { src: url, alt: '' }));
+// `cached`: the icon was already loaded once, so it appears at once (no fade-in replay when a list is rebuilt).
+function setIcon(box, url, cached = false) {
+  if (typeof url === 'string' && url.startsWith('data:image/')) mount(box, h('img', { src: url, alt: '', class: cached ? 'cached' : null }));
 }
 function pump() {
   while (active < 3 && queue.length) {
@@ -31,7 +33,7 @@ function pump() {
   }
 }
 function lazyIcon(app, box) {
-  if (store.icons.has(app.id)) { setIcon(box, store.icons.get(app.id)); return; }
+  if (store.icons.has(app.id)) { setIcon(box, store.icons.get(app.id), true); return; }
   queue.push([app, box]); pump();
 }
 
@@ -98,7 +100,8 @@ export function enter(ctx) {
   const iconBox = (a, observe, cls = '') => {
     const b = h('div', { class: ('app-ic ' + cls).trim() }, icon('apps', 18));
     b._app = a;
-    if (observe) io.observe(b); else lazyIcon(a, b);
+    // Already loaded: mounted right away (a rebuilt list never flashes the placeholder); only first loads wait for the observer.
+    if (observe && !store.icons.has(a.id)) io.observe(b); else lazyIcon(a, b);
     return b;
   };
 
@@ -224,7 +227,7 @@ export function enter(ctx) {
         sub: t('Mantenha seus apps em dia com os recursos e correções mais recentes.'),
         body: h('div', { class: 'ax-t-icons' }, upIcons.map((a) => iconBox(a, false, 'ax-ic'))),
         actions: [h('button', { class: 'btn sm', type: 'button', onClick: review('updater') }, t('Revisar')),
-          h('button', { class: 'btn sm primary', type: 'button', onClick: () => openUpdates(ups.map((u) => u.appId)) }, t('Atualizar||update'))],
+          h('button', { class: 'btn sm primary', type: 'button', onClick: (e) => openUpdates(ups.map((u) => u.appId), e.currentTarget) }, t('Atualizar||update'))],
       })
       : tile({ mod: 'apps', glyph: 'refresh', title: t('Apps em dia'), sub: t('Nenhuma atualização encontrada nos apps que informam uma fonte.'), body: empty(t('Tudo atualizado')), actions: [] });
 
@@ -268,8 +271,15 @@ export function enter(ctx) {
   }
 
   // ---------- updates (only opens the page; nothing is installed) ----------
-  async function openUpdates(ids) {
-    if (!ids.length) return;
+  // One run at a time (module-level `opening`): a double click, or a click during the 350 ms-per-app loop, would open
+  // every vendor page again. The clicked button shows it is busy but stays focusable.
+  async function openUpdates(ids, btn = null) {
+    if (!ids.length || opening) return;
+    opening = true;
+    if (btn) btn.setAttribute('aria-busy', 'true');
+    try { await openUpdatePages(ids); } finally { opening = false; if (btn) btn.removeAttribute('aria-busy'); }
+  }
+  async function openUpdatePages(ids) {
     if (ids.length > 3) {
       const ok = await confirmDialog({
         title: tn(ids.length, 'Abrir {n} página de atualização?', 'Abrir {n} páginas de atualização?'),
@@ -493,14 +503,14 @@ export function enter(ctx) {
 
   function ensureLo(app) {
     let lo = U.lo.get(app.id);
-    if (lo) return lo.promise || Promise.resolve(lo);
+    if (lo && !lo.failed) return lo.promise || Promise.resolve(lo); // a failed one is retried on the next select/expand
     lo = { loading: true, result: null, sel: new Set(), failed: false, promise: null };
     U.lo.set(app.id, lo);
     lo.promise = loSlot().then(() => api.leftovers(app.id)).then((r) => {
       for (const g of r.groups) for (const i of g.items) if (i.note === NAME_MATCH) i.selected = false;
       lo.result = r;
       lo.sel = new Set(r.groups.flatMap((g) => g.items.filter((i) => i.selected).map((i) => i.id)));
-    }).catch(() => { lo.failed = true; lo.result = { groups: [], total: 0 }; U.lo.delete(app.id); })
+    }).catch(() => { lo.failed = true; lo.result = { groups: [], total: 0 }; }) // kept: the panel shows the failure with a retry
       .finally(() => { loDone(); lo.loading = false; lo.promise = null; if (ctx.alive && M) { paintFoot(); const n = M.main.querySelector(`[data-app="${app.id}"]`); if (n) paintRes(app, n); } })
       .then(() => lo);
     return lo.promise;
@@ -543,7 +553,10 @@ export function enter(ctx) {
       h('span', { class: 'rv-size' }, fmtBytes(app.size)));
     const kids = [appRow];
     if (!lo || lo.loading) kids.push(h('div', { class: 'ap-loading' }, h('span', { class: 'spin' }), t('Procurando restos…')));
-    else if (!lo.result.groups.length) kids.push(h('div', { class: 'am-res-none' }, t('Nenhum resto encontrado.')));
+    else if (lo.failed) {
+      kids.push(h('div', { class: 'am-res-none am-res-fail' }, h('span', null, t('Não foi possível procurar os restos.')),
+        h('button', { class: 'btn sm', type: 'button', onClick: (e) => { e.stopPropagation(); U.lo.delete(app.id); ensureLo(app); paintRes(app, node); paintFoot(); } }, t('Tentar de novo'))));
+    } else if (!lo.result.groups.length) kids.push(h('div', { class: 'am-res-none' }, t('Nenhum resto encontrado.')));
     else {
       const items = lo.result.groups.flatMap((g) => g.items);
       const sure = items.filter((i) => !i.note), maybe = items.filter((i) => i.note);
@@ -759,7 +772,7 @@ export function enter(ctx) {
         src ? [h('dt', null, t('Fonte')), h('dd', { title: src }, src)] : null),
       h('p', { class: 'am-d-note' }, t('O Limpae só avisa e abre a página da atualização no navegador. A instalação é feita por você, no próprio app.')),
       h('div', { class: 'row-actions', style: 'margin-top:16px' },
-        h('button', { class: 'btn primary', type: 'button', onClick: () => openUpdates([a.id]) }, icon('refresh', 15), t('Abrir página de atualização')))));
+        h('button', { class: 'btn primary', type: 'button', onClick: (e) => openUpdates([a.id], e.currentTarget) }, icon('refresh', 15), t('Abrir página de atualização')))));
   }
 
   function paintFootUpdater() {
@@ -767,7 +780,7 @@ export function enter(ctx) {
     const ids = updates().filter((u) => U.upSel.has(u.appId)).map((u) => u.appId);
     mount(M.foot,
       h('div', { class: 'rv-sel' }, ids.length ? h('b', null, tn(ids.length, '{n} atualização selecionada', '{n} atualizações selecionadas')) : t('Nenhuma atualização selecionada')),
-      h('button', { class: 'btn primary', type: 'button', disabled: !ids.length, onClick: () => openUpdates(ids) }, icon('refresh', 16), t('Atualizar||update')));
+      h('button', { class: 'btn primary', type: 'button', disabled: !ids.length, onClick: (e) => openUpdates(ids, e.currentTarget) }, icon('refresh', 16), t('Atualizar||update')));
   }
 
   // ---------- Leftovers and installers ----------

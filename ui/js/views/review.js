@@ -25,7 +25,7 @@ export function openMenu({ items, at, label, opener, onClose }) {
     if (it.sep) { menu.append(h('div', { class: 'ctx-sep', role: 'separator' })); continue; }
     const radio = it.checked != null;
     const b = h('button', {
-      class: 'ctx-item' + (it.danger ? ' danger' : ''), type: 'button', tabindex: '-1', disabled: !!it.disabled,
+      class: 'ctx-item' + (it.danger ? ' danger' : ''), type: 'button', tabindex: '-1', disabled: !!it.disabled, dataset: it.selects ? { selects: it.selects } : null,
       role: radio ? 'menuitemradio' : 'menuitem', 'aria-checked': radio ? String(!!it.checked) : null,
       onClick: () => { close(true); it.onSelect(); },
     }, h('span', { class: 'ctx-ic' }, radio ? (it.checked ? icon('check', 14) : null) : (it.icon ? icon(it.icon, 15) : null)), h('span', { class: 'ctx-label' }, it.label));
@@ -154,17 +154,34 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     if (simBtn) simBtn.disabled = count === 0 || simBusy;
   }
 
+  // The group column is rebuilt only when its content changes (search, sort, an item dropped); a selection-only refresh
+  // updates the checkboxes in place, so the one just clicked animates (pop, check stroke) like the row ones do.
+  let groupsSig = '';
+  const groupNodes = new Map(); // group id -> { row, cb }
   function renderGroups() {
     const gs = groupsShown();
     if (!gs.some((g) => g.id === st.gid)) st.gid = gs[0] ? gs[0].id : null;
+    const sig = gs.map((g) => `${g.id}:${g.items.length}:${g.total}`).join('|');
+    if (sig === groupsSig && groupNodes.size === gs.length) {
+      for (const g of gs) {
+        const n = groupNodes.get(g.id);
+        n.cb.set(groupState(g));
+        n.row.setAttribute('aria-current', String(g.id === st.gid));
+      }
+      return;
+    }
+    groupsSig = sig;
+    groupNodes.clear();
     mount(groupsEl, gs.map((g) => {
       const cb = checkbox(groupState(g), (s0) => { for (const i of groupItems(g)) s0 === 'on' ? sel.delete(i.id) : sel.add(i.id); refresh(); }, t('Selecionar grupo {name}', { name: tr(g.title) }));
       cb.dataset.fk = 'g:' + g.id;
-      return h('div', { class: 'rv-group', 'aria-current': String(g.id === st.gid) },
+      const row = h('div', { class: 'rv-group', 'aria-current': String(g.id === st.gid) },
         cb,
         h('button', { class: 'rv-group-main', type: 'button', dataset: { fk: 'gm:' + g.id }, onClick: () => { if (st.gid !== g.id) { st.gid = g.id; st.limit = CHUNK; keepFocus(() => { renderGroups(); renderItems(); }); } } },
           h('span', { class: 'rv-gic' }, icon(groupIcon(g.id), 15)),
           h('span', { class: 'rv-gtxt' }, h('b', { title: tr(g.title) }, tr(g.title)), h('span', null, `${fmtBytes(g.total)} · ${tn(g.items.length, '{n} item', '{n} itens')}`))));
+      groupNodes.set(g.id, { row, cb });
+      return row;
     }));
   }
 
@@ -201,7 +218,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     openMenu({
       at, opener, label: t('Ações de {name}', { name: it.name }), onClose: () => row.classList.remove('ctx-open'),
       items: [
-        { label: on ? t('Desmarcar') : t('Selecionar'), icon: 'select', onSelect: () => { on ? sel.delete(it.id) : sel.add(it.id); refresh(); } },
+        { label: on ? t('Desmarcar') : t('Selecionar'), icon: 'select', selects: on ? 'off' : 'on', onSelect: () => { on ? sel.delete(it.id) : sel.add(it.id); refresh(); } },
         { label: t('Mostrar no Finder'), icon: 'reveal', onSelect: () => api.reveal(it.id).catch(() => {}) },
         quickLook ? { label: t('Visualização Rápida'), icon: 'eye', onSelect: () => api.quickLook(it.id).catch(() => {}) } : null,
         ignore ? { sep: true } : null,
@@ -210,6 +227,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     });
   }
 
+  const rowCbs = new Map(); // item id -> checkbox of the rows currently shown
   function itemRow(g, it, list) {
     const cb = checkbox(sel.has(it.id) ? 'on' : 'off', (_s, e) => toggle(e), t('Selecionar {name}', { name: it.name }));
     // Shift+click applies the new state to the whole range since the last clicked item (as in Finder).
@@ -227,6 +245,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
       cb.set(on ? 'on' : 'off'); renderGroups(); renderFooter(); renderHead(g, list);
     };
     cb.dataset.fk = 'i:' + it.id;
+    rowCbs.set(it.id, cb);
     const more = h('button', {
       class: 'icon-btn rv-act', type: 'button', dataset: { fk: 'im:' + it.id }, title: t('Mais ações'), 'aria-label': t('Mais ações para {name}', { name: it.name }), 'aria-haspopup': 'menu',
       onClick: (e) => { e.stopPropagation(); rowMenu(g, it, list, row, below(more), more); },
@@ -283,18 +302,29 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
   }
 
   // Which list the items scroller shows: a selection-only refresh keeps its scroll position, a group/search/sort change resets it.
-  let itemsKey = '';
+  // itemsSig also covers the rows shown: when only the selection changed, the rows stay and their checkboxes update in place.
+  let itemsKey = '', itemsSig = '';
   function renderItems() {
     const g = result.groups.find((x) => x.id === st.gid);
     const key = g ? st.gid + '|' + st.q + '|' + st.sort : '';
     const oldBody = itemsEl.querySelector('.rv-items');
     const keepTop = oldBody && key && key === itemsKey ? oldBody.scrollTop : 0;
     itemsKey = key;
-    if (!g) { mount(itemsEl, h('div', { class: 'rv-empty' }, st.q ? t('Nenhum item corresponde à busca.') : (emptyText || t('Nada encontrado.')))); return; }
+    if (!g) { itemsSig = ''; rowCbs.clear(); mount(itemsEl, h('div', { class: 'rv-empty' }, st.q ? t('Nenhum item corresponde à busca.') : (emptyText || t('Nada encontrado.')))); return; }
     const list = visible(g);
+    const shown = list.slice(0, st.limit);
+    const sig = key + '|' + st.limit + '|' + list.length + '|' + shown.map((i) => i.id).join(',');
+    if (oldBody && headEl && sig === itemsSig) {
+      const top = oldBody.scrollTop;
+      for (const [id, cb] of rowCbs) cb.set(sel.has(id) ? 'on' : 'off');
+      renderHead(g, list);
+      oldBody.scrollTop = top; // the rows stay, but WebKit may re-snap a fractional scroll offset by a pixel on relayout
+      return;
+    }
+    itemsSig = sig;
+    rowCbs.clear();
     headEl = h('div', { class: 'rv-items-head' });
     const body = h('div', { class: 'rv-items' });
-    const shown = list.slice(0, st.limit);
     body.append(...shown.map((it) => itemRow(g, it, list)));
     if (list.length > shown.length) {
       body.append(h('div', { class: 'rv-more' }, h('button', { class: 'btn sm', type: 'button', onClick: () => {

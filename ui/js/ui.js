@@ -286,7 +286,7 @@ export function createGo(host) {
           const next = document.querySelector('#view .btn.primary:not(:disabled), #view h1, #view h2');
           if (next) { if (!next.matches('button')) next.setAttribute('tabindex', '-1'); next.focus({ preventScroll: true }); }
         }
-        host.classList.add('off'); btn.disabled = true; handler = null;
+        host.classList.add('off'); btn.disabled = true; btn.removeAttribute('aria-disabled'); handler = null;
         // The ring keeps its geometry while the dock fades (changing it would flash an arc that was not there); it is
         // reset once the fade is over, or by the next set(cfg).
         if (!resetTimer) resetTimer = setTimeout(resetRing, 320);
@@ -296,8 +296,12 @@ export function createGo(host) {
       host.classList.remove('off');
       label.textContent = cfg.label;
       btn.setAttribute('aria-label', cfg.label);
-      btn.disabled = !!cfg.disabled;
-      handler = cfg.onClick;
+      // A focused button that disables itself (Stop → "Stopping") stays focusable but inert (aria-disabled, no handler): a
+      // natively disabled button hands focus to <body>, and the keyboard user would restart from the sidebar.
+      const soft = !!cfg.disabled && document.activeElement === btn;
+      btn.disabled = !!cfg.disabled && !soft;
+      if (cfg.disabled) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');
+      handler = soft ? null : cfg.onClick;
       host.dataset.mod = cfg.mod || 'smart';
       btn.classList.toggle('busy', !!cfg.busy);
       const det = cfg.progress != null, wasDet = btn.classList.contains('det');

@@ -97,6 +97,7 @@ const S = {
   phase: 'idle', // idle | scanning | results | review | removing | done
   checks: null, tcc: null, priv: null,
   checksFailed: false, // the security_checks step failed: no checks to show, and no "protected" verdict
+  tccFailed: false, privFailed: false, // the permissions / privacy read failed: their empty placeholders must not read as "nothing found"
   area: 'checks', svc: null, pcat: 'recent',
   rsel: new Set(), // permissions marked for revoking
   psel: new Set(), // privacy items marked for removal
@@ -226,6 +227,8 @@ export function enter(ctx) {
     S.checksFailed = !out.checks;
     S.tcc = out.tcc || EMPTY_TCC;
     S.priv = out.priv || EMPTY_PRIV;
+    S.tccFailed = !out.tcc;
+    S.privFailed = !out.priv;
     S.svc = null; S.pcat = 'recent';
     selectInitial();
     S.phase = 'results';
@@ -241,6 +244,7 @@ export function enter(ctx) {
     const bad = attention(), unk = unknown();
     const failed = S.checksFailed;
     const protectedMac = bad === 0 && !failed;
+    const partial = S.tccFailed || S.privFailed; // a step could not be read: the title must not claim the Mac is protected
     const items = privItems();
     const itemBytes = items.reduce((a, i) => a + i.size, 0);
     const cams = S.tcc.cameraMicApps;
@@ -257,7 +261,13 @@ export function enter(ctx) {
       failed ? h('button', { class: 'btn sm', type: 'button', onClick: scan }, t('Analisar de novo')) : h('button', { class: 'btn sm', type: 'button', onClick: () => open('checks') }, t('Revisar')));
 
     let permTile;
-    if (S.tcc.needsFda) {
+    if (S.tccFailed) {
+      permTile = h('div', { class: 'pr-tile none', dataset: { area: 'perms' } },
+        h('span', { class: 'pr-tile-ic' }, icon('alert', 24)),
+        h('div', { class: 'pr-tile-t' }, t('Permissões de apps')),
+        h('div', { class: 'pr-tile-s' }, t('Não foi possível ler as permissões.')),
+        h('button', { class: 'btn sm', type: 'button', onClick: scan }, t('Analisar de novo')));
+    } else if (S.tcc.needsFda) {
       permTile = h('div', { class: 'pr-tile none', dataset: { area: 'perms' } },
         h('span', { class: 'pr-tile-ic' }, icon('lock', 24)),
         h('div', { class: 'pr-tile-t' }, t('Permissões de apps')),
@@ -271,7 +281,12 @@ export function enter(ctx) {
         S.tcc.apps ? h('button', { class: 'btn sm', type: 'button', onClick: () => open('perms') }, t('Revisar')) : null);
     }
 
-    const privTile = h('div', { class: 'pr-tile' + (items.length || running.length ? '' : ' none'), dataset: { area: 'privacy' } },
+    const privTile = S.privFailed ? h('div', { class: 'pr-tile none', dataset: { area: 'privacy' } },
+      h('span', { class: 'pr-tile-ic' }, icon('alert', 24)),
+      h('div', { class: 'pr-tile-t' }, t('Privacidade')),
+      h('div', { class: 'pr-tile-s' }, t('Não foi possível ler os itens de privacidade.')),
+      h('button', { class: 'btn sm', type: 'button', onClick: scan }, t('Analisar de novo')))
+      : h('div', { class: 'pr-tile' + (items.length || running.length ? '' : ' none'), dataset: { area: 'privacy' } },
       h('span', { class: 'pr-tile-ic' }, icon('eye', 24)),
       h('div', { class: 'pr-tile-t' }, items.length ? tn(items.length, '{n} item de privacidade', '{n} itens de privacidade') : t('Nenhum item de privacidade')),
       h('div', { class: 'pr-tile-s' }, items.length
@@ -283,7 +298,7 @@ export function enter(ctx) {
 
     mount(ctx.root, h('section', { class: 'pr-results enter', dataset: { mod: 'protect' }, 'aria-label': t('Resultados da Segurança') },
       h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('protect')) { S.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar')), h('span', { class: 'fl-where-tag' }, t('Segurança'))),
-      h('h2', { class: 'fl-title' }, protectedMac && !unk ? t('Seu Mac está protegido.') : bad ? tn(bad, '{n} ponto precisa da sua atenção.', '{n} pontos precisam da sua atenção.') : failed ? t('Não foi possível verificar a segurança.') : t('Análise concluída.')),
+      h('h2', { class: 'fl-title' }, protectedMac && !unk && !partial ? t('Seu Mac está protegido.') : bad ? tn(bad, '{n} ponto precisa da sua atenção.', '{n} pontos precisam da sua atenção.') : failed ? t('Não foi possível verificar a segurança.') : partial ? t('Análise incompleta.') : t('Análise concluída.')),
       h('p', { class: 'sub fl-sub' }, t('Revise cada área. Nada é alterado nem removido sem a sua confirmação.')),
       h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => open('checks') }, t('Revisar tudo')),
       h('div', { class: 'pr-tiles' }, mainTile, permTile, privTile)));
@@ -375,6 +390,12 @@ export function enter(ctx) {
 
     function paintPermPane() { keepFocus(ctx.root, drawPermPane); }
     function drawPermPane() {
+      if (S.tccFailed) {
+        mount(headEl, h('div', { class: 'fm-pane-t' }, h('h3', null, t('Permissões de apps')), h('p', null, t('O que cada app pode acessar no seu Mac.'))));
+        mount(listEl, h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('alert', 26)), h('b', null, t('Não foi possível ler as permissões.')),
+          h('button', { class: 'btn sm', type: 'button', onClick: (e) => rescanPerms(e.currentTarget) }, t('Analisar de novo'))));
+        return;
+      }
       if (S.tcc.needsFda || !S.tcc.groups.length) {
         mount(headEl, h('div', { class: 'fm-pane-t' }, h('h3', null, t('Permissões de apps')), h('p', null, t('O que cada app pode acessar no seu Mac.'))));
         mount(listEl, S.tcc.needsFda
@@ -477,6 +498,11 @@ export function enter(ctx) {
           h('button', { class: 'btn sm', type: 'button', onClick: (e) => rescanPrivacy(e.currentTarget) }, t('Analisar de novo'))));
         return;
       }
+      if (S.privFailed) {
+        mount(listEl, h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('alert', 26)), h('b', null, t('Não foi possível ler os itens de privacidade.')),
+          h('button', { class: 'btn sm', type: 'button', onClick: (e) => rescanPrivacy(e.currentTarget) }, t('Analisar de novo'))));
+        return;
+      }
       if (!items.length) {
         mount(listEl, isRecent && S.priv.needsFda
           ? h('div', { class: 'pr-closed' }, h('span', { class: 'pr-closed-ic' }, icon('lock', 26)), h('b', null, t('É preciso o Acesso Total ao Disco')),
@@ -523,6 +549,16 @@ export function enter(ctx) {
       actionBtn.onclick = removePrivacy;
     }
 
+    // Retry of a failed permissions read (the manager's own button).
+    async function rescanPerms(btn) {
+      if (rescanning) return;
+      rescanning = true;
+      if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.textContent = t('Verificando…'); }
+      try { S.tcc = await api.tccPermissions(); S.tccFailed = false; } catch (e) { /* the error was already shown */ }
+      rescanning = false;
+      if (ctx.alive && S.phase === 'review') renderReview(false);
+    }
+
     let rescanning = false;
     async function rescanPrivacy(btn) {
       if (rescanning) return;
@@ -530,7 +566,7 @@ export function enter(ctx) {
       if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.textContent = t('Verificando…'); }
       try {
         const r = await api.privacyScan();
-        S.priv = r;
+        S.priv = r; S.privFailed = false;
         selectPrivacy(); // the permissions marked for revoking stay as they were
       } catch (e) { /* the error was already shown */ }
       rescanning = false;
@@ -587,7 +623,7 @@ export function enter(ctx) {
     }
     prog.textContent = t('{done} de {total}', { done: fmtNum(ids.length), total: fmtNum(ids.length) });
     // Ids are new on each read: fetches the list again to reflect what macOS really stores.
-    try { S.tcc = await api.tccPermissions(); } catch (e) { /* keeps the old list */ }
+    try { S.tcc = await api.tccPermissions(); S.tccFailed = false; } catch (e) { /* keeps the old list */ }
     S.rsel = new Set();
     S.done = { kind: 'perms', n: good, failed: failures.length };
     S.phase = 'done';
@@ -646,7 +682,7 @@ export function enter(ctx) {
     };
     for (const id of okIds) S.psel.delete(id);
     bump(); store.trash = null;
-    S.done = { kind: 'privacy', n: okIds.size, bytes: freed, failed: failures.length, permanent };
+    S.done = { kind: 'privacy', n: okIds.size, bytes: freed, failed: failures.length, permanent, cookies: has('cookies') };
     S.phase = 'done';
     const real = realFailures(failures);
     if (okIds.size) play('clean'); else if (!sd.stopped() || real.length) play('error'); // a bare Stop is not an error
@@ -668,7 +704,7 @@ export function enter(ctx) {
       : [h('div', { class: 'big' }, bytesParts(d.bytes).value, h('small', null, bytesParts(d.bytes).unit)), h('div', { class: 'big-cap' }, d.permanent ? t('apagados definitivamente') : t('movidos para o Lixo')),
         h('p', { class: 'sub' }, [
           // With nothing handled, the "empty the Trash" and "sign in again" advice would be wrong.
-          d.n ? (d.permanent ? '' : t('Esvazie a Lixeira para liberar o espaço no disco.') + ' ') + t('Pode ser preciso entrar de novo em alguns sites.') : t('Nada foi movido.'),
+          d.n ? (d.permanent ? '' : t('Esvazie a Lixeira para liberar o espaço no disco.') + ' ') + (d.cookies ? t('Pode ser preciso entrar de novo em alguns sites.') : '') : t('Nada foi movido.'),
           failedNote(d.failed)])];
     st.show(...head,
       h('div', { class: 'row-actions' },

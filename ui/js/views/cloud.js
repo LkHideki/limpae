@@ -181,8 +181,7 @@ export function enter(ctx) {
     ctx.setBusy(false);
     ctx.refreshDisk();
     if (!ctx.alive) return true;
-    st = null;
-    render();
+    render(); // keeps the busy stage: its orb slows back down in place instead of being swapped for a new one (no jump)
     if (failures.length) failuresSheet(failures);
     return true;
   }

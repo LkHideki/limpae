@@ -21,8 +21,8 @@
 /* ============ Tap: sinks quickly, springs back ============ */
 .btn { transition: background-color .2s, transform .38s var(--mo-spring), box-shadow .2s, opacity .2s; }
 .btn:active:not(:disabled) { transform: scale(.97); transition: transform .09s var(--ease), background-color .2s, box-shadow .2s, opacity .2s; }
-.go { transition: transform .4s var(--mo-spring), box-shadow .3s, filter .2s; }
-.go:active:not(:disabled) { transform: scale(.97); transition: transform .09s var(--ease), box-shadow .3s, filter .2s; }
+.go { transition: transform .4s var(--mo-spring), box-shadow .3s, filter .2s, opacity .2s; }
+.go:active:not(:disabled):not([aria-disabled]) { transform: scale(.97); transition: transform .09s var(--ease), box-shadow .3s, filter .2s, opacity .2s; }
 .chip { transition: background-color .2s var(--ease), color .2s, border-color .2s, box-shadow .2s, transform .38s var(--mo-spring); }
 .chip:active { transform: scale(.97); transition: transform .09s var(--ease), background-color .2s var(--ease), color .2s, border-color .2s, box-shadow .2s; }
 .seg button { transition: background-color .2s, color .2s, transform .38s var(--mo-spring); }

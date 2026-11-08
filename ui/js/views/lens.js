@@ -332,7 +332,7 @@ export function enter(ctx) {
     openMenu({
       at, opener, label: t('Ações de {name}', { name: n.name }), onClose: () => mark && mark.classList.remove('ctx-open'),
       items: [
-        { label: S.sel.has(n.id) ? t('Desmarcar') : t('Selecionar'), icon: 'select', disabled: locked && !on, onSelect: () => toggle(n.id) },
+        { label: S.sel.has(n.id) ? t('Desmarcar') : t('Selecionar'), icon: 'select', selects: S.sel.has(n.id) ? 'off' : 'on', disabled: locked && !on, onSelect: () => toggle(n.id) },
         ...(n.drillable ? [{ label: t('Abrir pasta'), icon: 'folder', onSelect: () => drill(n, from) }] : []),
         { sep: true },
         { label: t('Mostrar no Finder'), icon: 'reveal', onSelect: () => api.lensReveal(n.id).catch(() => {}) },
@@ -396,7 +396,13 @@ export function enter(ctx) {
 
   function otherRow(rest, total) {
     const el = h('button', { class: 'ln-row other', type: 'button', onMouseenter: () => hover('other', true), onMouseleave: () => hover('other', false),
-      onClick: () => { S.expanded = !S.expanded; drawList(); } },
+      onClick: () => {
+        // drawList rebuilds this very row: a keyboard user (it has focus) gets focus back on the new one.
+        const had = document.activeElement === el;
+        S.expanded = !S.expanded; drawList();
+        const r = rows.get('other');
+        if (had && r) r.focus({ preventScroll: true });
+      } },
       h('span', { class: 'ln-ic' }, plainIcon('other', 30)),
       h('span', { class: 'ln-name' }, t('Outros itens'), h('small', null, plural(rest, 'item', 'itens'))),
       h('span', { class: 'ln-size' }, fmtBytes(total)),

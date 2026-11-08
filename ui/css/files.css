@@ -110,6 +110,7 @@
 .fm-img[data-on="true"] { border-color: var(--teal); background: rgba(46, 230, 197, .1); }
 .fm-img-box { position: relative; aspect-ratio: 1; display: grid; place-items: center; background: rgba(0, 0, 0, .22); color: var(--text-3); }
 .fm-img-box img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; animation: fade .3s var(--ease) both; }
+.fm-img-box img.cached { animation: none; }
 .fm-img-box img[hidden], .fm-img-ph[hidden] { display: none; }
 .fm-img-cb { position: absolute; left: 8px; top: 8px; width: 22px; height: 22px; background: rgba(8, 20, 44, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); pointer-events: none; }
 .fm-img[data-on="true"] .fm-img-cb { background: linear-gradient(150deg, var(--t1), var(--t2)); border-color: rgba(255, 255, 255, .6); color: #fff; }

@@ -11,6 +11,9 @@ export default {
   'Analisando aplicativos…': { en: 'Scanning applications…', id: 'Memindai aplikasi…' },
   'Listando apps, procurando atualizações, restos e instaladores.': { en: 'Listing apps and looking for updates, leftovers, and installers.', id: 'Mencantumkan aplikasi serta mencari pembaruan, sisa file, dan penginstal.' },
 
+  'Não foi possível procurar os restos.': { en: 'Couldn’t look for leftovers.', id: 'Tidak dapat mencari sisa file.' },
+  'Tentar de novo': { en: 'Try again', id: 'Coba lagi' },
+
   // ---- relative dates
   'nunca aberto': { en: 'never opened', id: 'belum pernah dibuka' },
   'aberto {when}': { en: 'opened {when}', id: 'dibuka {when}' },

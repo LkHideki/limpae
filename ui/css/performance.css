@@ -51,6 +51,7 @@
 .pf-ic { width: 38px; height: 38px; border-radius: 11px; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, .09); color: var(--text-2); overflow: hidden; }
 .pf-ic.img { background: transparent; }
 .pf-ic img { width: 100%; height: 100%; object-fit: contain; animation: fade .3s var(--ease) both; }
+.pf-ic img.cached { animation: none; }
 .pf-row .fm-name { flex-wrap: wrap; row-gap: 4px; }
 .pf-row .fm-name > span:first-child { flex: 0 1 auto; min-width: 0; max-width: 100%; }
 .pf-meta { gap: 8px; }

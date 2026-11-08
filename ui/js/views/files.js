@@ -176,7 +176,7 @@ export function enter(ctx) {
   // checked. "Back" returns to Sweep.
   if (store.filesFrom && F.phase === 'review' && (!S.res || S.res.fromRef !== store.filesFrom)) {
     S.res = { large: null, dups: store.filesFrom, sim: null, dl: null, loc: 0, locName: 'Downloads', minMb: store.largeMb, full: false, largeRef: null, ownsStore: false, fromRef: store.filesFrom, fromSmart: true };
-    S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.limits = new Map(); S.thumbs = new Map(); S.cat = 'dups'; S.q = ''; S.show = 'all';
+    S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.autoOpened = false; S.limits = new Map(); S.thumbs = new Map(); S.cat = 'dups'; S.q = ''; S.show = 'all';
   }
   // Back goes to Sweep only when the manager was entered from it in this visit; a handed-over result reopened from
   // the landing ("Back to results") returns to the landing.
@@ -276,7 +276,7 @@ export function enter(ctx) {
     if (cancelled) { F.phase = 'idle'; return render(); }
     const empty = { groups: [], total: 0, needsFda: false };
     S.res = { large: out.large || empty, dl: out.dl || (home ? empty : null), dups: out.dups || empty, sim: out.sim || empty, loc, locName: S.locs && S.locs[loc] ? S.locs[loc].name : HOME_NAME, minMb: mb, full: true, largeRef: null, ownsStore: home, failed, steps: steps.length };
-    S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.limits = new Map(); S.thumbs = new Map();
+    S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.autoOpened = false; S.limits = new Map(); S.thumbs = new Map();
     if (home) { store.large = S.res.large; store.largeSel = S.lsel; }
     S.res.largeRef = store.large;
     bump();
@@ -509,9 +509,9 @@ export function enter(ctx) {
 
     // ---- thumbnails: loaded only when visible, 3 at a time ----
     function loadThumb(card, img, ph, id) {
-      const apply = (url) => { if (url) { img.src = url; img.hidden = false; ph.hidden = true; } };
+      const apply = (url, cached = false) => { if (url) { img.classList.toggle('cached', cached); img.src = url; img.hidden = false; ph.hidden = true; } };
       card._thumb = { id, apply };
-      if (S.thumbs.has(id)) return apply(S.thumbs.get(id));
+      if (S.thumbs.has(id)) return apply(S.thumbs.get(id), true); // already loaded: no fade-in replay
       if (io) io.observe(card);
     }
     function pump() {
@@ -551,7 +551,7 @@ export function enter(ctx) {
         let groups = result.groups.filter((g) => g.items.some(matches) && (c !== 'dups' || S.show === 'all' || showKind(g.title) === S.show));
         if (S.sort === 'name') groups = [...groups].sort((a, b) => cmp(a.title, b.title));
         const index = new Map(result.groups.map((g, i) => [g, i]));
-        if (c === 'dups' && !S.open.size && groups[0]) S.open.add(groups[0].id);
+        if (c === 'dups' && !S.autoOpened && groups[0]) { S.autoOpened = true; S.open.add(groups[0].id); } // once per result: the user may collapse every set
         const shown = groups.slice(0, limit);
         body = groups.length
           ? [shown.map((g) => (c === 'dups' ? dupSet(g) : simCluster(g, index.get(g)))),

@@ -59,8 +59,9 @@ const loginCount = () => S.res.login.items.length;
 // Icons of the owner apps, in a short queue so they do not compete with the scan for the disk.
 const iconQueue = [];
 let iconBusy = 0;
-function applyIcon(slot, url) {
-  if (url && slot.isConnected) { slot.classList.add('img'); mount(slot, h('img', { src: url, alt: '', draggable: 'false' })); }
+// `cached`: icon already loaded once; the row is not mounted yet at that point, and the icon appears without the fade.
+function applyIcon(slot, url, cached = false) {
+  if (url && (cached || slot.isConnected)) { slot.classList.add('img'); mount(slot, h('img', { src: url, alt: '', draggable: 'false', class: cached ? 'cached' : null })); }
 }
 function pumpIcons() {
   while (iconBusy < 3 && iconQueue.length) {
@@ -70,7 +71,7 @@ function pumpIcons() {
   }
 }
 function loadIcon(id, slot) {
-  if (S.icons.has(id)) return applyIcon(slot, S.icons.get(id));
+  if (S.icons.has(id)) return applyIcon(slot, S.icons.get(id), true);
   iconQueue.push({ id, slot });
   pumpIcons();
 }
@@ -344,7 +345,7 @@ export function enter(ctx) {
         a.state = r.state;
         // No sound of its own: the 'ok' toast is the feedback (a second sound would stack on it).
         if (ctx.alive) toast(enable ? t('{name} ativado.', { name: agentName(a) }) : t('{name} desativado. Dá para reativar quando quiser.', { name: agentName(a) }), 'ok');
-      } catch (e) { if (!e.reported) play('error'); }
+      } catch (e) { play('error'); } // with the toast's 'err' this ducks to a single cue (sound.js DUCK), and still sounds when unfocused
       if (!ctx.alive || S.tab !== 'agents') return;
       // The rebuilt row replaces the focused switch: focus moves to the new one so keyboard users keep their place.
       const fresh = agentRow(a);
@@ -371,7 +372,7 @@ export function enter(ctx) {
       if (!ok || !ctx.alive || busy) return;
       lock(true);
       let res = null;
-      try { res = await (agents ? api.agentRemove : api.loginItemRemove)(list.map((x) => x.id)); } catch (e) { if (!e.reported) play('error'); }
+      try { res = await (agents ? api.agentRemove : api.loginItemRemove)(list.map((x) => x.id)); } catch (e) { play('error'); } // with the toast's 'err' this ducks to a single cue (sound.js DUCK), and still sounds when unfocused
       lock(false);
       if (!res || !ctx.alive) return;
       const done = res.outcomes.filter((o) => o.ok).map((o) => o.id);
@@ -463,7 +464,7 @@ export function enter(ctx) {
       if (!ok || !ctx.alive || busy) return;
       lock(true);
       let res = null;
-      try { res = await api.tmThin(); } catch (e) { if (!e.reported) play('error'); }
+      try { res = await api.tmThin(); } catch (e) { play('error'); } // with the toast's 'err' this ducks to a single cue (sound.js DUCK), and still sounds when unfocused
       lock(false);
       if (!res || !ctx.alive) return;
       S.res.snapshots.items = res.snapshots;

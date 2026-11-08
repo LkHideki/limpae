@@ -163,7 +163,10 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Pauses continuous animations when the window is not in use (see body.idle in the CSS).
-const syncIdle = () => document.body.classList.toggle('idle', document.hidden || !document.hasFocus());
+const syncIdle = () => {
+  document.body.classList.toggle('idle', document.hidden || !document.hasFocus());
+  document.body.classList.toggle('hidden', document.hidden);
+};
 window.addEventListener('blur', syncIdle);
 window.addEventListener('focus', syncIdle);
 document.addEventListener('visibilitychange', syncIdle);

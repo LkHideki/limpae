@@ -15,7 +15,7 @@ const isMenuKey = (e) => e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F1
 // reveal/quickLook/ignore: false hides the action; onIgnored(): the row left the list in the backend, the screen adjusts.
 export function entryMenu({ id, name, at, opener = null, label, select = null, openApp = false, reveal = true, quickLook = true, ignore = true, onIgnored, onClose }) {
   const items = [];
-  if (select) items.push({ label: select.on ? t('Desmarcar') : t('Selecionar'), icon: 'select', onSelect: select.toggle });
+  if (select) items.push({ label: select.on ? t('Desmarcar') : t('Selecionar'), icon: 'select', selects: select.on ? 'off' : 'on', onSelect: select.toggle });
   if (openApp) items.push({ label: t('Abrir'), icon: 'apps', onSelect: () => api.openApp(id).catch(() => {}) });
   if (reveal) items.push({ label: t('Mostrar no Finder'), icon: 'reveal', onSelect: () => api.reveal(id).catch(() => {}) });
   if (quickLook) items.push({ label: t('Visualização Rápida'), icon: 'eye', onSelect: () => api.quickLook(id).catch(() => {}) });

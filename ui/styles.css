@@ -144,20 +144,21 @@ body.locked .nav-item:not([aria-current="page"]) { opacity: .45; pointer-events:
   transition: transform .2s var(--ease), box-shadow .3s, filter .2s;
   text-shadow: 0 1px 2px rgba(0, 0, 0, .35);
 }
-.go:hover:not(:disabled) { transform: scale(1.04); filter: brightness(1.08); }
-.go:active:not(:disabled) { transform: scale(.97); }
-.go:disabled { filter: saturate(.3) brightness(.8); opacity: .7; }
+.go:hover:not(:disabled):not([aria-disabled]) { transform: scale(1.04); filter: brightness(1.08); }
+.go:active:not(:disabled):not([aria-disabled]) { transform: scale(.97); }
+.go:disabled, .go[aria-disabled] { filter: saturate(.3) brightness(.8); opacity: .7; }
 .go-label { position: relative; display: block; }
 .go-ring { position: absolute; inset: -9px; width: 114px; height: 114px; pointer-events: none; opacity: 0; transition: opacity .3s; transform: rotate(-90deg); }
 .go-ring circle { fill: none; stroke-width: 3.5; stroke-linecap: round; }
 .go-ring .track { stroke: rgba(255, 255, 255, .15); }
 .go-ring .arc { stroke: #fff; stroke-dasharray: 90 237; transition: stroke-dashoffset .3s linear; filter: drop-shadow(0 0 6px rgba(255, 255, 255, .7)); }
 .go.busy .go-ring { opacity: 1; }
-.go.busy .go-ring { animation: go-spin 1.3s linear infinite; }
-.go.busy.det .go-ring { animation: none; }
+/* The spin stays attached (paused) while the ring fades out, so the arc freezes in place instead of snapping to 12 o'clock. */
+.go:not(.det) .go-ring { animation: go-spin 1.3s linear infinite; animation-play-state: paused; }
+.go.busy:not(.det) .go-ring { animation-play-state: running; }
 .go.busy.det .arc { stroke-dasharray: 326.7; }
 .go::after { content: ""; position: absolute; inset: -14px; border-radius: 50%; background: radial-gradient(closest-side, rgba(var(--glow), .55), transparent 72%); opacity: 0; pointer-events: none; z-index: -1; }
-.go:not(.busy):not(:disabled)::after { animation: glow-pulse 3.4s ease-in-out infinite; }
+.go:not(.busy):not(:disabled):not([aria-disabled])::after { animation: glow-pulse 3.4s ease-in-out infinite; }
 @keyframes glow-pulse { 0%, 100% { opacity: .35; } 50% { opacity: .9; } }
 
 /* ============ Buttons / chips / inputs ============ */
@@ -362,6 +363,7 @@ body.locked .nav-item:not([aria-current="page"]) { opacity: .45; pointer-events:
 .app-row[aria-current="true"] { background: rgba(255, 255, 255, .15); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
 .app-ic { width: 36px; height: 36px; border-radius: 9px; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, .09); color: var(--text-2); overflow: hidden; }
 .app-ic img { width: 100%; height: 100%; object-fit: contain; display: block; animation: fade .3s both; }
+.app-ic img.cached { animation: none; }
 .app-main { flex: 1; min-width: 0; }
 .app-main b { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
 .app-main b span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -477,4 +479,7 @@ body.locked .nav-item:not([aria-current="page"]) { opacity: .45; pointer-events:
 
 /* Unfocused or hidden window: the infinite decorative loops pause (CPU ~0 in the background). One-shot entrances are
    left alone: pausing them would freeze whatever renders meanwhile at its first keyframe (opacity 0, invisible). */
-body.idle :is(.orb, .orb-body, .spin, .go-ring, .pf-switch i), body.idle .go::after { animation-play-state: paused !important; }
+body.idle :is(.orb, .orb-body, .pf-switch i), body.idle .go::after { animation-play-state: paused !important; }
+/* Busy indicators (row spinners, dock ring) keep turning while the window is merely unfocused: they are the only sign
+   of work in progress. They pause only when it is really hidden (body.hidden, set from document.hidden). */
+body.hidden :is(.spin, .go-ring) { animation-play-state: paused !important; }

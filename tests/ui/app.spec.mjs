@@ -1081,3 +1081,287 @@ test.describe('gauntlet round 3 (sound)', () => {
     expect(await page.evaluate(() => window.__resumes)).toBe(before);
   });
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+test.describe('gauntlet round 4', () => {
+  test.use({ reducedMotion: 'no-preference' });
+  // JUNK with a slow scan: the busy state lasts `ms`.
+  const slowJunk = (ms) => `(() => { const J = ${JUNK}; return { ...J, scan_junk: async (...a) => { await new Promise((r) => setTimeout(r, ${ms})); return J.scan_junk(...a); } }; })()`;
+  const withSound = (src) => src.replace('{', '{ ' + SOUND_ON + ',');
+  // Oscillator start frequencies with the instant they were scheduled.
+  async function recordTimes(page) {
+    await recordTones(page);
+    await page.addInitScript(() => {
+      window.__tt = [];
+      const orig = AudioParam.prototype.setValueAtTime;
+      AudioParam.prototype.setValueAtTime = function (v, t) { if (this.__osc) window.__tt.push([Math.round(v), performance.now()]); return orig.call(this, v, t); };
+    });
+  }
+
+  test('busy indicators keep turning while the window is unfocused and pause only when it is hidden', async ({ page }) => {
+    await boot(page, slowJunk(4000));
+    await nav(page, 'Entulho').click();
+    await page.locator('#dock .go').click();
+    await expect(page.locator('#dock .go.busy')).toHaveCount(1);
+    const state = () => page.locator('#dock .go-ring').evaluate((el) => getComputedStyle(el).animationPlayState);
+    await page.evaluate(() => document.body.classList.add('idle'));
+    expect(await state()).toBe('running');
+    await page.evaluate(() => document.body.classList.add('hidden'));
+    expect(await state()).toBe('paused');
+  });
+
+  test('the dock ring keeps its spin (paused) when the busy state ends, so it fades in place', async ({ page }) => {
+    await boot(page, JUNK);
+    await nav(page, 'Entulho').click();
+    await page.locator('#dock .go').click();
+    await expect(page.getByRole('button', { name: en('Revisar todo o lixo') })).toBeVisible();
+    await expect(page.locator('#dock .go.busy')).toHaveCount(0);
+    const anim = await page.locator('#dock .go-ring').evaluate((el) => { const cs = getComputedStyle(el); return [cs.animationName, cs.animationPlayState]; });
+    expect(anim).toEqual(['go-spin', 'paused']);
+  });
+
+  test('the round button fades its opacity together with its filter when disabled', async ({ page }) => {
+    await boot(page);
+    const tp = await page.locator('#dock .go').evaluate((el) => getComputedStyle(el).transitionProperty);
+    expect(tp).toContain('opacity');
+  });
+
+  test('pressing Stop with the keyboard keeps focus on the dock button', async ({ page }) => {
+    await boot(page, slowJunk(1500));
+    await nav(page, 'Entulho').click();
+    const go = page.locator('#dock .go');
+    await go.click();
+    await expect(page.locator('#dock .go.busy')).toHaveCount(1);
+    await go.focus();
+    await page.keyboard.press('Enter');
+    await expect(go).toHaveAttribute('aria-disabled', 'true');
+    await expect(go).toBeFocused();
+    await expect(go).not.toHaveAttribute('aria-disabled', 'true', { timeout: 8000 }); // the scan settled
+    await expect(go).toBeFocused();
+  });
+
+  test('a hero that did not change is not counted up again when a manager goes Back', async ({ page }) => {
+    await boot(page, `{ scan_trash: () => ({ total: 6e9, needsFda: false, groups: [{ id: 'trash', title: 'x', description: '', total: 6e9, items: [{ id: 1, name: 'big.mov', path: '/Users/u/.Trash/big.mov', size: 6e9, selected: true, note: null, modified: null, trash: false, accessed: null }] }] }) }`);
+    await nav(page, 'Lixeira').click();
+    await page.waitForTimeout(300);
+    await page.locator('#dock .go').click();
+    await expect(page.getByRole('button', { name: en('Revisar itens') })).toBeVisible({ timeout: 8000 });
+    await page.waitForTimeout(1200);
+    const final = await page.locator('.big').first().textContent();
+    expect(final).toContain('6');
+    await page.getByRole('button', { name: en('Revisar itens') }).click();
+    await page.locator('.mgr-back').click();
+    await page.evaluate(() => {
+      window.__bigs = [];
+      const tick = () => { const b = document.querySelector('.big'); if (b) window.__bigs.push(b.textContent); if (window.__bigs.length < 40) requestAnimationFrame(tick); };
+      tick();
+    });
+    await page.waitForTimeout(900);
+    const bigs = await page.evaluate(() => window.__bigs);
+    expect(bigs.length).toBeGreaterThan(0);
+    expect(new Set(bigs)).toEqual(new Set([final]));
+  });
+
+  test('a group checkbox in the review animates in place instead of being re-created', async ({ page }) => {
+    await boot(page, JUNK);
+    await scanJunk(page);
+    await page.getByRole('button', { name: en('Revisar todo o lixo') }).click();
+    const cb = page.locator('.rv-group .cb').first();
+    await cb.evaluate((el) => { el.dataset.mark = '1'; });
+    await cb.click();
+    await expect(page.locator('.rv-group .cb[data-mark="1"]')).toHaveCount(1); // the same node
+    expect(await page.locator('.rv-group .cb[data-mark="1"]').evaluate((el) => el.getAnimations().length)).toBeGreaterThan(0);
+    // Selecting a row refreshes the group checkbox state in place too.
+    await page.locator('.rv-item .cb').first().click();
+    await expect(page.locator('.rv-group .cb[data-mark="1"]')).toHaveCount(1);
+  });
+
+  test('finishing a Cloud eviction keeps the orb that was floating', async ({ page }) => {
+    const item = (id, name, size) => `{ id: ${id}, name: '${name}', path: '/Users/u/Library/Mobile Documents/${name}', size: ${size}, selected: true, note: null, modified: null, trash: false, accessed: null }`;
+    await boot(page, `{ cloud_scan: () => ({ total: 600e6, needsFda: false, groups: [{ id: 'g', title: 'Documentos', description: '', total: 600e6, items: [${item(2, 'big.mov', 600e6)}] }] }),
+      cloud_evict: async () => { await new Promise((r) => setTimeout(r, 600)); return { freed: 600e6, outcomes: [{ id: 2, ok: true, freed: 600e6, error: null }] }; } }`);
+    await nav(page, 'iCloud').click();
+    await page.locator('#dock .go').click();
+    await expect(page.locator('.cl-tile[data-tile="big"] .btn.primary')).toBeVisible();
+    await page.locator('.cl-tile[data-tile="big"] .btn.primary').click();
+    await page.getByRole('alertdialog').getByRole('button').last().click();
+    await expect(page.locator('.orb.busy')).toHaveCount(1);
+    await page.locator('.orb').evaluate((el) => { el.dataset.mark = '1'; });
+    await expect(page.getByRole('button', { name: en('Concluir') })).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.orb[data-mark="1"]')).toHaveCount(1);
+  });
+
+  test('cached app icons are mounted at once (no placeholder flash, no fade replay) when the list is rebuilt', async ({ page }) => {
+    const GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACwAAAAAAQABAAACAkQBADs=';
+    await boot(page, `{ list_apps: () => [{ id: 1, name: 'Alpha', path: '/Applications/Alpha.app', size: 5000, bundleId: 'x.alpha', running: false, version: '1', kind: 'app' }, { id: 2, name: 'Beta', path: '/Applications/Beta.app', size: 4000, bundleId: 'x.beta', running: false, version: '1', kind: 'app' }],
+      app_meta: () => [], app_icon: () => '${GIF}' }`);
+    await nav(page, 'Aplicativos').click();
+    await page.getByRole('button', { name: en('Ver meus aplicativos') }).click();
+    await expect(page.locator('.am-row .app-ic img')).toHaveCount(2);
+    await page.locator('.search input').fill('a'); // rebuilds the list
+    await expect(page.locator('.am-row .app-ic img.cached')).toHaveCount(2);
+    const names = await page.locator('.am-row .app-ic img.cached').evaluateAll((els) => els.map((e) => getComputedStyle(e).animationName));
+    expect(names).toEqual(['none', 'none']);
+  });
+
+  const APP_ONE = `list_apps: () => [{ id: 1, name: 'Alpha', path: '/Applications/Alpha.app', size: 5000, bundleId: 'x.alpha', running: false, version: '1', kind: 'app' }],
+    apps_overview: () => ({ updates: [], unused: [], leftovers: { total: 0, needsFda: false, groups: [] }, installers: { total: 0, needsFda: false, groups: [] } }), app_meta: () => []`;
+
+  test('a failed leftovers scan shows a retry instead of an endless spinner', async ({ page }) => {
+    await boot(page, `{ ${APP_ONE}, app_leftovers: (a, calls) => { if (calls.filter((c) => c.cmd === 'app_leftovers').length < 2) throw 'falhou'; return { total: 0, needsFda: false, groups: [] }; } }`);
+    await nav(page, 'Aplicativos').click();
+    await page.getByRole('button', { name: en('Ver meus aplicativos') }).click();
+    await page.locator('.am-row .am-chev').first().click();
+    const res = page.locator('.am-res');
+    await expect(res).toContainText(en('Não foi possível procurar os restos.'));
+    await expect(res).not.toContainText(en('Procurando restos…'));
+    await res.getByRole('button', { name: en('Tentar de novo') }).click();
+    await expect(res).toContainText(en('Nenhum resto encontrado.'));
+    expect(await calls(page, 'app_leftovers')).toHaveLength(2);
+  });
+
+  test('a double click on Update opens each vendor page once', async ({ page }) => {
+    await boot(page, `{ ${APP_ONE.replace('updates: []', "updates: [{ appId: 1, current: '1', latest: '2', downloadUrl: 'https://a.example/x', notesUrl: null }]")}, open_update: () => null }`);
+    await nav(page, 'Aplicativos').click();
+    await page.getByRole('button', { name: en('Ver meus aplicativos') }).click();
+    await page.locator('.mgr-back').click().catch(() => {});
+    await page.locator('#dock .go').click();
+    const upd = page.getByRole('button', { name: en('Atualizar||update') }).first();
+    await expect(upd).toBeVisible({ timeout: 8000 });
+    await upd.dblclick();
+    await page.waitForTimeout(700);
+    expect(await calls(page, 'open_update')).toHaveLength(1);
+  });
+
+  test('a failed permissions read does not read as "nothing found" or "protected"', async ({ page }) => {
+    await boot(page, `{ security_checks: () => [], tcc_permissions: () => { throw 'falhou'; }, privacy_scan: () => { throw 'falhou'; } }`);
+    await nav(page, 'Segurança').click();
+    await page.locator('#dock .go').click();
+    await expect(page.locator('.fl-title')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.fl-title')).not.toHaveText(en('Seu Mac está protegido.'));
+    await expect(page.locator('.pr-tile[data-area="perms"]')).toContainText(en('Não foi possível ler as permissões.'));
+    await expect(page.locator('.pr-tile[data-area="privacy"]')).toContainText(en('Não foi possível ler os itens de privacidade.'));
+    await expect(page.locator('.pr-tile[data-area="perms"]').getByRole('button', { name: en('Analisar de novo') })).toBeVisible();
+  });
+
+  test('removing only Recent Items does not warn about signing in again', async ({ page }) => {
+    await boot(page, `{ security_checks: () => [], tcc_permissions: () => ({ needsFda: false, groups: [], cameraMicApps: 0, apps: 0 }),
+      privacy_scan: () => ({ needsFda: false, total: 10, browsers: [], groups: [{ id: 'recent', title: 'Itens recentes', description: '', total: 10, items: [{ id: 5, name: 'com.apple.LSSharedFileList.RecentDocuments.sfl3', path: '/Users/u/x.sfl3', size: 10, selected: true, note: null }] }] }),
+      privacy_remove: ({ ids }) => ({ freed: 10, outcomes: ids.map((id) => ({ id, ok: true, freed: 10, error: null })) }) }`);
+    await nav(page, 'Segurança').click();
+    await page.locator('#dock .go').click();
+    await page.locator('.pr-tile[data-area="privacy"]').getByRole('button', { name: en('Remover') }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Mover para o Lixo') }).click();
+    await expect(page.getByRole('button', { name: en('Concluir') })).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.stage-text')).not.toContainText(en('Pode ser preciso entrar de novo em alguns sites.'));
+  });
+
+  test('Duplicates: the only open set can be collapsed', async ({ page }) => {
+    const it = (id, name) => `{ id: ${id}, name: '${name}', path: '/Users/u/${name}', size: 100, selected: false, note: null, modified: 1, trash: false, accessed: null }`;
+    const grp = (id, n) => `{ id: 'g${id}', title: 'Arquivo ${id}', description: '', total: 200, items: [${it(id * 10 + 1, 'a' + n)}, ${it(id * 10 + 2, 'b' + n)}] }`;
+    const empty = '({ groups: [], total: 0, needsFda: false })';
+    await boot(page, `{ scan_large_at: () => ${empty}, scan_downloads: () => ${empty}, scan_similar: () => ${empty}, scan_duplicates: () => ({ total: 400, needsFda: false, groups: [${grp(1, 1)}, ${grp(2, 2)}] }) }`);
+    await nav(page, 'Arquivos').click();
+    await page.locator('#dock .go').click();
+    await page.locator('.fl-tile[data-cat="dups"] .btn').click();
+    const heads = page.locator('.fm-set-head');
+    await expect(heads.first()).toHaveAttribute('aria-expanded', 'true');
+    await heads.first().click();
+    await expect(heads.first()).toHaveAttribute('aria-expanded', 'false');
+    await heads.nth(1).click();
+    await heads.nth(1).click();
+    await expect(heads.first()).toHaveAttribute('aria-expanded', 'false');
+    await expect(heads.nth(1)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test.describe('sound', () => {
+    test('the first press builds the audio context and one wake resumes it once', async ({ page }) => {
+      await page.addInitScript(() => {
+        window.__ac = { made: 0, resumes: 0 };
+        const C = window.AudioContext || window.webkitAudioContext;
+        const orig = C.prototype.resume;
+        C.prototype.resume = function () { window.__ac.resumes++; return orig.call(this); };
+        const Sub = class extends C { constructor(...a) { super(...a); window.__ac.made++; } };
+        window.AudioContext = Sub; window.webkitAudioContext = Sub;
+      });
+      await boot(page, withSound(JUNK));
+      expect(await page.evaluate(() => window.__ac.made)).toBe(0);
+      const item = page.locator('#nav .nav-item').nth(1);
+      await item.hover();
+      await page.mouse.down();
+      expect(await page.evaluate(() => window.__ac.made)).toBe(1); // created on the press, before the click
+      await page.mouse.up();
+      await page.waitForTimeout(3600); // voices and reverb tail are over: the context is suspended
+      await page.evaluate(() => { window.__ac.resumes = 0; });
+      const other = page.locator('#nav .nav-item').nth(2);
+      await other.hover();
+      await page.mouse.down();
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+      expect(await page.evaluate(() => window.__ac.resumes)).toBe(1);
+    });
+
+    test('a fast scan does not stack the found cue on the start cue', async ({ page }) => {
+      await recordTimes(page);
+      await boot(page, withSound(JUNK));
+      await nav(page, 'Entulho').click();
+      await page.waitForTimeout(400);
+      await page.evaluate(() => { window.__tt = []; });
+      await page.locator('#dock .go').click();
+      await expect(page.getByRole('button', { name: en('Revisar todo o lixo') })).toBeVisible();
+      await page.waitForTimeout(900);
+      const tt = await page.evaluate(() => window.__tt);
+      const start = tt.find(([f]) => f === 784);
+      const found = tt.find(([f, t]) => f === 1047 && start && t > start[1]);
+      expect(start).toBeTruthy();
+      expect(found).toBeTruthy();
+      expect(found[1] - start[1]).toBeGreaterThanOrEqual(400);
+    });
+
+    const openRowMenu = async (page) => {
+      await page.getByRole('button', { name: en('Revisar todo o lixo') }).click();
+      const more = page.locator('.rv-item .rv-act[aria-haspopup="menu"]').first();
+      await more.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.locator('.ctx-menu')).toBeVisible();
+      await page.waitForTimeout(300);
+      await page.evaluate(() => { window.__tones = []; });
+    };
+
+    test('a context-menu item that answers with a toast plays no menu tick on top of it', async ({ page }) => {
+      await recordTones(page);
+      await boot(page, withSound(JUNK));
+      await scanJunk(page);
+      await openRowMenu(page);
+      await page.getByRole('menuitem', { name: en('Ignorar') }).click();
+      await expect(page.locator('.toast')).toBeVisible();
+      await page.waitForTimeout(500);
+      const tones = await page.evaluate(() => window.__tones);
+      expect(tones).toContain(1319); // 'ok'
+      expect(tones).not.toContain(2093); // 'menu'
+    });
+
+    test('Select from the context menu ticks like the checkbox', async ({ page }) => {
+      await recordTones(page);
+      await boot(page, withSound(JUNK));
+      await scanJunk(page);
+      await openRowMenu(page);
+      await page.getByRole('menuitem', { name: en('Selecionar'), exact: true }).click(); // the first row (largest) starts unselected
+      await page.waitForTimeout(500);
+      const tones = await page.evaluate(() => window.__tones);
+      expect(tones).toContain(1976); // 'tick'
+      expect(tones).not.toContain(2093);
+    });
+
+    test('favoriting a tool with the star ticks', async ({ page }) => {
+      await recordTones(page);
+      await boot(page, `{ ${SOUND_ON} }`);
+      await nav(page, 'Ferramentas').click();
+      await page.waitForTimeout(500);
+      await page.evaluate(() => { window.__tones = []; });
+      await page.locator('.tl-star').nth(1).click();
+      await page.waitForTimeout(300);
+      expect(await page.evaluate(() => window.__tones)).toContain(1976); // 'tick'
+    });
+  });
+});

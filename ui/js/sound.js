@@ -13,22 +13,40 @@ function impulse(a, seconds = 1.8, decay = 3.2) {
   return buf;
 }
 
+// Builds the context and the voice bus. The reverb impulse is generated afterwards (idle time): the first cue plays
+// dry instead of waiting ~25 ms for the convolver buffer.
+function build() {
+  if (ac) return ac;
+  const C = window.AudioContext || window.webkitAudioContext;
+  if (!C) return null;
+  ac = new C();
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value = -18; comp.ratio.value = 3; comp.attack.value = 0.004; comp.release.value = 0.2;
+  const out = ac.createGain(); out.gain.value = 0.55;
+  const verb = ac.createConvolver();
+  const wet = ac.createGain(); wet.gain.value = 0.28;
+  bus = ac.createGain();
+  bus.connect(comp); bus.connect(verb); verb.connect(wet); wet.connect(comp);
+  comp.connect(out); out.connect(ac.destination);
+  const ctx = ac;
+  const fill = () => { try { verb.buffer = impulse(ctx); } catch (e) { /* dry only */ } };
+  if (window.requestIdleCallback) requestIdleCallback(fill, { timeout: 800 }); else setTimeout(fill, 60);
+  return ac;
+}
+
+// One resume at a time: while the first is pending the context still reads 'suspended', and a second resume() call
+// blocks the main thread for ~100 ms in WebKit (it would run inside the click handler, right after warm()'s).
+let resuming = null;
+function wake() {
+  if (resuming) return;
+  sleeping = false;
+  resuming = ac.resume().catch(() => {}).finally(() => { resuming = null; });
+}
+
 function audio() {
-  if (!ac) {
-    const C = window.AudioContext || window.webkitAudioContext;
-    if (!C) return null;
-    ac = new C();
-    const comp = ac.createDynamicsCompressor();
-    comp.threshold.value = -18; comp.ratio.value = 3; comp.attack.value = 0.004; comp.release.value = 0.2;
-    const out = ac.createGain(); out.gain.value = 0.55;
-    const verb = ac.createConvolver(); verb.buffer = impulse(ac);
-    const wet = ac.createGain(); wet.gain.value = 0.28;
-    bus = ac.createGain();
-    bus.connect(comp); bus.connect(verb); verb.connect(wet); wet.connect(comp);
-    comp.connect(out); out.connect(ac.destination);
-  }
+  if (!build()) return null;
   // `sleeping`: a suspend() may still be pending (state reads 'running'); resume() queues after it.
-  if (sleeping || ac.state === 'suspended') { sleeping = false; ac.resume().catch(() => {}); }
+  if (sleeping || ac.state === 'suspended') wake();
   return ac;
 }
 
@@ -150,19 +168,29 @@ function sleepLater() {
 export const lastPlayedAt = () => lastAt;
 
 // Wakes a suspended context ahead of the gesture's sound: restarting the output device takes ~100 ms, which hides in the
-// gap between pointerdown/keydown and click instead of delaying the cue. Never creates the context (that happens on play).
+// gap between pointerdown/keydown and click instead of delaying the cue. The first press also creates the context, so the
+// cold device start overlaps the press instead of freezing the click handler of the first cue.
 export function warm() {
-  if (!enabled || !ac || document.hidden || !document.hasFocus() || document.body.classList.contains('idle')) return;
+  if (!enabled || document.hidden || !document.hasFocus() || document.body.classList.contains('idle')) return;
+  if (!build()) return;
   if (!sleeping && ac.state !== 'suspended') return;
-  sleeping = false;
-  ac.resume().catch(() => {});
+  wake();
   if (!active) sleepLater(); // nothing may follow (a press that plays no cue): go back to sleep
 }
+
+// A scan that returns almost at once would stack 'found' on the still-ringing 'start' (both use a 1568 Hz bell): 'found'
+// waits until the start cue has had this long.
+const FOUND_AFTER_START = 450;
+let foundTimer = 0;
 
 export function play(name) {
   if (!enabled || !SOUNDS[name]) return;
   if (!RESULT.has(name) && (!document.hasFocus() || document.body.classList.contains('idle'))) return;
   const now = performance.now();
+  if (name === 'found') {
+    const wait = FOUND_AFTER_START - (now - (last.get('start') ?? -1e9));
+    if (wait > 0) { if (!foundTimer) foundTimer = setTimeout(() => { foundTimer = 0; play('found'); }, wait); return; }
+  }
   if (now - (last.get(name) ?? -1e9) < MIN_GAP) return;
   if (DUCK[name] && DUCK[name].some(([n, ms]) => now - (last.get(n) ?? -1e9) < ms)) return;
   if (active >= MAX_VOICES) return;

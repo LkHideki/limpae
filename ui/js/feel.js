@@ -35,6 +35,24 @@ function afterPrimary() {
   const t0 = performance.now();
   later(() => { if (lastPlayedAt() < t0) play('pop'); });
 }
+// Context-menu item: a "Select/Deselect" item sounds like the checkbox it toggles (data-selects = the resulting state).
+// Any other item gets the menu tick only if its outcome (e.g. the "ignored" toast, after the IPC call) stayed silent.
+function afterMenuItem(item) {
+  const to = item.dataset.selects;
+  if (to) return play(to === 'on' ? 'tick' : 'untick');
+  const t0 = performance.now();
+  setTimeout(() => { if (lastPlayedAt() < t0) play('menu'); }, 150);
+}
+// Toggle buttons (aria-pressed, e.g. the favorite star): tick/untick from the state after the click.
+function afterPressed(el) {
+  const prev = el.getAttribute('aria-pressed') === 'true';
+  const t0 = performance.now();
+  later(() => {
+    if (lastPlayedAt() >= t0) return;
+    const on = el.isConnected ? el.getAttribute('aria-pressed') === 'true' : !prev;
+    if (on !== prev) play(on ? 'tick' : 'untick');
+  });
+}
 // Menu opens synchronously on click/context; checks whether a new one appeared.
 function afterMenuOpener() {
   const before = document.querySelector('.ctx-menu');
@@ -59,11 +77,14 @@ document.addEventListener('click', (e) => {
   const nav = el.closest('.nav-item');
   // Locked (a scan or removal is running): navigate() refuses, so the whoosh would answer nothing.
   if (nav) { if (nav.getAttribute('aria-current') !== 'page' && !document.body.classList.contains('locked')) play('nav'); return; }
-  if (el.closest('.ctx-item:not(:disabled), .fm-menu button:not(:disabled)')) return play('menu');
+  const item = el.closest('.ctx-item:not(:disabled), .fm-menu button:not(:disabled)');
+  if (item) return afterMenuItem(item);
   const opener = el.closest('[aria-haspopup="menu"]');
   if (opener) return afterMenuOpener();
-  const sel = el.closest('.chip, .seg button');
-  if (sel) { if (sel.getAttribute('aria-pressed') !== 'true') play('tick'); return; }
+  const sel = el.closest('.chip, .seg button, [role="radio"]');
+  if (sel) { if (sel.getAttribute('aria-pressed') !== 'true' && sel.getAttribute('aria-checked') !== 'true') play('tick'); return; }
+  const pressed = el.closest('button[aria-pressed]');
+  if (pressed) return afterPressed(pressed);
   // Dialog buttons get the close sound.
   if (el.closest('.btn.primary, .go') && !el.closest('.modal')) afterPrimary();
 }, true);
