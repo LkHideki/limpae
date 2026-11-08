@@ -60,6 +60,7 @@ fn main() {
             commands::open_app,
             commands::reveal_log,
             commands::open_fda_settings,
+            commands::relaunch,
             commands::get_settings,
             commands::set_settings,
             commands::ignore_item,

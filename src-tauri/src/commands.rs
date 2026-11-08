@@ -430,6 +430,12 @@ pub async fn open_fda_settings() -> Result<(), String> {
     blocking(|| open(&[OsStr::new("x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")])).await
 }
 
+/// Reopens the app: some macOS versions apply a new Full Disk Access grant only to a fresh process.
+#[tauri::command]
+pub fn relaunch(app: AppHandle) {
+    app.restart();
+}
+
 #[tauri::command]
 pub fn get_settings(state: State<'_, Shared>) -> Settings {
     lock(&state.settings).clone()

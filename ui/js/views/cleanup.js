@@ -9,6 +9,12 @@ import { confirmDialog, failuresSheet, stage, features } from '../ui.js';
 import { removeGroups, stopDock } from '../actions.js';
 import { createReview } from './review.js';
 import { t, tn, tr } from '../i18n.js';
+import { showGuide } from '../fda.js';
+
+// Junk under protected parts of ~/Library is invisible without Full Disk Access; say so instead of looking complete.
+const fdaHint = (r) => (r && r.needsFda
+  ? h('p', { class: 'fda-hint' }, t('Sem Acesso Total ao Disco, parte do lixo em ~/Library não aparece aqui.') + ' ', h('button', { class: 'link', type: 'button', onClick: () => showGuide() }, t('Como conceder')))
+  : null);
 
 const bigNum = (n, cap) => [
   h('div', { class: 'big' }, bytesParts(n).value, h('small', null, bytesParts(n).unit)),
@@ -81,7 +87,7 @@ export function enter(ctx) {
       ensureStage();
       st.busy(false);
       st.show(h('h1', { class: 'h1' }, t('Tudo limpo')), h('p', { class: 'sub' }, t('Não encontramos lixo para remover agora.')),
-        h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, t('Analisar de novo'))));
+        h('div', { class: 'row-actions' }, h('button', { class: 'btn', type: 'button', onClick: () => { store.junk = null; C.phase = 'idle'; render(); } }, t('Analisar de novo'))), fdaHint(r));
       ctx.setDock(null);
       return;
     }
@@ -107,7 +113,8 @@ export function enter(ctx) {
         h('div', { class: 'fl-tile-s' }, pre.length ? t('{size} pré-selecionados. {blurb}', { size: fmtBytes(preBytes), blurb: tl.blurb }) : t('Nada pré-selecionado: revise para escolher. {blurb}', { blurb: tl.blurb })),
         h('div', { class: 'cl-tile-act' },
           h('button', { class: 'btn sm', type: 'button', onClick: () => review(gs[0].id) }, t('Revisar')),
-          h('button', { class: 'btn sm primary', type: 'button', disabled: !pre.length, onClick: () => clean(new Set(pre.map((i) => i.id))) }, t('Limpar'))))))));
+          h('button', { class: 'btn sm primary', type: 'button', disabled: !pre.length, onClick: () => clean(new Set(pre.map((i) => i.id))) }, t('Limpar')))))),
+      fdaHint(r)));
     ctx.setDock({ label: t('Limpar'), mod: 'clean', disabled: sel.bytes === 0, onClick: () => clean() });
   }
 

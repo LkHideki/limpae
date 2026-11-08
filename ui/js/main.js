@@ -22,6 +22,7 @@ import './feel.js';
 import './motion.js';
 import { applyLangSetting, onLang, t, tn, tr } from './i18n.js';
 import { restoreBatches } from './undo.js';
+import { maybeOnboard, noticeGrant, openSettings, relaunch, showGuide, visitedSettings } from './fda.js';
 
 const VIEWS = { smart, clean, trash, protect, perf, apps, files, lens, cloud, tools, activity, settings };
 const view = document.getElementById('view');
@@ -91,7 +92,9 @@ function renderFoot() {
     if (d.fda === false && !fdaDismissed) {
       kids.push(h('div', { class: 'fda-banner' },
         h('b', null, t('Acesso Total ao Disco')), h('span', { class: 'fda-desc' }, t('Conceda para uma análise completa, incluindo a Lixeira.')),
-        h('div', null, h('button', { class: 'link', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Abrir Ajustes'))),
+        h('div', { class: 'fda-acts' },
+          h('button', { class: 'link', type: 'button', onClick: () => showGuide().then(renderFoot) }, t('Como conceder')),
+          visitedSettings() ? h('button', { class: 'link', type: 'button', onClick: relaunch }, t('Reabrir o Limpae')) : null),
         h('button', { class: 'x', type: 'button', 'aria-label': t('Dispensar aviso'), onClick: () => { fdaDismissed = true; try { localStorage.setItem('limpae.fda.dismissed', '1'); } catch (e) { /* ignore */ } renderFoot(); } }, icon('x', 14))));
     }
   }
@@ -99,9 +102,14 @@ function renderFoot() {
 }
 
 async function refreshDisk() {
+  const before = store.disk;
   try { store.disk = await api.disk(); } catch (e) { /* no disk info */ }
   renderFoot();
+  return noticeGrant(before, store.disk);
 }
+
+// Coming back from System Settings: re-check access (and free space) so the grant shows up without a restart.
+window.addEventListener('focus', () => { if (store.disk && store.disk.fda === false) refreshDisk(); });
 
 // Request from the menu bar menu ("Sweep…", "Empty Trash…", "Settings…"). Respects the
 // in-progress operation lock: without `force`, a cleanup or scan is never interrupted by a click there.
@@ -137,6 +145,6 @@ api.settings().catch(() => null).then((st) => {
   if (st) { store.settings = st; setSoundEnabled(st.sounds); }
   applyLangSetting(st && st.language);
   buildNav();
-  refreshDisk();
+  refreshDisk().then(() => maybeOnboard(store.disk));
   navigate('smart');
 });
