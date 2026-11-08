@@ -99,6 +99,10 @@ const HOME_FORBIDDEN: &[&str] = &[
     ".gnupg",
 ];
 
+/// Folders that hold the user's own files. Junk is regenerable by definition, so a junk root that resolves into
+/// one of these (e.g. a cache folder symlinked into Documents) is not a junk root.
+const HOME_USER_CONTENT: &[&str] = &["Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music", "Public"];
+
 const APP_ROOTS: &[&str] = &["/Applications"];
 
 /// Top-level entries of an external volume that hold system or backup state, never user data to clean.
@@ -162,6 +166,7 @@ pub struct Guard {
     home: PathBuf,
     protected: Vec<PathBuf>,
     forbidden: Vec<PathBuf>,
+    user_content: Vec<PathBuf>,
     app_roots: Vec<PathBuf>,
     trash: PathBuf,
 }
@@ -177,10 +182,11 @@ impl Guard {
         protected.push(home.clone());
         protected.extend(HOME_PROTECTED.iter().map(|p| canon(&home.join(p))));
         let forbidden = HOME_FORBIDDEN.iter().map(|p| canon(&home.join(p))).collect();
+        let user_content = HOME_USER_CONTENT.iter().map(|p| canon(&home.join(p))).collect();
         let mut app_roots: Vec<PathBuf> = APP_ROOTS.iter().map(|p| canon(Path::new(p))).collect();
         app_roots.push(canon(&home.join("Applications")));
         let trash = canon(&home.join(".Trash"));
-        Self { home, protected, forbidden, app_roots, trash }
+        Self { home, protected, forbidden, user_content, app_roots, trash }
     }
 
     pub fn home(&self) -> &Path {
@@ -213,7 +219,10 @@ impl Guard {
         let allowed = match policy {
             Policy::DeleteJunk { root } => {
                 let root = fs::canonicalize(root).map_err(|_| GuardError::InvalidRoot)?;
-                if !root.starts_with(&self.home) || root == self.home {
+                if !root.starts_with(&self.home)
+                    || root == self.home
+                    || self.user_content.iter().any(|u| root.starts_with(u))
+                {
                     return Err(GuardError::InvalidRoot);
                 }
                 real.starts_with(&root) && real != root
