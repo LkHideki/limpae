@@ -280,7 +280,7 @@ pub async fn privacy_remove(
     let st = Arc::clone(state.inner());
     blocking(move || {
         let stop = std::sync::atomic::AtomicBool::new(false);
-        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&stop), undo: None };
+        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&stop), ..Default::default() };
         Ok(remove_privacy(&st, &ids, &running_bundle_ids(), opts))
     })
     .await

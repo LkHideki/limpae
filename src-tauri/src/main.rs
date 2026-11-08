@@ -69,6 +69,7 @@ fn main() {
             commands::ignore_item,
             commands::list_ignored,
             commands::unignore,
+            commands::ignore_folder,
             commands::trash_history,
             commands::restore_trashed,
             cmd_cleanup::quick_look,

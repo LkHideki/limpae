@@ -96,11 +96,12 @@ pub(crate) fn simulate(
     keys: &HashSet<String>,
 ) -> Simulation {
     let resolved = lock(&st.registry).resolve_removal(ids);
+    let excluded = lock(&st.settings).excluded_for_removal();
     let mut sim = Simulation::default();
     let (busy, free): (Vec<_>, Vec<_>) = resolved.items.into_iter().partition(|(_, it)| cache_of_running_app(it, keys));
     let plain: Vec<_> = free.iter().map(|(_, it)| it.clone()).collect();
     let mut rows: Vec<(u64, Plan)> =
-        free.iter().map(|(id, _)| *id).zip(preflight(&plain, &st.guard, permanent)).collect();
+        free.iter().map(|(id, _)| *id).zip(preflight(&plain, &st.guard, permanent, &excluded)).collect();
     for (id, it) in busy {
         rows.push((id, Plan { path: it.path, action: "apagar", size: it.size, error: Some(ERR_APP_OPEN.into()) }));
     }

@@ -108,7 +108,6 @@ export default {
   'Arquivos, apps e restos são apagados sem passar pelo Lixo. Cada confirmação ainda deixa você escolher. Caches e registros regeneráveis sempre são apagados direto.': { en: 'Files, apps, and leftovers are deleted without going to the Trash. Each confirmation still lets you choose. Regenerable caches and logs are always deleted directly.', id: 'File, aplikasi, dan sisa dihapus tanpa melalui Tempat Sampah. Setiap konfirmasi tetap memungkinkan Anda memilih. Cache dan log yang dapat dibuat ulang selalu dihapus langsung.' },
   'Módulos incluídos na análise.': { en: 'Modules included in the scan.', id: 'Modul yang disertakan dalam pemindaian.' },
   'Lista de ignorados': { en: 'Ignored list', id: 'Daftar yang diabaikan' },
-  'Itens ignorados não aparecem em nenhuma análise. As mudanças valem na próxima análise.': { en: 'Ignored items don\'t appear in any scan. Changes take effect on the next scan.', id: 'Item yang diabaikan tidak muncul di pemindaian mana pun. Perubahan berlaku pada pemindaian berikutnya.' },
   'Parar de ignorar {path}': { en: 'Stop ignoring {path}', id: 'Berhenti mengabaikan {path}' },
   'Nenhum item ignorado. Clique com o botão direito em um item da revisão para ignorá-lo.': { en: 'No ignored items. Right-click an item in the review to ignore it.', id: 'Tidak ada item yang diabaikan. Klik kanan item pada tinjauan untuk mengabaikannya.' },
   'Não foi possível ler os ajustes.': { en: 'Couldn\'t read the settings.', id: 'Tidak dapat membaca pengaturan.' },
@@ -174,4 +173,7 @@ export default {
   'Ver relatório': { en: 'Show report', id: 'Lihat laporan' },
   'Fechar': { en: 'Close', id: 'Tutup' },
   'Relatório não encontrado.': { en: 'Report not found.', id: 'Laporan tidak ditemukan.' },
+  'Adicionar pasta…': { en: 'Add folder…', id: 'Tambah folder…' },
+  'Itens ignorados não aparecem em nenhuma análise e nunca são removidos, nem o que estiver dentro deles.': { en: 'Ignored items never show up in a scan and are never removed, nor is anything inside them.', id: 'Item yang diabaikan tidak muncul di pemindaian mana pun dan tidak pernah dihapus, begitu pula isinya.' },
+  'Escolha uma pasta que o Limpae nunca deve tocar': { en: 'Choose a folder Limpae must never touch', id: 'Pilih folder yang tidak boleh disentuh Limpae' },
 };

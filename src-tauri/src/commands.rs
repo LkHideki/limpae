@@ -254,7 +254,8 @@ pub async fn app_leftovers(app: AppHandle, state: State<'_, Shared>, app_id: u64
 pub(crate) fn run_removal_with(st: &AppState, items: &[(u64, Item)], opts: RemoveOptions) -> HashMap<u64, OutcomeDto> {
     let plain: Vec<Item> = items.iter().map(|(_, it)| it.clone()).collect();
     let batch = new_batch_id();
-    let opts = RemoveOptions { undo: Some((&st.journal, &batch)), ..opts };
+    let excluded = lock(&st.settings).excluded_for_removal();
+    let opts = RemoveOptions { undo: Some((&st.journal, &batch)), excluded: &excluded, ..opts };
     let outcomes = remove_items_with(&plain, &st.guard, &SystemRemover, &st.log, opts);
     let mut by_id = HashMap::new();
     let mut done = Vec::new();
@@ -289,7 +290,8 @@ pub async fn remove(state: State<'_, Shared>, ids: Vec<u64>, permanent: Option<b
     blocking(move || {
         // Registered like a scan so the Stop button (cancel_scan) halts the batch between items.
         let session = ScanSession::new(&st);
-        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&session.flag), undo: None };
+        let opts =
+            RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&session.flag), ..Default::default() };
         let mut resolved = lock(&st.registry).resolve_removal(&ids);
         // An app opened after the scan must not lose its cache while running.
         let keys = running_keys();
@@ -314,7 +316,8 @@ pub async fn uninstall(
     let st = Arc::clone(state.inner());
     blocking(move || {
         let session = ScanSession::new(&st);
-        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&session.flag), undo: None };
+        let opts =
+            RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&session.flag), ..Default::default() };
         let info = lock(&st.apps).get(&app_id).cloned().ok_or(ERR_APP_GONE)?;
         let running = running_bundle_ids();
         if running.contains(&info.bundle_id) {
@@ -474,6 +477,35 @@ pub fn ignore_item(state: State<'_, Shared>, id: u64) -> Result<(), String> {
 #[tauri::command]
 pub fn list_ignored(state: State<'_, Shared>) -> Vec<String> {
     lock(&state.settings).ignored.iter().map(|p| p.to_string_lossy().into_owned()).collect()
+}
+
+/// Lets the user pick a folder in the system's own chooser and adds it to the ignore list: hidden from every scan
+/// and refused by every removal. `prompt` is the already translated chooser title. Returns the list, or `None`
+/// when the user cancelled. osascript's `choose folder` is a Standard Additions dialog: no Automation prompt.
+#[tauri::command]
+pub async fn ignore_folder(state: State<'_, Shared>, prompt: String) -> Result<Option<Vec<String>>, String> {
+    let st = Arc::clone(state.inner());
+    blocking(move || {
+        let esc = prompt.replace('\\', "\\\\").replace('"', "\\\"");
+        let script = format!("POSIX path of (choose folder with prompt \"{esc}\")");
+        let out = Command::new("/usr/bin/osascript")
+            .args(["-e", &script])
+            .output()
+            .map_err(|e| format!("Não foi possível abrir o seletor de pastas: {e}"))?;
+        if !out.status.success() {
+            return Ok(None); // -128: the user cancelled
+        }
+        let raw = String::from_utf8_lossy(&out.stdout).trim().trim_end_matches('/').to_string();
+        let path = PathBuf::from(if raw.is_empty() { "/".into() } else { raw });
+        if !path.is_absolute() || !std::fs::metadata(&path).is_ok_and(|m| m.is_dir()) {
+            return Err("Essa pasta não pode ser ignorada.".into());
+        }
+        let mut s = lock(&st.settings);
+        s.ignore(path);
+        s.save(&st.settings_path).map_err(|e| format!("Não foi possível salvar a lista de ignorados: {e}"))?;
+        Ok(Some(s.ignored.iter().map(|p| p.to_string_lossy().into_owned()).collect()))
+    })
+    .await
 }
 
 /// Removing an entry from the ignore list only makes the path visible to scans again; nothing on disk changes.

@@ -246,4 +246,7 @@ export default {
   'a pasta original não existe mais': { en: 'the original folder no longer exists', id: 'folder asli sudah tidak ada' },
   'o item está em outro disco; use “Devolver” no Finder': { en: 'the item is on another disk; use “Put Back” in the Finder', id: 'item ada di disk lain; gunakan “Kembalikan” di Finder' },
   'sem permissão para restaurar este item': { en: 'no permission to restore this item', id: 'tidak ada izin untuk memulihkan item ini' },
+  'está na sua lista de ignorados': { en: 'is on your ignore list', id: 'ada di daftar abaikan Anda' },
+  'Essa pasta não pode ser ignorada.': { en: 'This folder cannot be ignored.', id: 'Folder ini tidak dapat diabaikan.' },
+  'Não foi possível abrir o seletor de pastas: {e}': { en: 'Couldn’t open the folder chooser: {e}', id: 'Tidak dapat membuka pemilih folder: {e}' },
 };

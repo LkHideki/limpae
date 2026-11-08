@@ -71,6 +71,7 @@ export const api = {
   ignore: (id) => call('ignore_item', { id }),
   ignored: () => call('list_ignored', undefined, { quiet: true }),
   unignore: (path) => call('unignore', { path }),
+  ignoreFolder: (prompt) => call('ignore_folder', { prompt }),
   quickLook: (id) => call('quick_look', { id }),
   clutterLocations: () => call('clutter_locations', undefined, { quiet: true }),
   duplicates: (location) => call('scan_duplicates', { location }),

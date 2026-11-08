@@ -102,6 +102,21 @@ impl Settings {
         fs::rename(tmp, path)
     }
 
+    /// The ignore list as removal checks need it: each entry as written and, when different, canonicalized, so
+    /// a symlinked spelling still matches the resolved path of an item.
+    pub fn excluded_for_removal(&self) -> Vec<PathBuf> {
+        let mut out = Vec::with_capacity(self.ignored.len() * 2);
+        for p in &self.ignored {
+            out.push(p.clone());
+            if let Ok(real) = std::fs::canonicalize(p)
+                && &real != p
+            {
+                out.push(real);
+            }
+        }
+        out
+    }
+
     pub fn is_ignored(&self, path: &Path) -> bool {
         self.ignored.iter().any(|i| path.starts_with(i))
     }

@@ -127,6 +127,25 @@ pub struct RemoveOptions<'a> {
     pub cancel: Option<&'a AtomicBool>,
     /// Journal and batch id for undo; Trash moves are journaled only when both are set.
     pub undo: Option<(&'a TrashJournal, &'a str)>,
+    /// The user's ignore list: an item inside, or containing, one of these paths is refused.
+    pub excluded: &'a [PathBuf],
+}
+
+pub const EXCLUDED: &str = "está na sua lista de ignorados";
+
+/// Whether removing `item` (resolved to `real`) would touch an ignored path: the item is inside one, or one is
+/// inside the item (deleting a folder deletes what it holds).
+fn touches_excluded(item: &Item, real: &Path, excluded: &[PathBuf]) -> bool {
+    excluded
+        .iter()
+        .any(|e| real.starts_with(e) || item.path.starts_with(e) || e.starts_with(real) || e.starts_with(&item.path))
+}
+
+/// All the checks a removal makes before acting, in order: Guard, file identity, ignore list.
+fn validate(item: &Item, guard: &Guard, excluded: &[PathBuf]) -> Result<PathBuf, String> {
+    let real =
+        guard.check(&item.path, &item.policy).and_then(|real| same_file(item, real)).map_err(|e| e.to_string())?;
+    if touches_excluded(item, &real, excluded) { Err(EXCLUDED.into()) } else { Ok(real) }
 }
 
 pub const CANCELLED: &str = "cancelado; o item continua no lugar";
@@ -146,11 +165,11 @@ fn remove_one(item: &Item, guard: &Guard, r: &dyn Remover, log: &ActionLog, opts
     if opts.cancelled() {
         return Outcome { path: item.path.clone(), ok: false, freed: 0, error: Some(CANCELLED.into()) };
     }
-    let real = match guard.check(&item.path, &item.policy).and_then(|real| same_file(item, real)) {
+    let real = match validate(item, guard, opts.excluded) {
         Ok(real) => real,
         Err(err) => {
             log.record("recusado", &item.path, false, 0);
-            return Outcome { path: item.path.clone(), ok: false, freed: 0, error: Some(err.to_string()) };
+            return Outcome { path: item.path.clone(), ok: false, freed: 0, error: Some(err) };
         }
     };
     let (action, result) = match item.policy {
@@ -192,7 +211,7 @@ pub struct Plan {
 
 /// Dry run of [`remove_items_with`]: the same Guard and identity checks, in input order, with no removal and no
 /// log line. The disk can still change before a real removal, which checks everything again.
-pub fn preflight(items: &[Item], guard: &Guard, permanent: bool) -> Vec<Plan> {
+pub fn preflight(items: &[Item], guard: &Guard, permanent: bool, excluded: &[PathBuf]) -> Vec<Plan> {
     items
         .iter()
         .map(|item| {
@@ -202,8 +221,8 @@ pub fn preflight(items: &[Item], guard: &Guard, permanent: bool) -> Vec<Plan> {
                 Policy::MoveToTrash if permanent => "apagar-definitivo",
                 Policy::MoveToTrash => "lixo",
             };
-            let error = guard.check(&item.path, &item.policy).and_then(|real| same_file(item, real)).err();
-            Plan { path: item.path.clone(), action, size: item.size, error: error.map(|e| e.to_string()) }
+            let error = validate(item, guard, excluded).err();
+            Plan { path: item.path.clone(), action, size: item.size, error }
         })
         .collect()
 }
@@ -620,12 +639,34 @@ mod tests {
             f.item(doc.clone(), Policy::MoveToTrash),
             f.item(doc.clone(), f.junk()), // outside its root
         ];
-        let plans = preflight(&items, &f.guard, false);
+        let plans = preflight(&items, &f.guard, false, &[]);
         let got: Vec<_> = plans.iter().map(|p| (p.action, p.error.as_deref())).collect();
         assert_eq!(got, [("apagar", None), ("lixo", None), ("apagar", Some("fora da área permitida"))]);
-        assert_eq!(preflight(&items[1..2], &f.guard, true)[0].action, "apagar-definitivo");
+        assert_eq!(preflight(&items[1..2], &f.guard, true, &[])[0].action, "apagar-definitivo");
         assert!(dir.exists() && doc.exists());
         assert!(f.log_lines().is_empty(), "a dry run writes nothing to the log");
+    }
+
+    #[test]
+    fn ignored_paths_are_refused_inside_and_around() {
+        let f = fixture();
+        let a = f.cache_dir("com.a");
+        let b = f.cache_dir("com.b");
+        let c = f.cache_dir("com.c");
+        let excluded = vec![a.clone(), b.join("keep")];
+        fs::create_dir_all(b.join("keep")).unwrap();
+        let items = vec![
+            f.item(a.join("a"), f.junk()), // inside an ignored folder
+            f.item(b.clone(), f.junk()),   // contains an ignored folder
+            f.item(c.clone(), f.junk()),   // unrelated: removed
+        ];
+        let opts = RemoveOptions { excluded: &excluded, ..Default::default() };
+        let out = remove_items_with(&items, &f.guard, &SystemRemover, &f.log, opts);
+        assert_eq!(out[0].error.as_deref(), Some(EXCLUDED));
+        assert_eq!(out[1].error.as_deref(), Some(EXCLUDED));
+        assert!(out[2].ok);
+        assert!(a.join("a").exists() && b.join("keep").exists());
+        assert_eq!(preflight(&items[..1], &f.guard, false, &excluded)[0].error.as_deref(), Some(EXCLUDED));
     }
 
     #[test]

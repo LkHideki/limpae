@@ -49,14 +49,22 @@ export function enter(ctx) {
       h('section', { class: 'set-card' }, h('h3', null, t('Faxina')),
         h('p', { class: 'set-hint' }, t('Módulos incluídos na análise.')),
         scopeList().map(([k, label]) => toggle(label, null, scope[k] !== false, (v) => save({ ...s, smartCare: { ...scope, [k]: v } })))),
-      h('section', { class: 'set-card' }, h('h3', null, t('Lista de ignorados')),
-        h('p', { class: 'set-hint' }, t('Itens ignorados não aparecem em nenhuma análise. As mudanças valem na próxima análise.')),
+      h('section', { class: 'set-card' }, h('div', { class: 'set-card-head' }, h('h3', null, t('Lista de ignorados')),
+        h('button', { class: 'btn sm', type: 'button', onClick: addFolder }, t('Adicionar pasta…'))),
+        h('p', { class: 'set-hint' }, t('Itens ignorados não aparecem em nenhuma análise e nunca são removidos, nem o que estiver dentro deles.')),
         ignored.length
           ? h('div', { class: 'ign-list' }, ignored.map((p) => h('div', { class: 'ign-row' },
             h('span', { class: 'ign-path', title: p }, mid(p, 48)),
             h('button', { class: 'btn sm ghost', type: 'button', 'aria-label': t('Parar de ignorar {path}', { path: p }), onClick: () => unignore(p) }, icon('x', 14), t('Remover')))))
           : h('div', { class: 'set-empty' }, t('Nenhum item ignorado. Clique com o botão direito em um item da revisão para ignorá-lo.'))),
     );
+  }
+
+  async function addFolder() {
+    try {
+      const list = await api.ignoreFolder(t('Escolha uma pasta que o Limpae nunca deve tocar'));
+      if (list) { ignored = list; render(); }
+    } catch (e) { /* toast already shown */ }
   }
 
   async function unignore(p) {
