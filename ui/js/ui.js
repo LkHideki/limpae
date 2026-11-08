@@ -6,8 +6,8 @@ import { t, tn, tr } from './i18n.js';
 
 // kind: 'err' (default), 'ok' or 'info' (neutral outcome, e.g. nothing to do: no error styling or sound).
 // action: { label, onClick } adds a button (e.g. "Undo"); the toast then stays longer and closes when clicked.
-// The countdown only runs while the toast can be read: it waits while the window is idle (the entrance animation
-// is paused there, so the toast is invisible) and, with an action, while the pointer or focus is on it.
+// The countdown only runs while the toast can be read: it waits while the window is idle (nobody is looking at
+// it) and, with an action, while the pointer or focus is on it.
 const liveToasts = new Set();
 const isIdle = () => document.hidden || document.body.classList.contains('idle');
 if (window.MutationObserver) new MutationObserver(() => liveToasts.forEach((f) => f())).observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -85,6 +85,9 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
       h('div', { class: 'btns' + (btns.length === 1 ? ' single' : '') }, btns));
     const back = h('div', { class: 'modal-back', role: 'presentation', onMouseDown: (e) => { if (e.target === back) finish(buttons[0].value); } }, card);
     function onKey(e) {
+      // Stacked dialogs: only the top-most one reacts (one Esc closes one dialog, not all of them).
+      const open = root.querySelectorAll('.modal-back:not(.out)');
+      if (open[open.length - 1] !== back) return;
       if (e.key === 'Escape') { e.stopPropagation(); finish(buttons[0].value); }
       else if (e.key === 'Tab') {
         // Cycles through every control in the card (the permanent-delete switch, links in the body), not only the footer.
@@ -98,7 +101,7 @@ function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, ext
     document.addEventListener('keydown', onKey, true);
     root.append(back);
     // Destructive: initial focus on Cancel, so Enter does not confirm by accident.
-    requestAnimationFrame(() => requestAnimationFrame(() => { back.classList.add('in'); btns[danger ? 0 : btns.length - 1].focus({ preventScroll: true }); }));
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (done) return; back.classList.add('in'); btns[danger ? 0 : btns.length - 1].focus({ preventScroll: true }); }));
   });
 }
 
@@ -243,17 +246,31 @@ export function createGo(host) {
   const label = h('span', { class: 'go-label' });
   const btn = h('button', { class: 'go', type: 'button' }, ring, label);
   const arc = ring.querySelector('.arc');
-  let handler = null;
+  let handler = null, resetTimer = 0;
+  // Ring back to its idle look, without animating the arc (its dashoffset transition would sweep a bright arc across).
+  const resetRing = () => {
+    clearTimeout(resetTimer); resetTimer = 0;
+    btn.classList.remove('busy', 'det');
+    arc.style.transition = 'none'; arc.setAttribute('stroke-dashoffset', '0'); arc.getBoundingClientRect(); arc.style.transition = '';
+  };
   btn.addEventListener('click', () => handler && handler());
   host.append(btn);
   return {
     set(cfg) {
       if (!cfg) {
+        // A keyboard user who started the action from this button would lose focus to <body> once it is disabled and
+        // hidden: it moves to the screen's primary action (e.g. "Done") instead.
+        if (document.activeElement === btn && btn.matches(':focus-visible')) {
+          const next = document.querySelector('#view .btn.primary:not(:disabled), #view h1, #view h2');
+          if (next) { if (!next.matches('button')) next.setAttribute('tabindex', '-1'); next.focus({ preventScroll: true }); }
+        }
         host.classList.add('off'); btn.disabled = true; handler = null;
-        // The ring fades out together with the dock instead of lingering (and ghosting) inside the hidden one.
-        btn.classList.remove('busy', 'det'); arc.setAttribute('stroke-dashoffset', '0');
+        // The ring keeps its geometry while the dock fades (changing it would flash an arc that was not there); it is
+        // reset once the fade is over, or by the next set(cfg).
+        if (!resetTimer) resetTimer = setTimeout(resetRing, 320);
         return;
       }
+      if (resetTimer) resetRing();
       host.classList.remove('off');
       label.textContent = cfg.label;
       btn.setAttribute('aria-label', cfg.label);
@@ -283,6 +300,13 @@ export function stage(mod, glyph, size = 260) {
     show(...nodes) { delete text.dataset.result; mount(text, h('div', { class: 'enter' }, nodes)); },
     // Marks a done screen whose action really handled something: motion.js celebrates only these.
     succeeded(ok) { if (ok) text.dataset.result = 'ok'; else delete text.dataset.result; },
+    // Swaps the glyph inside the orb in place (the orb keeps floating: a new orb would restart its loops and jump).
+    setGlyph(name) {
+      const g = art.querySelector('.orb-glyph');
+      const n = icon(name, 24, 'orb-glyph');
+      n.removeAttribute('width'); n.removeAttribute('height');
+      if (g) g.replaceWith(n);
+    },
     // Busy speeds the float/breathe loops up through playbackRate, which keeps their phase (no jump).
     // Before the orb is attached it has no running animations yet: retried on the next frame.
     busy(b) {

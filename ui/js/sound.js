@@ -92,8 +92,9 @@ const SOUNDS = {
   },
   // Stop: two descending, muffled tones.
   stop: (a) => { tone(a, 784, 0, { dur: 0.18, type: 'triangle', gain: 0.05, lp: 2400 }); tone(a, 523, 0.12, { dur: 0.32, type: 'triangle', gain: 0.05, lp: 2000 }); },
-  // Error: low, short thump, no scare.
-  error: (a) => { tone(a, 233, 0, { dur: 0.16, type: 'triangle', gain: 0.07, lp: 900 }); tone(a, 175, 0.13, { dur: 0.3, type: 'triangle', gain: 0.07, lp: 800 }); },
+  // Error: short, soft, falling pair, no scare. Kept above ~350 Hz: lower fundamentals vanish on laptop speakers
+  // and in the ear's sensitivity curve, which made the cue far quieter than the success ones.
+  error: (a) => { tone(a, 466, 0, { dur: 0.16, type: 'triangle', gain: 0.15, lp: 1800 }); tone(a, 349, 0.13, { dur: 0.3, type: 'triangle', gain: 0.15, lp: 1700 }); },
 
   // Gestures: very short (<250 ms), quiet, never on hover.
   // Check: crisp, dry glass; uncheck: dull, lower tap.
@@ -109,13 +110,13 @@ const SOUNDS = {
   // Dialog: opens with a slight rise, closes with a fall.
   open: (a) => { tone(a, 440, 0, { f2: 660, dur: 0.18, gain: 0.03 }); bell(a, 1319, 0.05, { gain: 0.025, dur: 0.18 }); },
   close: (a) => tone(a, 587, 0, { f2: 392, dur: 0.16, type: 'triangle', gain: 0.03, lp: 1800 }),
-  // Destructive dialog: two soft low tones, no scare.
-  warn: (a) => { tone(a, 247, 0, { dur: 0.12, gain: 0.04, lp: 700 }); tone(a, 196, 0.09, { dur: 0.16, gain: 0.04, lp: 600 }); },
+  // Destructive dialog: two soft, falling tones, no scare (at least as present as the ordinary 'open').
+  warn: (a) => { tone(a, 494, 0, { dur: 0.12, gain: 0.045, lp: 1800 }); tone(a, 392, 0.09, { dur: 0.16, gain: 0.045, lp: 1700 }); },
   // Menu opening: minimal tick.
-  menu: (a) => bell(a, 2093, 0, { gain: 0.018, dur: 0.09 }),
+  menu: (a) => bell(a, 2093, 0, { gain: 0.03, dur: 0.09 }),
   // Toasts: success with two bells; error is a softer 'error'.
   ok: (a) => { bell(a, 1319, 0, { gain: 0.045, dur: 0.5, pan: -0.15 }); bell(a, 1760, 0.09, { gain: 0.04, dur: 0.7, pan: 0.15 }); },
-  err: (a) => { tone(a, 247, 0, { dur: 0.14, type: 'triangle', gain: 0.045, lp: 700 }); tone(a, 196, 0.1, { dur: 0.24, type: 'triangle', gain: 0.045, lp: 650 }); },
+  err: (a) => { tone(a, 494, 0, { dur: 0.14, type: 'triangle', gain: 0.095, lp: 1800 }); tone(a, 392, 0.1, { dur: 0.24, type: 'triangle', gain: 0.095, lp: 1700 }); },
 };
 
 // Approximate duration (ms) of each voice, to count the active ones without tracking each node.
@@ -144,6 +145,16 @@ function sleepLater() {
 
 // Instant (performance.now) of the last sound that actually played; feel.js uses it to avoid adding the 'pop' to a view's sound.
 export const lastPlayedAt = () => lastAt;
+
+// Wakes a suspended context ahead of the gesture's sound: restarting the output device takes ~100 ms, which hides in the
+// gap between pointerdown/keydown and click instead of delaying the cue. Never creates the context (that happens on play).
+export function warm() {
+  if (!enabled || !ac || document.hidden || !document.hasFocus() || document.body.classList.contains('idle')) return;
+  if (!sleeping && ac.state !== 'suspended') return;
+  sleeping = false;
+  ac.resume().catch(() => {});
+  if (!active) sleepLater(); // nothing may follow (a press that plays no cue): go back to sleep
+}
 
 export function play(name) {
   if (!enabled || !SOUNDS[name]) return;

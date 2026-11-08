@@ -369,7 +369,7 @@ export function enter(ctx) {
       mount(catsEl, avail.map((c) => {
         const sz = selectedSize(resOf(c.id), selOf(c.id));
         const result = resOf(c.id);
-        return h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(c.id === S.cat), onClick: () => { if (S.cat !== c.id) { S.cat = c.id; renderPane(); renderCats(); } } },
+        return h('button', { class: 'fm-cat', type: 'button', dataset: { fk: 'cat:' + c.id }, 'aria-current': String(c.id === S.cat), onClick: () => { if (S.cat !== c.id) keepFocus(ctx.root, () => { S.cat = c.id; renderPane(); renderCats(); }); } },
           h('span', { class: 'fm-cat-ic' }, fi(c.ic, 17)),
           h('span', { class: 'fm-cat-t' }, h('b', null, catLabel(c)), h('span', null, countOf(c.id) ? t('{items} · {size}', { items: plural(countOf(c.id), 'item', 'itens'), size: fmtBytes(result.total) }) : t('Nada encontrado'))),
           sz.count ? h('span', { class: 'fm-cat-n', title: plural(sz.count, 'item selecionado', 'itens selecionados') }, fmtNum(sz.count)) : null);

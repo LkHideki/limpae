@@ -96,6 +96,7 @@ const EMPTY_PRIV = { groups: [], total: 0, browsers: [], needsFda: false };
 const S = {
   phase: 'idle', // idle | scanning | results | review | removing | done
   checks: null, tcc: null, priv: null,
+  checksFailed: false, // the security_checks step failed: no checks to show, and no "protected" verdict
   area: 'checks', svc: null, pcat: 'recent',
   rsel: new Set(), // permissions marked for revoking
   psel: new Set(), // privacy items marked for removal
@@ -217,6 +218,7 @@ export function enter(ctx) {
     if (!ctx.alive) return;
     if (cancelled) { S.phase = S.checks ? 'results' : 'idle'; return render(); }
     S.checks = out.checks || [];
+    S.checksFailed = !out.checks;
     S.tcc = out.tcc || EMPTY_TCC;
     S.priv = out.priv || EMPTY_PRIV;
     S.svc = null; S.pcat = 'recent';
@@ -232,7 +234,8 @@ export function enter(ctx) {
     ctx.reserveDock(false);
     ctx.setDock(null);
     const bad = attention(), unk = unknown();
-    const protectedMac = bad === 0;
+    const failed = S.checksFailed;
+    const protectedMac = bad === 0 && !failed;
     const items = privItems();
     const itemBytes = items.reduce((a, i) => a + i.size, 0);
     const cams = S.tcc.cameraMicApps;
@@ -241,12 +244,12 @@ export function enter(ctx) {
     const dotOf = (c) => (c.ok === true ? '' : c.ok === false ? ' bad' : ' unk');
     const mainTile = h('div', { class: 'pr-tile main' + (protectedMac ? '' : ' warn'), dataset: { area: 'checks' } },
       h('span', { class: 'pr-tile-ic' }, icon(protectedMac ? 'shield' : 'alert', 26)),
-      h('div', { class: 'pr-tile-t' }, protectedMac ? (unk ? t('Nenhum problema encontrado') : t('Seu Mac está protegido')) : plural(bad, 'ponto de atenção', 'pontos de atenção')),
+      h('div', { class: 'pr-tile-t' }, protectedMac ? (unk ? t('Nenhum problema encontrado') : t('Seu Mac está protegido')) : failed && !bad ? t('Verificação indisponível') : plural(bad, 'ponto de atenção', 'pontos de atenção')),
       h('div', { class: 'pr-tile-s' }, protectedMac
         ? (unk ? tn(unk, '{n} verificação não pôde ser concluída.', '{n} verificações não puderam ser concluídas.') : t('As proteções do macOS que conferimos estão em ordem.'))
-        : t('Algumas proteções do macOS estão desligadas ou desatualizadas.')),
-      h('ul', { class: 'pr-mini' }, S.checks.map((c) => h('li', null, h('i', { class: 'dot' + dotOf(c) }), h('span', { class: 't', title: tr(c.title) }, tr(c.title))))),
-      h('button', { class: 'btn sm', type: 'button', onClick: () => open('checks') }, t('Revisar')));
+        : failed ? t('Não foi possível ler o estado das proteções do macOS. Tente de novo.') : t('Algumas proteções do macOS estão desligadas ou desatualizadas.')),
+      failed ? null : h('ul', { class: 'pr-mini' }, S.checks.map((c) => h('li', null, h('i', { class: 'dot' + dotOf(c) }), h('span', { class: 't', title: tr(c.title) }, tr(c.title))))),
+      failed ? h('button', { class: 'btn sm', type: 'button', onClick: scan }, t('Analisar de novo')) : h('button', { class: 'btn sm', type: 'button', onClick: () => open('checks') }, t('Revisar')));
 
     let permTile;
     if (S.tcc.needsFda) {
@@ -275,7 +278,7 @@ export function enter(ctx) {
 
     mount(ctx.root, h('section', { class: 'pr-results enter', dataset: { mod: 'protect' }, 'aria-label': t('Resultados da Segurança') },
       h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('protect')) { S.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar')), h('span', { class: 'fl-where-tag' }, t('Segurança'))),
-      h('h2', { class: 'fl-title' }, protectedMac && !unk ? t('Seu Mac está protegido.') : bad ? tn(bad, '{n} ponto precisa da sua atenção.', '{n} pontos precisam da sua atenção.') : t('Análise concluída.')),
+      h('h2', { class: 'fl-title' }, protectedMac && !unk ? t('Seu Mac está protegido.') : bad ? tn(bad, '{n} ponto precisa da sua atenção.', '{n} pontos precisam da sua atenção.') : failed ? t('Não foi possível verificar a segurança.') : t('Análise concluída.')),
       h('p', { class: 'sub fl-sub' }, t('Revise cada área. Nada é alterado nem removido sem a sua confirmação.')),
       h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => open('checks') }, t('Revisar tudo')),
       h('div', { class: 'pr-tiles' }, mainTile, permTile, privTile)));
@@ -298,7 +301,9 @@ export function enter(ctx) {
     const areaSeg = h('div', { class: 'rv-extra' });
 
     function paintAreas() {
-      mount(areaSeg, segmented(areas(), S.area, (v) => { S.area = v; renderReview(); }, t('Área de segurança')));
+      const opts = areas();
+      mount(areaSeg, segmented(opts, S.area, (v) => { S.area = v; keepFocus(ctx.root, renderReview); }, t('Área de segurança')));
+      areaSeg.querySelectorAll('button').forEach((b, i) => { b.dataset.fk = 'area:' + opts[i].value; }); // renderReview rebuilds them: focus is restored by key
     }
 
     function pane(title, desc, tools) {
@@ -352,7 +357,7 @@ export function enter(ctx) {
       mount(catsEl, S.tcc.groups.map((g) => {
         const ic = SERVICE_ICON[g.service] || 'lock';
         const n = g.rows.filter((r) => S.rsel.has(r.id)).length;
-        return h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(g.service === S.svc), onClick: () => { if (S.svc !== g.service) { S.svc = g.service; paintPermCats(); paintPermPane(); } } },
+        return h('button', { class: 'fm-cat', type: 'button', dataset: { fk: 'svc:' + g.service }, 'aria-current': String(g.service === S.svc), onClick: () => { if (S.svc !== g.service) keepFocus(ctx.root, () => { S.svc = g.service; paintPermCats(); paintPermPane(); }); } },
           h('span', { class: 'fm-cat-ic' }, pi(ic, 17)),
           h('span', { class: 'fm-cat-t' }, h('b', null, tr(g.title)), h('span', null, plural(grantedOf(g).length, 'app liberado', 'apps liberados'))),
           n ? h('span', { class: 'fm-cat-n', title: plural(n, 'selecionado', 'selecionados') }, fmtNum(n)) : null);
@@ -426,7 +431,7 @@ export function enter(ctx) {
         const n = items.filter((i) => S.psel.has(i.id)).length;
         const bytes = items.reduce((a, i) => a + i.size, 0);
         const sub = c.running ? t('Aberto: feche para limpar') : items.length ? `${plural(items.length, 'item', 'itens')} · ${fmtBytes(bytes)}` : t('Nada encontrado');
-        return h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(c.id === S.pcat), dataset: { cat: c.id }, onClick: () => { if (S.pcat !== c.id) { S.pcat = c.id; paintPrivCats(); paintPrivPane(); } } },
+        return h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(c.id === S.pcat), dataset: { cat: c.id, fk: 'pcat:' + c.id }, onClick: () => { if (S.pcat !== c.id) keepFocus(ctx.root, () => { S.pcat = c.id; paintPrivCats(); paintPrivPane(); }); } },
           h('span', { class: 'fm-cat-ic' }, pi(c.ic, 17)),
           h('span', { class: 'fm-cat-t' }, h('b', null, c.label), h('span', { title: sub }, sub)),
           n ? h('span', { class: 'fm-cat-n', title: plural(n, 'selecionado', 'selecionados') }, fmtNum(n)) : null);
@@ -638,14 +643,19 @@ export function enter(ctx) {
     if (real.length) failuresSheet(real);
   }
 
+  const failedNote = (n, perms) => (!n ? '' : ' ' + (perms ? tn(n, '{n} permissão não foi revogada.', '{n} permissões não foram revogadas.') : tn(n, '{n} item não foi removido.', '{n} itens não foram removidos.')));
+
   function renderDone() {
     const d = S.done || { kind: 'privacy', n: 0, bytes: 0, failed: 0 };
     const more = (S.priv && privItems().length) || (S.tcc && S.tcc.apps);
     const head = d.kind === 'perms'
       ? [h('div', { class: 'big' }, fmtNum(d.n)), h('div', { class: 'big-cap' }, d.n === 1 ? t('permissão revogada') : t('permissões revogadas')),
-        h('p', { class: 'sub' }, t('Os apps vão pedir acesso de novo na próxima vez que precisarem.'))]
+        h('p', { class: 'sub' }, [d.n ? t('Os apps vão pedir acesso de novo na próxima vez que precisarem.') : t('Nenhuma permissão foi revogada.'), failedNote(d.failed, true)])]
       : [h('div', { class: 'big' }, bytesParts(d.bytes).value, h('small', null, bytesParts(d.bytes).unit)), h('div', { class: 'big-cap' }, d.permanent ? t('apagados definitivamente') : t('movidos para o Lixo')),
-        h('p', { class: 'sub' }, (d.permanent ? '' : t('Esvazie a Lixeira para liberar o espaço no disco.') + ' ') + t('Pode ser preciso entrar de novo em alguns sites.'))];
+        h('p', { class: 'sub' }, [
+          // With nothing handled, the "empty the Trash" and "sign in again" advice would be wrong.
+          d.n ? (d.permanent ? '' : t('Esvazie a Lixeira para liberar o espaço no disco.') + ' ') + t('Pode ser preciso entrar de novo em alguns sites.') : t('Nada foi movido.'),
+          failedNote(d.failed)])];
     st.show(...head,
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),

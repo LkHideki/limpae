@@ -193,4 +193,5 @@ export default {
   'Pode conter documentos; confira antes': { en: 'May contain documents; check first', id: 'Mungkin berisi dokumen; periksa dulu' },
   'Instalador': { en: 'Installer', id: 'Penginstal' },
   'Instaladores em Downloads e na Mesa que podem ser baixados de novo.': { en: 'Installers in Downloads and on the Desktop that can be downloaded again.', id: 'Penginstal di Unduhan dan Meja yang dapat diunduh lagi.' },
+  'Nada foi removido.': { en: 'Nothing was removed.', id: 'Tidak ada yang dihapus.' },
 };

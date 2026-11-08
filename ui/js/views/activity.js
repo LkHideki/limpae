@@ -172,12 +172,11 @@ function restoreSection(ctx, batches, reload) {
     h('ul', { class: 'rec-list' }, shown.map(row)));
 }
 
-// Async content arrives after the screen's entrance: a short rise instead of a pop-in. Skipped while the window is
-// idle (paused animations would hold it invisible); reduced motion is handled by the global CSS rule.
+// Async content arrives after the screen's entrance: a short rise instead of a pop-in. Reduced motion is handled by
+// the global CSS rule.
 function fill(box, kids) {
   mount(box, kids);
   box.classList.remove('fill-in');
-  if (document.body.classList.contains('idle')) return;
   void box.offsetWidth;
   box.classList.add('fill-in');
 }

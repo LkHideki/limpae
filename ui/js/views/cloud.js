@@ -9,7 +9,7 @@ import { bytesParts, fmtBytes, plural } from '../format.js';
 import { confirmDialog, confirmRestart, failuresSheet, stage, features } from '../ui.js';
 import { outcomesToFailures } from '../actions.js';
 import { createReview } from './review.js';
-import { t } from '../i18n.js';
+import { t, tn } from '../i18n.js';
 import { openSettings, reopenButton } from '../fda.js';
 
 const MARK = '\u0001'; // {b} marker where the bold fragment goes
@@ -17,7 +17,7 @@ const withNode = (s, node) => { const [a, b = ''] = s.split(MARK); return [a, no
 
 const BATCH = 8;
 // Module session: survives switching tabs.
-const C = { phase: 'idle', result: null, sel: new Set(), freed: 0 };
+const C = { phase: 'idle', result: null, sel: new Set(), freed: 0, failed: 0 };
 
 export function enter(ctx) {
   let st = null, cancelled = false;
@@ -174,7 +174,7 @@ export function enter(ctx) {
     }
     C.result = pruneResult(C.result, okIds);
     for (const id of okIds) C.sel.delete(id);
-    C.freed = freed; C.phase = 'done';
+    C.freed = freed; C.failed = failures.length; C.phase = 'done';
     play(freed ? 'clean' : 'error');
     ctx.setBusy(false);
     ctx.refreshDisk();
@@ -188,7 +188,10 @@ export function enter(ctx) {
   function renderDone() {
     const left = C.result ? countItems(C.result) : 0;
     st.show(h('div', { class: 'big' }, bytesParts(C.freed).value, h('small', null, bytesParts(C.freed).unit)), h('div', { class: 'big-cap' }, t('liberados neste Mac')),
-      h('p', { class: 'sub' }, t('Os arquivos continuam no iCloud e baixam de novo quando você abrir.')),
+      h('p', { class: 'sub' }, [
+        C.freed > 0 || !C.failed ? t('Os arquivos continuam no iCloud e baixam de novo quando você abrir.') : t('Nada foi liberado.'),
+        C.failed ? ' ' + tn(C.failed, '{n} item não foi removido.', '{n} itens não foram removidos.') : '',
+      ]),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
         left ? h('button', { class: 'btn', type: 'button', onClick: () => { C.phase = 'review'; st = null; render(); } }, icon('search', 15), t('Revisar itens restantes')) : null,

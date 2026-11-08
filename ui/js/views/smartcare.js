@@ -103,7 +103,10 @@ export function enter(ctx) {
     const sm = info(m);
     const o = S.out[m.id];
     const skip = checkable(m) && !S.inc[m.id] && (st === 'done' || st === 'final' || st === 'off');
-    const same = e.el.dataset.st === st && !!e.el.querySelector('.t-main'); // repaint in the same state (e.g. include toggled): no entrance replay
+    const prevSt = e.el.dataset.st;
+    // Repaint in the same state (e.g. include toggled): no entrance replay. found -> done (the scan finished) counts as
+    // the same paint while the headline is unchanged; only the new Review button rises.
+    const same = (prevSt === st || (prevSt === 'found' && st === 'done')) && !!e.el.querySelector('.t-main');
     e.el.dataset.st = st;
     e.el.classList.toggle('hot', st === 'hot' || st === 'clean');
     e.el.classList.toggle('skipped', skip);
@@ -136,8 +139,9 @@ export function enter(ctx) {
         sub(h('i', { class: 'dot' }), sm.review ? h('button', { class: 'link t-link', type: 'button', onClick: () => go(m) }, t('Revisar')) : t('Nada a fazer')));
     }
     const old = e.el.querySelector('.t-main');
+    const calm = same && (prevSt === st || (old && main && old.textContent === main.textContent));
     if (old) old.remove();
-    if (main) { if (same || entering()) main.classList.add('still'); e.el.append(main); }
+    if (main) { if (calm || entering()) main.classList.add('still'); e.el.append(main); }
     const rv = e.el.querySelector('.t-review');
     if (rv) rv.remove();
     e.el.classList.toggle('has-rv', st === 'done' && S.phase === 'results' && !!sm.review);

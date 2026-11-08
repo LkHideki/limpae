@@ -212,8 +212,8 @@ test('a failed Speed scan plays a single error sound', async ({ page }) => {
   await expect(page.locator('.toast')).toBeVisible();
   await page.waitForTimeout(200);
   const tones = await page.evaluate(() => window.__tones);
-  expect(tones.includes(247) || tones.includes(233)).toBe(true);
-  expect(tones.includes(247) && tones.includes(233)).toBe(false); // 'err' (toast) and 'error' (view) never both
+  expect(tones.includes(494) || tones.includes(466)).toBe(true);
+  expect(tones.includes(494) && tones.includes(466)).toBe(false); // 'err' (toast) and 'error' (view) never both
 });
 
 test('with a search active, the group checkbox only toggles the rows the search shows', async ({ page }) => {
@@ -238,7 +238,7 @@ test('a failed removal plays the error sound without the dialog chime of its fai
   await expect(page.getByRole('alertdialog', { name: en('Alguns itens não foram removidos') })).toBeVisible();
   await page.waitForTimeout(150);
   const tones = await page.evaluate(() => window.__tones);
-  expect(tones).toContain(233); // 'error'
+  expect(tones).toContain(466); // 'error'
   expect(tones).not.toContain(440); // 'open' ducked
 });
 
@@ -316,7 +316,7 @@ test('with "Delete permanently" as the default, the confirm opens red, focused o
   await expect(dialog).toHaveClass(/danger/);
   await expect.poll(() => page.evaluate(() => document.activeElement.textContent)).toBe(en('Cancelar'));
   const tones = await page.evaluate(() => window.__tones);
-  expect(tones).toContain(247); // 'warn'
+  expect(tones).toContain(494); // 'warn'
   expect(tones).not.toContain(440); // not the rising 'open'
   await page.keyboard.press('Enter');
   await expect(dialog).toHaveCount(0);
@@ -395,8 +395,8 @@ test('Undo with nothing left to restore shows a neutral toast without the error 
   await expect(page.locator('.toast.info')).toBeVisible();
   await page.waitForTimeout(150);
   const tones = await page.evaluate(() => window.__tones);
-  expect(tones).not.toContain(247);
-  expect(tones).not.toContain(196);
+  expect(tones).not.toContain(494);
+  expect(tones).not.toContain(349);
 });
 
 test.describe('with motion', () => {
@@ -452,25 +452,52 @@ test.describe('gauntlet round 1 (motion)', () => {
     expect(await bursts(page)).toBe(1);
   });
 
-  test('the dock ring starts empty and never unwinds, and a hidden dock keeps no ring behind', async ({ page }) => {
+  test('the dock ring spins until a real step arrives, never unwinds, and a hidden dock keeps its ring until it has faded', async ({ page }) => {
     await boot(page, JUNK2);
     await scanJunk(page);
     await page.locator('#dock .go').click();
     await page.getByRole('alertdialog').getByRole('button', { name: en('Mover para o Lixo') }).click();
-    // While the first (slow) group runs, the determinate ring must never show more than an empty arc.
-    const offsets = await page.evaluate(() => new Promise((resolve) => {
-      const arc = document.querySelector('#dock .arc'), btn = document.querySelector('#dock .go'), out = [], t0 = performance.now();
+    // While the first (slow) group runs there is no progress yet: the ring spins instead of showing a static empty arc.
+    const samples = await page.evaluate(() => new Promise((resolve) => {
+      const arc = document.querySelector('#dock .arc'), btn = document.querySelector('#dock .go'), ring = btn.querySelector('.go-ring'), out = [], t0 = performance.now();
       const tick = () => {
-        if (btn.classList.contains('det')) out.push(parseFloat(getComputedStyle(arc).strokeDashoffset));
-        if (performance.now() - t0 < 700) requestAnimationFrame(tick); else resolve(out);
+        out.push({ det: btn.classList.contains('det'), busy: btn.classList.contains('busy'), spin: getComputedStyle(ring).animationName, off: parseFloat(getComputedStyle(arc).strokeDashoffset) });
+        if (performance.now() - t0 < 2200) requestAnimationFrame(tick); else resolve(out);
       };
       tick();
     }));
-    expect(offsets.length).toBeGreaterThan(5);
-    expect(Math.min(...offsets)).toBeGreaterThan(320);
+    const early = samples.filter((x) => !x.det && x.busy);
+    expect(early.length).toBeGreaterThan(20);
+    expect(early.every((x) => x.spin === 'go-spin')).toBe(true);
+    // Once the first group is done the ring is determinate and jumps to 1/2 (no unwinding from the full ring).
+    const det = samples.filter((x) => x.det);
+    expect(det.length).toBeGreaterThan(5);
+    expect(Math.max(...det.map((x) => x.off))).toBeLessThan(2 * Math.PI * 52 * 0.5 + 2);
     await expect(page.getByRole('button', { name: en('Concluir') })).toBeVisible({ timeout: 6000 });
+    await page.waitForTimeout(450); // the dock has faded: only now is the ring reset
     const cls = await page.locator('#dock .go').getAttribute('class');
     expect(cls).not.toMatch(/\b(busy|det)\b/);
+  });
+
+  test('a one-step removal keeps the dock ring spinning and never flashes an arc while the dock fades', async ({ page }) => {
+    await boot(page, JUNK.replace(/remove: [^\n]*\n/, "remove: ({ ids }) => new Promise((r) => setTimeout(() => r({ freed: 0, outcomes: ids.map((id) => ({ id, ok: true, freed: id * 1000, error: null })) }), 1200)),\n"));
+    await scanJunk(page);
+    await page.locator('#dock .go').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Limpar'), exact: true }).click();
+    const seen = await page.evaluate(() => new Promise((resolve) => {
+      const btn = document.querySelector('#dock .go'), host = document.getElementById('dock'), arc = btn.querySelector('.arc'), out = { det: false, spinning: 0, fadeOffsets: [] }, t0 = performance.now();
+      const tick = () => {
+        if (btn.classList.contains('det')) out.det = true;
+        if (btn.classList.contains('busy') && getComputedStyle(btn.querySelector('.go-ring')).animationName === 'go-spin') out.spinning++;
+        if (host.classList.contains('off') && btn.classList.contains('busy')) out.fadeOffsets.push(parseFloat(getComputedStyle(arc).strokeDashoffset));
+        if (performance.now() - t0 < 2200) requestAnimationFrame(tick); else resolve(out);
+      };
+      tick();
+    }));
+    expect(seen.det).toBe(false);
+    expect(seen.spinning).toBeGreaterThan(20);
+    // While the dock fades the arc geometry stays put: no sweep from a full offset down to 0.
+    expect(new Set(seen.fadeOffsets).size).toBeLessThanOrEqual(1);
   });
 
   test('Screen Cleaning exit fades the overlay instead of holding it opaque', async ({ page }) => {
@@ -615,7 +642,7 @@ test.describe('gauntlet round 1 (sound)', () => {
     await expect(page.getByRole('alertdialog', { name: en('Alguns itens não foram removidos') })).toBeVisible({ timeout: 6000 });
     await settle(page, 300);
     const tones = await tonesOf(page);
-    expect(tones.filter((f) => f === 247).length).toBe(1); // one error voice, not one per group
+    expect(tones.filter((f) => f === 494).length).toBe(1); // one error voice, not one per group
     expect(tones).not.toContain(440); // the rising 'open' chime stayed out
   });
 
@@ -630,7 +657,7 @@ test.describe('gauntlet round 1 (sound)', () => {
     await expect(page.getByRole('alertdialog', { name: en('Alguns itens não foram restaurados') })).toBeVisible();
     await settle(page, 300);
     const tones = await tonesOf(page);
-    expect(tones.includes(247) || tones.includes(233)).toBe(true);
+    expect(tones.includes(494) || tones.includes(466)).toBe(true);
     expect(tones).not.toContain(440);
   });
 });
@@ -699,4 +726,141 @@ test('Security permissions: toggling a row with the keyboard keeps focus on its 
   await page.keyboard.press('Enter');
   await expect(page.locator('.ctx-menu')).toHaveCount(0);
   expect(await page.evaluate(() => document.activeElement.classList.contains('sel-btn'))).toBe(true);
+});
+
+// ---- gauntlet round 2 ----
+
+test.describe('gauntlet round 2', () => {
+  test.use({ reducedMotion: 'no-preference' });
+  const blur = (page) => page.evaluate(() => { document.hasFocus = () => false; window.dispatchEvent(new Event('blur')); });
+
+  test('screens rendered while the window is unfocused are visible (one-shot entrances are not paused)', async ({ page }) => {
+    await boot(page, JUNK);
+    await nav(page, 'Entulho').click();
+    await blur(page);
+    await expect(page.locator('body')).toHaveClass(/idle/);
+    // The infinite decorative loops are paused while idle.
+    expect(await page.evaluate(() => getComputedStyle(document.querySelector('#view .orb')).animationPlayState)).toBe('paused');
+    await page.locator('#dock .go').click();
+    await expect(page.getByRole('button', { name: en('Revisar todo o lixo') })).toBeAttached();
+    await page.waitForTimeout(900);
+    const hidden = await page.evaluate(() => [...document.querySelectorAll('#view .enter, #view .t-main')].filter((e) => getComputedStyle(e).opacity !== '1').length);
+    expect(hidden).toBe(0);
+    // A dialog opened while idle shows its card too.
+    await page.locator('#dock .go').click();
+    await page.waitForTimeout(700);
+    expect(await page.evaluate(() => getComputedStyle(document.querySelector('.modal')).opacity)).toBe('1');
+  });
+
+  test('a menu-bar navigation is ignored while a dialog is open, and a late screen cannot take over the dock', async ({ page }) => {
+    await boot(page, JUNK.replace('{', "{ lens_roots: () => new Promise((r) => setTimeout(() => r([{ index: 0, path: '/', root: null, isVolume: true, total: 100, used: 50, name: 'Mac' }]), 700)),"));
+    await nav(page, 'Mapa do Disco').click();
+    await nav(page, 'Entulho').click();
+    await page.waitForTimeout(1000);
+    // Junk's own dock, not the Disk Map's late "Scan" handler.
+    await expect(page.locator('#dock')).toHaveAttribute('data-mod', 'clean');
+    await scanJunk(page);
+    await page.locator('#dock .go').click();
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await page.evaluate(() => window.__ev.navigate({ payload: 'settings' }));
+    await expect(page.locator('body')).toHaveAttribute('data-mod', 'clean');
+  });
+
+  test('a Simulate in progress disables the removal action, and Esc closes one stacked dialog at a time', async ({ page }) => {
+    await boot(page, JUNK.replace("simulate_removal: ({ ids }) => (", "simulate_removal: ({ ids }) => new Promise((r) => setTimeout(() => r(").replace("report: '/r.tsv' }),", "report: '/r.tsv' }), 500)),"));
+    await scanJunk(page);
+    await page.getByRole('button', { name: en('Revisar todo o lixo') }).click();
+    const action = page.locator('.rv-foot .btn.primary');
+    await page.locator('.rv-foot .btn.ghost').click();
+    await expect(action).toBeDisabled();
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await expect(action).toBeEnabled();
+    // Two dialogs stacked (the report on top of a confirm): Esc closes only the top one.
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(350);
+    await action.click();
+    await expect(page.locator('.modal-back:not(.out)')).toHaveCount(1);
+    await page.evaluate(() => document.querySelector('.rv-foot .btn.ghost').click());
+    await expect(page.locator('.modal-back:not(.out)')).toHaveCount(2);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.modal-back:not(.out)')).toHaveCount(1);
+  });
+
+  test('a failed security check does not report a protected Mac', async ({ page }) => {
+    await boot(page, `{ security_checks: () => { throw 'falha ao ler o estado do sistema'; }, tcc_permissions: () => ({ needsFda: false, groups: [], cameraMicApps: 0, apps: 0 }), privacy_scan: () => ({ groups: [], total: 0, browsers: [], needsFda: false }) }`);
+    await nav(page, 'Segurança').click();
+    await page.locator('#dock .go').click();
+    await expect(page.locator('.fl-title')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('.fl-title')).toHaveText(en('Não foi possível verificar a segurança.'));
+    await expect(page.locator('.pr-tile.main')).not.toContainText(en('Seu Mac está protegido'));
+    await expect(page.locator('.pr-tile.main').getByRole('button', { name: en('Analisar de novo') })).toBeVisible();
+  });
+
+  test('keyboard focus stays on the Speed tab that was picked', async ({ page }) => {
+    await boot(page, PERF);
+    await nav(page, 'Velocidade').click();
+    await page.locator('#dock .go').click();
+    await page.getByRole('button', { name: en('Abrir o gerenciador') }).click();
+    const tab = page.locator('.fm-cat').nth(1);
+    await tab.focus();
+    await page.keyboard.press('Enter');
+    await expect(tab).toHaveAttribute('aria-current', 'true');
+    expect(await page.evaluate(() => document.activeElement.dataset.fk)).toMatch(/^tab:/);
+  });
+
+  test('keyboard focus moves to the done screen when the dock hides after a removal', async ({ page }) => {
+    await boot(page, JUNK);
+    await nav(page, 'Entulho').click();
+    await page.locator('#dock .go').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: en('Revisar todo o lixo') })).toBeVisible();
+    await page.locator('#dock .go').focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.activeElement.textContent)).toBe(en('Cancelar')); // destructive: Cancel has the focus
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Limpar'), exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: en('Concluir') })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => (document.activeElement && document.activeElement.closest('#view') ? document.activeElement.textContent : 'lost'))).toBe(en('Concluir'));
+  });
+
+  test('keyboard focus survives closing the Full Disk Access guide', async ({ page }) => {
+    await boot(page, `{ disk_overview: () => ({ total: 500e9, free: 120e9, used: 380e9, fda: false }) }`,
+      { storage: { 'limpae.fda.onboarded': '1' } });
+    const how = page.getByRole('button', { name: en('Como conceder') });
+    await how.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.activeElement && document.activeElement.textContent)).toBe(en('Como conceder'));
+  });
+
+  test('the Sweep tiles do not replay their entrance when the results arrive', async ({ page }) => {
+    await boot(page, JUNK);
+    await nav(page, 'Faxina').click();
+    await page.locator('#dock .go').click();
+    await expect(page.locator('.t-review').first()).toBeAttached({ timeout: 8000 });
+    await page.waitForTimeout(100);
+    const replay = await page.evaluate(() => [...document.querySelectorAll('.t-main')].filter((m) => m.getAnimations().some((a) => a.animationName === 'rise' && a.currentTime < 300 && !m.classList.contains('still'))).length);
+    expect(replay).toBe(0);
+  });
+  test('a sleeping audio context is woken on pointerdown, before the click needs its sound', async ({ page }) => {
+    await page.addInitScript(() => {
+      window.__resumes = 0;
+      const C = window.AudioContext || window.webkitAudioContext;
+      const orig = C.prototype.resume;
+      C.prototype.resume = function () { window.__resumes++; return orig.call(this); };
+    });
+    await boot(page, `{ ${SOUND_ON} }`);
+    await nav(page, 'Entulho').click(); // 'nav' cue: creates the context
+    await page.waitForFunction(() => window.__resumes >= 0);
+    await page.waitForTimeout(3200); // the voice and the reverb tail are over: the context is suspended
+    const before = await page.evaluate(() => window.__resumes);
+    const box = await nav(page, 'Lixeira').boundingBox();
+    await page.mouse.move(box.x + 20, box.y + 10);
+    await page.mouse.down();
+    await expect.poll(() => page.evaluate(() => window.__resumes)).toBeGreaterThan(before);
+    await page.mouse.up();
+  });
 });

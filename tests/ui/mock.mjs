@@ -26,7 +26,8 @@ export async function boot(page, handlers = '{}', { storage = {} } = {}) {
           try { return Promise.resolve(f(args, calls)); } catch (e) { return Promise.reject(e); }
         },
       },
-      event: { listen: () => Promise.resolve(() => {}) },
+      // Handlers are kept in `window.__ev` so a test can emit a shell event (e.g. the menu bar's `navigate`).
+      event: { listen: (name, cb) => { (window.__ev = window.__ev || {})[name] = cb; return Promise.resolve(() => {}); } },
     };
   }, { handlers, storage });
   await page.goto('/index.html');

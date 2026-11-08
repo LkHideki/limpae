@@ -115,6 +115,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     if (simBusy) return;
     simBusy = true;
     simBtn.disabled = true;
+    actionBtn.disabled = true; // a removal confirm opened now would end up under the simulation report
     simBtn.setAttribute('aria-busy', 'true');
     mount(simBtn, h('span', { class: 'spin', 'aria-hidden': 'true' }), t('Simulando…'));
     simulateRemoval([...sel], mod, () => { simBusy = false; simBtn.removeAttribute('aria-busy'); mount(simBtn, t('Simular')); renderFooter(); });
@@ -146,7 +147,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     const cats = result.groups.filter((g) => g.items.some((i) => sel.has(i.id))).length;
     if (!count) mount(selEl, t('Nenhum item selecionado'));
     else mount(selEl, t('Selecionado: '), h('b', null, fmtBytes(bytes)), h('small', null, cats > 1 ? tn(count, '{n} item em {cats}', '{n} itens em {cats}', { cats: tn(cats, '{n} categoria', '{n} categorias') }) : tn(count, '{n} item', '{n} itens')));
-    actionBtn.disabled = count === 0;
+    actionBtn.disabled = count === 0 || simBusy;
     if (simBtn) simBtn.disabled = count === 0 || simBusy;
   }
 

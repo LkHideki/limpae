@@ -1,5 +1,5 @@
 // Shell: sidebar, disk footer, router and the context handed to the views.
-import { h, mount, clear } from './dom.js';
+import { h, mount, clear, keepFocus } from './dom.js';
 import { icon, MODS } from './art.js';
 import { api, onProgress, setNotifier, setUndoNotifier } from './api.js';
 import { store, bump } from './store.js';
@@ -29,7 +29,7 @@ const view = document.getElementById('view');
 const go = createGo(document.getElementById('dock'));
 const navEl = document.getElementById('nav');
 const foot = document.getElementById('sb-foot');
-let current = null, cleanups = [], alive = false;
+let current = null, cleanups = [], navSeq = 0;
 let backFn = null; // "Back" of the manager mounted right now (Esc and ⌘[ call the same one)
 let fdaDismissed = false;
 try { fdaDismissed = localStorage.getItem('limpae.fda.dismissed') === '1'; } catch (e) { /* storage unavailable */ }
@@ -52,26 +52,32 @@ function setBusy(b) {
   document.body.classList.toggle('locked', b);
 }
 
-const ctx = {
-  root: view, store, bump,
-  get alive() { return alive; },
-  nav: (id) => navigate(id, true),
-  setBusy,
-  setDock: (cfg) => { if (alive) go.set(cfg); },
-  reserveDock: (b) => view.classList.toggle('has-dock', b),
-  onProgress: (cb) => { cleanups.push(onProgress(cb)); },
-  onCleanup: (fn) => { cleanups.push(fn); },
-  // Registers (or clears, with null) the current screen's "Back" action; only managers register.
-  onBack: (fn) => { backFn = typeof fn === 'function' ? fn : null; },
-  refreshDisk,
-};
+// One ctx per screen entry. Work a screen started may finish after the user moved on: `alive` turns false for it and
+// whatever it still does to the shared chrome (dock, lock, back action, cleanups) is ignored, so it cannot act on the
+// screen that is showing now.
+function makeCtx(seq) {
+  const live = () => seq === navSeq;
+  return {
+    root: view, store, bump,
+    get alive() { return live(); },
+    nav: (id) => { if (live()) navigate(id, true); },
+    setBusy: (b) => { if (live()) setBusy(b); },
+    setDock: (cfg) => { if (live()) go.set(cfg); },
+    reserveDock: (b) => { if (live()) view.classList.toggle('has-dock', b); },
+    onProgress: (cb) => { const off = onProgress(cb); if (live()) cleanups.push(off); else off(); },
+    onCleanup: (fn) => { if (live()) cleanups.push(fn); else fn(); },
+    // Registers (or clears, with null) the current screen's "Back" action; only managers register.
+    onBack: (fn) => { if (live()) backFn = typeof fn === 'function' ? fn : null; },
+    refreshDisk,
+  };
+}
 
 function navigate(id, force = false) {
   if (!VIEWS[id] || (store.busy && !force && id !== current)) return;
   if (store.busy && id !== current && !force) return;
   cleanups.forEach((f) => { try { f(); } catch (e) { /* ignore */ } });
   cleanups = [];
-  alive = false;
+  const seq = ++navSeq;
   backFn = null;
   setBusy(false);
   go.set(null);
@@ -83,8 +89,7 @@ function navigate(id, force = false) {
   const lostFocus = view.contains(document.activeElement);
   clear(view);
   view.className = 'view';
-  alive = true;
-  VIEWS[id].enter(ctx);
+  VIEWS[id].enter(makeCtx(seq));
   if (lostFocus && (!document.activeElement || document.activeElement === document.body)) focusScreen(id);
 }
 
@@ -114,12 +119,13 @@ function renderFoot() {
       kids.push(h('div', { class: 'fda-banner' },
         h('b', null, t('Acesso Total ao Disco')), h('span', { class: 'fda-desc' }, t('Conceda para uma análise completa, incluindo a Lixeira.')),
         h('div', { class: 'fda-acts' },
-          h('button', { class: 'link', type: 'button', onClick: () => showGuide().then(renderFoot) }, t('Como conceder')),
-          visitedSettings() ? h('button', { class: 'link', type: 'button', onClick: relaunch }, t('Reabrir o Limpae')) : null),
-        h('button', { class: 'x', type: 'button', 'aria-label': t('Dispensar aviso'), onClick: () => { fdaDismissed = true; try { localStorage.setItem('limpae.fda.dismissed', '1'); } catch (e) { /* ignore */ } renderFoot(); } }, icon('x', 14))));
+          h('button', { class: 'link', type: 'button', dataset: { fk: 'fda:guide' }, onClick: () => showGuide().then(() => { renderFoot(); const n = foot.querySelector('[data-fk="fda:guide"]'); if (n) n.focus(); }) }, t('Como conceder')),
+          visitedSettings() ? h('button', { class: 'link', type: 'button', dataset: { fk: 'fda:relaunch' }, onClick: relaunch }, t('Reabrir o Limpae')) : null),
+        h('button', { class: 'x', type: 'button', 'aria-label': t('Dispensar aviso'), onClick: () => { fdaDismissed = true; try { localStorage.setItem('limpae.fda.dismissed', '1'); } catch (e) { /* ignore */ } renderFoot(); const cur = navEl.querySelector('.nav-item[aria-current="page"]'); if (cur) cur.focus({ preventScroll: true }); } }, icon('x', 14))));
     }
   }
-  mount(foot, kids);
+  // The banner is rebuilt on every update (guide closed, dismissed, window focus): keyboard focus returns by key.
+  keepFocus(foot, () => mount(foot, kids));
 }
 
 async function refreshDisk() {
@@ -135,7 +141,12 @@ window.addEventListener('focus', () => { if (store.disk && store.disk.fda === fa
 // Request from the menu bar menu ("Sweep…", "Empty Trash…", "Settings…"). Respects the
 // in-progress operation lock: without `force`, a cleanup or scan is never interrupted by a click there.
 try {
-  Promise.resolve(window.__TAURI__.event.listen('navigate', (e) => navigate(String(e.payload)))).catch(() => {});
+  Promise.resolve(window.__TAURI__.event.listen('navigate', (e) => {
+    // An open dialog (e.g. a removal confirm) belongs to the screen that opened it: switching under it would let the
+    // confirm run its action inside another screen.
+    if (document.querySelector('.modal-back:not(.out)')) return;
+    navigate(String(e.payload));
+  })).catch(() => {});
 } catch (e) { /* no shell events (browser preview) */ }
 
 // Esc (or ⌘[) leaves the open manager, like the top "Back". Does nothing with a menu, dialog or operation in progress,

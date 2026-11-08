@@ -2,7 +2,7 @@
 // The UI only sends ids; labels, paths and names stay in the backend. Names and paths come from disk
 // (untrusted): only textContent / createElement. Everything that is disabled can be re-enabled; removing goes to Trash.
 import { play } from '../sound.js';
-import { h, s, mount, mid } from '../dom.js';
+import { h, s, mount, mid, keepFocus } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
 import { fmtBytes, fmtNum } from '../format.js';
@@ -243,7 +243,7 @@ export function enter(ctx) {
       return r.snapshots.error ? t('Não concluído') : tn(r.snapshots.items.length, '{n} snapshot', '{n} snapshots');
     };
     function renderNav() {
-      mount(navEl, tabs().map((tab) => h('button', { class: 'fm-cat', type: 'button', 'aria-current': String(tab.id === S.tab), onClick: () => { if (S.tab !== tab.id) { S.tab = tab.id; S.note = null; showTab(); } } },
+      mount(navEl, tabs().map((tab) => h('button', { class: 'fm-cat', type: 'button', dataset: { fk: 'tab:' + tab.id }, 'aria-current': String(tab.id === S.tab), onClick: () => { if (S.tab !== tab.id) keepFocus(ctx.root, () => { S.tab = tab.id; S.note = null; showTab(); }); } },
         h('span', { class: 'fm-cat-ic' }, icon(tab.ic, 17)),
         h('span', { class: 'fm-cat-t' }, h('b', null, tab.label), h('span', null, summary(tab.id))))), whyNote('pf-why-nav'));
     }

@@ -1,9 +1,9 @@
 // Sound feedback for gestures (clicks, switches, menus, dialogs, toasts), via event delegation: no view needs to call play().
-import { play, lastPlayedAt } from './sound.js';
+import { play, lastPlayedAt, warm } from './sound.js';
 
 const later = (fn) => setTimeout(fn, 0);
 // Rows/cards whose click (outside their buttons) toggles the selection; each has its checkbox as a direct child.
-const ROWS = '.pf-row, .rv-item, .fm-row, .lo-row, .am-row, .ln-row:not(.other), .fm-img'; // i18n-ignore: CSS selector
+const ROWS = '.pf-row, .rv-item, .fm-row, .lo-row, .am-row, .ln-row:not(.other), .fm-img, .pr-row.pick'; // i18n-ignore: CSS selector
 
 // The view changes state in the element's own handler, after capture: reads the already-settled result.
 // If the element was recreated on render, infers from the previous state.
@@ -11,6 +11,7 @@ function afterCheckbox(el, prev) {
   const t0 = performance.now();
   later(() => {
     if (lastPlayedAt() >= t0) return; // the view already responded (e.g. the chime when turning sounds on)
+    if (el.isConnected && el.dataset.state === prev) return; // the click changed nothing (e.g. ignored while busy)
     const st = el.isConnected ? el.dataset.state : (prev === 'on' ? 'off' : 'on');
     play(st === 'on' ? 'tick' : 'untick');
   });
@@ -69,11 +70,16 @@ document.addEventListener('click', (e) => {
 
 document.addEventListener('contextmenu', afterMenuOpener, true);
 
+// Presses that usually answer with a sound wake the audio device on the way down (see warm() in sound.js).
+const SOUNDING = 'button, a, input, .cb, .switch, .bub, [role="switch"], [role="checkbox"], [role="radio"], [aria-haspopup], ' + ROWS; // i18n-ignore: CSS selector
+document.addEventListener('pointerdown', (e) => { if (e.target instanceof Element && e.target.closest(SOUNDING)) warm(); }, true);
+
 // Keyboard toggles handled in keydown (no click event): Space/Enter on image cards and Space Lens rows/bubbles.
 document.addEventListener('keydown', (e) => {
   if ((e.key !== ' ' && e.key !== 'Enter') || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
   const el = e.target instanceof Element ? e.target : null;
   if (!el) return;
+  warm();
   if (el.matches('.fm-img')) { const cb = el.querySelector(':scope > .cb'); if (cb) afterCheckbox(cb, cb.dataset.state); }
   else if (el.matches('.ln-row:not(.other), .bub:not(.k-other)')) afterSel(el);
 }, true);

@@ -447,6 +447,9 @@ body.locked .nav-item:not([aria-current="page"]) { opacity: .45; pointer-events:
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   .orb, .orb-body, .aurora i { animation: none !important; }
+  /* Busy indicators keep turning: they are the only sign of work in progress, and a plain rotation is not vestibular motion. */
+  .spin { animation-duration: .8s !important; animation-iteration-count: infinite !important; }
+  .go.busy:not(.det) .go-ring { animation-duration: 1.3s !important; animation-iteration-count: infinite !important; }
 }
 
 /* ============ Nav spacer, Settings ============ */
@@ -471,5 +474,6 @@ body.locked .nav-item:not([aria-current="page"]) { opacity: .45; pointer-events:
 .ign-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
 .ign-path { min-width: 0; flex: 1; font-size: 13px; color: var(--text-2); }
 
-/* Unfocused or hidden window: no continuous animation runs (CPU ~0 in the background). */
-body.idle *, body.idle *::before, body.idle *::after { animation-play-state: paused !important; }
+/* Unfocused or hidden window: the infinite decorative loops pause (CPU ~0 in the background). One-shot entrances are
+   left alone: pausing them would freeze whatever renders meanwhile at its first keyframe (opacity 0, invisible). */
+body.idle :is(.orb, .orb-body, .spin, .go-ring, .pf-switch i), body.idle .go::after { animation-play-state: paused !important; }

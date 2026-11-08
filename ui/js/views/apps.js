@@ -1,7 +1,7 @@
 // Apps: landing -> scan -> results (tiles) -> Manager (Uninstaller / Updater / Leftovers) -> done.
 // The UI only sends ids. Apps, leftovers and installers go to Trash; updates open the vendor's page.
 import { play } from '../sound.js';
-import { h, mount, mid, sleep } from '../dom.js';
+import { h, mount, mid, sleep, keepFocus } from '../dom.js';
 import { icon, orb, groupIcon } from '../art.js';
 import { api } from '../api.js';
 import { store, selectedSize, selectedIds, pruneResult, bump } from '../store.js';
@@ -77,6 +77,7 @@ export function enter(ctx) {
   const root = ctx.root;
   let cancelled = false;
   let M = null; // references of the mounted Manager
+  let busyStage = null; // stage of the removal in progress: the done screen reuses it (the orb keeps floating, no jump)
 
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); lazyIcon(e.target._app, e.target); } }), { rootMargin: '120px' });
   ctx.onCleanup(() => io.disconnect());
@@ -307,6 +308,7 @@ export function enter(ctx) {
     const st = stage('apps', 'apps', 260);
     mount(root, st.el);
     st.busy(true);
+    busyStage = st;
     ctx.reserveDock(true);
     const groups = res.groups.filter((g) => g.items.some((i) => sel.has(i.id)));
     const rows = new Map(groups.map((g) => [g.id, h('div', { class: 'prog-row', dataset: { st: 'wait' } }, h('span', { class: 'nm', title: tr(g.title) }, tr(g.title)), h('span', { class: 'sz' }), h('span', { class: 'st' }))]));
@@ -338,14 +340,20 @@ export function enter(ctx) {
   function renderDone() {
     const d = U.done;
     // The check glyph (and the celebration) only when something was actually removed.
-    const st = stage('apps', d.ok ? 'check' : 'apps', 260);
-    mount(root, st.el);
+    let st = busyStage;
+    busyStage = null;
+    if (st && st.el.parentNode === root) { st.busy(false); if (d.ok) st.setGlyph('check'); } else {
+      st = stage('apps', d.ok ? 'check' : 'apps', 260);
+      mount(root, st.el);
+    }
     ctx.reserveDock(false);
     const finish = () => { U.done = null; U.phase = U.over ? 'results' : 'idle'; render(); };
     const more = () => { const fn = d.again; U.done = null; U.phase = 'manager'; if (fn) fn(); render(); };
-    st.show(h('h1', { class: 'h1' }, t('Pronto!')),
+    const failedTxt = d.failed ? tn(d.failed, '{n} item não foi removido.', '{n} itens não foram removidos.') : '';
+    // With nothing removed: no "Done!" and no "empty the Trash" advice, just what failed.
+    st.show(h('h1', { class: 'h1' }, d.ok ? t('Pronto!') : t('Nada foi removido.')),
       h('div', { class: 'big-cap' }, d.headline),
-      h('p', { class: 'sub' }, [d.permanent ? t('{size} apagados definitivamente.', { size: fmtBytes(d.freed) }) : t('{size} movidos para o Lixo. Esvazie a Lixeira para liberar o espaço.', { size: fmtBytes(d.freed) }), d.failed ? ' ' + tn(d.failed, '{n} item não foi removido.', '{n} itens não foram removidos.') : ''].join('')),
+      h('p', { class: 'sub' }, d.ok ? (d.permanent ? t('{size} apagados definitivamente.', { size: fmtBytes(d.freed) }) : t('{size} movidos para o Lixo. Esvazie a Lixeira para liberar o espaço.', { size: fmtBytes(d.freed) })) + (failedTxt ? ' ' + failedTxt : '') : failedTxt),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
         h('button', { class: 'btn', type: 'button', onClick: more }, t('Gerenciar mais')),
@@ -365,6 +373,9 @@ export function enter(ctx) {
       mid: h('div', { class: 'am-mid' }),
       main: h('div', { class: 'am-main' }),
       foot: h('div', { class: 'rv-foot' }),
+      // App whose updater details are on screen: the card rises only when it changes. On entry the section's own rise
+      // already covers it (a second one would stack).
+      detailId: U.upFocus,
     };
     mount(root, h('section', { class: 'am enter', dataset: { mod: 'apps' }, 'aria-label': t('Gerenciador de Aplicativos') },
       M.head, h('div', { class: 'am-body' }, M.left, M.mid, M.main), M.foot));
@@ -401,7 +412,7 @@ export function enter(ctx) {
     const leftN = U.over ? U.over.leftovers.groups.concat(U.over.installers.groups).reduce((a, g) => a + g.items.length, 0) : 0;
     const badge = { uninstaller: '', updater: U.over ? upN : '', leftovers: U.over ? leftN : '' };
     const navLabel = { uninstaller: t('Desinstalador'), updater: t('Atualizador'), leftovers: t('Restos') };
-    mount(M.left, NAV.map((id) => h('button', { class: 'am-nav', type: 'button', 'aria-current': String(U.pane === id), onClick: () => { if (U.pane === id) return; U.pane = id; U.q = ''; paintAll(); } },
+    mount(M.left, NAV.map((id) => h('button', { class: 'am-nav', type: 'button', dataset: { fk: 'nav:' + id }, 'aria-current': String(U.pane === id), onClick: () => { if (U.pane === id) return; U.pane = id; U.q = ''; M.detailId = null; keepFocus(root, paintAll); } },
       h('span', null, navLabel[id]), badge[id] !== '' ? h('span', { class: 'n' }, String(badge[id])) : null)));
   }
 
@@ -462,7 +473,7 @@ export function enter(ctx) {
     const vlist = [...vendors].sort((a, b) => b[1] - a[1] || cmp(a[0], b[0]));
     const exists = (g) => g === 'all' || g === 'unused' || g === 'selected' || (g.startsWith('store:') && stores.includes(g.slice(6))) || (g.startsWith('vendor:') && vendors.has(g.slice(7)));
     if (!exists(U.group)) U.group = 'all';
-    const row = (g, label, n) => h('button', { class: 'am-grp', type: 'button', 'aria-current': String(U.group === g), onClick: () => { U.group = g; paintMid(); paintMain(); paintFoot(); } },
+    const row = (g, label, n) => h('button', { class: 'am-grp', type: 'button', dataset: { fk: 'grp:' + g }, 'aria-current': String(U.group === g), onClick: () => keepFocus(root, () => { U.group = g; paintMid(); paintMain(); paintFoot(); }) },
       h('span', { title: label }, label), h('span', { class: 'n' }, String(n)));
     mount(M.mid,
       h('h3', null, t('Desinstalador')),
@@ -659,6 +670,7 @@ export function enter(ctx) {
     const st = stage('apps', 'apps', 260);
     mount(root, st.el);
     st.busy(true);
+    busyStage = st;
     ctx.reserveDock(true);
     const rows = new Map(list.map((a) => [a.id, h('div', { class: 'prog-row', dataset: { st: 'wait' } }, h('span', { class: 'nm', title: a.name }, a.name), h('span', { class: 'sz' }), h('span', { class: 'st' }))]));
     st.show(h('h1', { class: 'h1' }, t('Desinstalando…')), h('div', { class: 'group-list' }, [...rows.values()]));
@@ -725,19 +737,21 @@ export function enter(ctx) {
       h('div', { class: 'am-selrow' }, t('Selecionar:'), h('button', { class: 'link', type: 'button', onClick: () => { for (const { a } of list) { if (allSel) U.upSel.delete(a.id); else U.upSel.add(a.id); } paintMid(); paintFoot(); } }, allSel ? t('Nenhum') : t('Todos'))),
       list.map(({ u, a }) => {
         const cb = checkbox(U.upSel.has(a.id) ? 'on' : 'off', () => { if (U.upSel.has(a.id)) U.upSel.delete(a.id); else U.upSel.add(a.id); cb.set(U.upSel.has(a.id) ? 'on' : 'off'); paintFoot(); }, t('Selecionar {name}', { name: a.name }));
-        return h('div', { class: 'am-up', 'aria-current': String(U.upFocus === a.id), onClick: () => { U.upFocus = a.id; paintMid(); paintMain(); } },
+        return h('div', { class: 'am-up', 'aria-current': String(U.upFocus === a.id), onClick: () => { if (U.upFocus === a.id) return; U.upFocus = a.id; paintMid(); paintMain(); } },
           cb, iconBox(a, true),
           h('div', { class: 'rv-main' }, h('div', { class: 'rv-name' }, h('span', { title: a.name }, a.name)), h('div', { class: 'am-sub' }, `${u.current} → ${u.latest}`)));
       }));
   }
 
   function paintMainUpdater() {
-    if (!U.over) { mount(M.main, noScan(t('Analise seu Mac para ver atualizações disponíveis.'))); return; }
+    if (!U.over) { M.detailId = null; mount(M.main, noScan(t('Analise seu Mac para ver atualizações disponíveis.'))); return; }
     const u = updates().find((x) => x.appId === U.upFocus);
     const a = u && byId().get(u.appId);
-    if (!a) { mount(M.main, h('div', { class: 'rv-empty' }, updates().length ? t('Selecione um app para ver os detalhes da atualização.') : t('Nenhuma atualização disponível.'))); return; }
+    if (!a) { M.detailId = null; mount(M.main, h('div', { class: 'rv-empty' }, updates().length ? t('Selecione um app para ver os detalhes da atualização.') : t('Nenhuma atualização disponível.'))); return; }
     const src = hostOf(u.downloadUrl || u.notesUrl || '');
-    mount(M.main, h('div', { class: 'am-detail enter' },
+    const fresh = M.detailId !== a.id;
+    M.detailId = a.id;
+    mount(M.main, h('div', { class: 'am-detail' + (fresh ? ' enter' : '') },
       h('div', { class: 'am-d-head' }, iconBox(a, false, 'ax-ic'), h('div', { style: 'min-width:0' }, h('h3', { title: a.name }, a.name), h('p', null, a.running ? t('Em execução') : t('Atualização disponível')))),
       h('dl', { class: 'am-d-list' },
         h('dt', null, t('Versão instalada')), h('dd', null, u.current),
@@ -764,7 +778,7 @@ export function enter(ctx) {
     if (!U.over) { mount(M.mid, h('h3', null, t('Restos')), noScan(t('Analise seu Mac para ver restos e instaladores.'))); return; }
     const row = (id, label, res) => {
       const n = res.groups.reduce((a, g) => a + g.items.length, 0);
-      return h('button', { class: 'am-grp two', type: 'button', 'aria-current': String(U.restGroup === id), onClick: () => { U.restGroup = id; paintMid(); paintMain(); paintFoot(); } },
+      return h('button', { class: 'am-grp two', type: 'button', dataset: { fk: 'rgrp:' + id }, 'aria-current': String(U.restGroup === id), onClick: () => keepFocus(root, () => { U.restGroup = id; paintMid(); paintMain(); paintFoot(); }) },
         h('span', { title: label }, label), h('span', { class: 'n' }, n ? `${n} · ${fmtBytes(res.total)}` : '0'));
     };
     mount(M.mid, h('h3', null, t('Restos')), h('p', { class: 'am-desc' }, t('Dados de apps que já foram removidos e instaladores que podem ser baixados de novo.')),

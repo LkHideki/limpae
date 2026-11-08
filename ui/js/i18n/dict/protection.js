@@ -140,4 +140,10 @@ export default {
   'Esvazie a Lixeira para liberar o espaço no disco.': { en: 'Empty the Trash to free up space on your disk.', id: 'Kosongkan Tempat Sampah untuk membebaskan ruang di disk.' },
   'Concluir': { en: 'Done', id: 'Selesai' },
   'Ver log': { en: 'View Log', id: 'Lihat Log' },
+  'Verificação indisponível': { en: 'Check unavailable', id: 'Pemeriksaan tidak tersedia' },
+  'Não foi possível ler o estado das proteções do macOS. Tente de novo.': { en: 'We couldn’t read the state of the macOS protections. Try again.', id: 'Status perlindungan macOS tidak dapat dibaca. Coba lagi.' },
+  'Não foi possível verificar a segurança.': { en: 'Couldn’t check your Mac’s security.', id: 'Tidak dapat memeriksa keamanan Mac Anda.' },
+  'Nenhuma permissão foi revogada.': { en: 'No permissions were revoked.', id: 'Tidak ada izin yang dicabut.' },
+  '{n} permissão não foi revogada.': { en: '{n} permission wasn’t revoked.', id: '{n} izin tidak dicabut.' },
+  '{n} permissões não foram revogadas.': { en: '{n} permissions weren’t revoked.', id: '{n} izin tidak dicabut.' },
 };

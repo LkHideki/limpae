@@ -173,4 +173,5 @@ export default {
   'Grande para baixar de novo': { en: 'Large to download again', id: 'Berukuran besar untuk diunduh ulang' },
   'App em execução': { en: 'App is running', id: 'App sedang berjalan' },
   'Executável ausente: {path}': { en: 'Missing executable: {path}', id: 'File eksekusi tidak ditemukan: {path}' },
+  'Nada foi liberado.': { en: 'Nothing was freed.', id: 'Tidak ada yang dibebaskan.' },
 };

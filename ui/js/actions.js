@@ -66,10 +66,12 @@ export async function removeGroups(result, sel, onGroup = () => {}, opts = {}) {
 
 // Round "Stop" button with the progress ring during a removal: progress(p) updates the ring and
 // stopped() tells whether the user stopped (the backend also stops between items via cancel_scan).
+// The ring spins (indeterminate) until a real intermediate step arrives: a one-step removal would otherwise show an
+// empty static arc for its whole duration.
 export function stopDock(ctx, mod) {
-  let stop = false, last = 0;
+  let stop = false, last = null;
   const paint = () => ctx.setDock({ label: stop ? t('Parando') : t('Parar'), busy: true, progress: last, mod, disabled: stop,
     onClick: () => { if (stop) return; stop = true; api.cancel().catch(() => {}); paint(); } });
   paint();
-  return { progress: (p) => { last = p; paint(); }, stopped: () => stop };
+  return { progress: (p) => { if (p > 0 && (p < 1 || last != null)) last = p; paint(); }, stopped: () => stop };
 }

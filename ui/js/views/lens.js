@@ -1,7 +1,7 @@
 // Disk Map: navigable bubble map. Only node ids travel; the backend resolves paths and validates each removal.
 import { play } from '../sound.js';
 import { t, tn, tr } from '../i18n.js';
-import { h, mount, sleep } from '../dom.js';
+import { h, mount, sleep, keepFocus } from '../dom.js';
 import { icon } from '../art.js';
 import { api } from '../api.js';
 import { store, bump } from '../store.js';
@@ -214,7 +214,7 @@ export function enter(ctx) {
       if (!S.roots) { mount(pick, h('div', { class: 'lens-roots-load' }, h('span', { class: 'spin' }), t('Lendo os locais…'))); return; }
       mount(pick, S.roots.map((r) => {
         const usedPct = pct(r.used, r.total);
-        return h('button', { class: 'lens-root', type: 'button', role: 'radio', 'aria-checked': String(r.index === S.rootIdx), onClick: () => { S.rootIdx = r.index; drawRoots(); } },
+        return h('button', { class: 'lens-root', type: 'button', role: 'radio', dataset: { fk: 'root:' + r.index }, 'aria-checked': String(r.index === S.rootIdx), onClick: () => { S.rootIdx = r.index; keepFocus(ctx.root, drawRoots); } },
           h('span', { class: 'lr-ic' }, icon(r.isVolume ? 'disk' : 'folder', 18)),
           h('span', { class: 'lr-main' }, h('b', null, rootTitle(r)), h('small', null, r.total ? t('{used} de {total} usados', { used: fmtBytes(r.used), total: fmtBytes(r.total) }) : r.path)),
           h('span', { class: 'lr-bar' }, h('i', { style: `width:${usedPct}%` })));
@@ -655,7 +655,10 @@ export function enter(ctx) {
     const sd = stopDock(ctx, 'lens');
     const res = await removeGroups(result, sel, (g, status, info) => { if (status !== 'run') sd.progress(info.done / info.total); }, { permanent, stopped: sd.stopped });
     bump(); store.trash = null;
-    S.moved = res.handled; S.permanent = permanent; S.phase = 'done'; S.hasMap = false; S.cur = null; S.review = null; S.sel = new Set();
+    S.moved = res.handled; S.failed = res.failures.length; S.permanent = permanent; S.phase = 'done'; S.review = null; S.sel = new Set();
+    // The map only goes away when something was actually removed; otherwise it is still accurate.
+    S.changed = res.okIds.size > 0;
+    if (S.changed) { S.hasMap = false; S.cur = null; }
     // A bare Stop already sounded 'stop': no 'error' on top, and the items the user chose to leave are not failures.
     const real = realFailures(res.failures);
     if (res.handled) play('clean'); else if (!sd.stopped() || real.length) play('error');
@@ -668,10 +671,14 @@ export function enter(ctx) {
 
   function renderDone() {
     st.show(h('div', { class: 'big' }, bytesParts(S.moved).value, h('small', null, bytesParts(S.moved).unit)), h('div', { class: 'big-cap' }, S.permanent ? t('apagados definitivamente') : t('movidos para o Lixo')),
-      h('p', { class: 'sub' }, (S.permanent ? t('O espaço já foi liberado.') : t('Esvazie a Lixeira para liberar o espaço no disco.')) + ' ' + t('O mapa mudou: analise de novo para ver o resultado.')),
+      h('p', { class: 'sub' }, [
+        // With nothing moved, "Empty the Trash" and "the map changed" would be wrong.
+        S.moved === 0 ? t('Nada foi movido.') : (S.permanent ? t('O espaço já foi liberado.') : t('Esvazie a Lixeira para liberar o espaço no disco.')) + (S.changed ? ' ' + t('O mapa mudou: analise de novo para ver o resultado.') : ''),
+        S.failed ? ' ' + tn(S.failed, '{n} item não foi removido.', '{n} itens não foram removidos.') : '',
+      ]),
       h('div', { class: 'row-actions' },
         h('button', { class: 'btn', type: 'button', onClick: () => api.revealLog().catch(() => {}) }, icon('log', 15), t('Ver log')),
-        S.permanent ? null : h('button', { class: 'btn', type: 'button', onClick: () => ctx.nav('trash') }, icon('trash', 15), t('Ir para a Lixeira')),
+        S.permanent || S.moved === 0 ? null : h('button', { class: 'btn', type: 'button', onClick: () => ctx.nav('trash') }, icon('trash', 15), t('Ir para a Lixeira')),
         h('button', { class: 'btn primary', type: 'button', onClick: () => { S.phase = 'idle'; st = null; render(); } }, t('Concluir'))));
     st.succeeded(S.moved > 0); // celebrated only when something was actually handled
     ctx.setDock(null);
