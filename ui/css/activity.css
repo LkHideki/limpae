@@ -86,6 +86,8 @@
 .rec-main b, .rec-ok b { font-size: 14px; font-weight: 600; }
 .rec-main p, .rec-ok p { margin-top: 2px; font-size: 13px; color: var(--text-2); line-height: 1.4; }
 .rec .btn { flex: none; }
+.act-restore { margin-top: 22px; }
+.act-note { margin: -4px 0 12px; font-size: 13px; color: var(--text-2); }
 
 @media (max-width: 960px) { .act-grid { grid-template-columns: minmax(0, 1fr); } .act-health { min-height: 0; } }
 @media (prefers-reduced-motion: reduce) { .act-ring .ring-arc, .ahd-bar i { transition: none; } }

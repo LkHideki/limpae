@@ -241,4 +241,9 @@ export default {
   'O System Events não conseguiu remover o item.': { en: 'System Events couldn’t remove the item.', id: 'System Events tidak dapat menghapus item tersebut.' },
   'Não foi possível listar os snapshots locais.': { en: 'Couldn’t list the local snapshots.', id: 'Tidak dapat menampilkan daftar snapshot lokal.' },
   'O tmutil não conseguiu afinar os snapshots locais.': { en: 'tmutil couldn’t thin the local snapshots.', id: 'tmutil tidak dapat mengurangi snapshot lokal.' },
+  'sem acesso ao Lixo; conceda o Acesso Total ao Disco': { en: 'no access to the Trash; grant Full Disk Access', id: 'tidak ada akses ke Tempat Sampah; beri Akses Disk Penuh' },
+  'já existe um item com esse nome no local original': { en: 'an item with this name already exists in the original location', id: 'item dengan nama ini sudah ada di lokasi asli' },
+  'a pasta original não existe mais': { en: 'the original folder no longer exists', id: 'folder asli sudah tidak ada' },
+  'o item está em outro disco; use “Devolver” no Finder': { en: 'the item is on another disk; use “Put Back” in the Finder', id: 'item ada di disk lain; gunakan “Kembalikan” di Finder' },
+  'sem permissão para restaurar este item': { en: 'no permission to restore this item', id: 'tidak ada izin untuk memulihkan item ini' },
 };

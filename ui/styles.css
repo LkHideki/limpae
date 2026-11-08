@@ -423,6 +423,9 @@ body.locked .nav-item:not([aria-current="page"]) { opacity: .45; pointer-events:
 .toast { max-width: 520px; padding: 11px 16px; border-radius: 14px; font-size: 13.5px; font-weight: 500; background: rgba(60, 22, 36, .94); border: 1px solid rgba(255, 107, 107, .45); box-shadow: 0 16px 34px -10px rgba(0, 0, 0, .6); animation: rise .3s var(--ease) both; display: flex; gap: 10px; align-items: center; }
 .toast.out { opacity: 0; transform: translateY(-8px); transition: all .3s; }
 .toast.ok { background: rgba(10, 54, 46, .94); border-color: rgba(61, 220, 151, .45); }
+.toast-act { pointer-events: auto; margin-left: 6px; padding: 4px 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .28); background: rgba(255, 255, 255, .12); color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.toast-act:hover { background: rgba(255, 255, 255, .22); }
+.toast-act:focus-visible { outline: 2px solid rgba(255, 255, 255, .7); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }

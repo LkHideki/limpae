@@ -193,7 +193,7 @@ fn revoke_ids(
                 if let Some(m) = lock(rows).as_mut() {
                     m.remove(&id);
                 }
-                by_id.insert(id, OutcomeDto { id, ok: true, freed: 0, error: None });
+                by_id.insert(id, OutcomeDto::done(id, 0));
             }
             Err(e) => {
                 by_id.insert(id, OutcomeDto::failed(id, e));
@@ -280,7 +280,7 @@ pub async fn privacy_remove(
     let st = Arc::clone(state.inner());
     blocking(move || {
         let stop = std::sync::atomic::AtomicBool::new(false);
-        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&stop) };
+        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&stop), undo: None };
         Ok(remove_privacy(&st, &ids, &running_bundle_ids(), opts))
     })
     .await

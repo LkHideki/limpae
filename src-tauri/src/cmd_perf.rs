@@ -467,7 +467,7 @@ fn remove_logins(st: &AppState, ids: &[u64]) -> RemoveResult {
             match result {
                 Ok(()) => {
                     lock(&STORE).logins.remove(&id);
-                    (id, OutcomeDto { id, ok: true, freed: 0, error: None })
+                    (id, OutcomeDto::done(id, 0))
                 }
                 Err(e) => (id, OutcomeDto::failed(id, e)),
             }

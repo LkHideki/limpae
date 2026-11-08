@@ -13,10 +13,12 @@ use crate::guard::{Guard, GuardError};
 use crate::log::ActionLog;
 use crate::model::{Group, Item, Policy};
 use crate::size::alloc_size;
+use crate::undo::TrashJournal;
 
 /// Seam over the destructive calls so tests never touch the real Trash.
 pub trait Remover: Sync {
-    fn trash(&self, path: &Path) -> io::Result<()>;
+    /// Moves `path` to the Trash and returns where it landed, when known (needed for undo).
+    fn trash(&self, path: &Path) -> io::Result<Option<PathBuf>>;
     fn delete(&self, path: &Path) -> io::Result<()>;
 }
 
@@ -30,6 +32,20 @@ pub struct Outcome {
     pub error: Option<String>,
 }
 
+/// NSFileManager directly (not through the `trash` crate) because only it reports where the item landed.
+fn trash_ns(path: &Path) -> Result<Option<PathBuf>, String> {
+    use objc2_foundation::{NSFileManager, NSString, NSURL};
+    let Some(utf8) = path.to_str() else {
+        return trash_with(path, DeleteMethod::NsFileManager).map(|()| None);
+    };
+    let url = NSURL::fileURLWithPath(&NSString::from_str(utf8));
+    let mut landed = None;
+    NSFileManager::defaultManager()
+        .trashItemAtURL_resultingItemURL_error(&url, Some(&mut landed))
+        .map_err(|err| format!("trashItemAtURL failed: {err} (code {})", err.code()))?;
+    Ok(landed.and_then(|u| u.path()).map(|p| PathBuf::from(p.to_string())))
+}
+
 fn trash_with(path: &Path, method: DeleteMethod) -> Result<(), String> {
     let mut ctx = TrashContext::default();
     ctx.set_delete_method(method);
@@ -41,7 +57,13 @@ fn trash_error(detail: &str) -> io::Error {
     let d = detail.to_lowercase();
     if d.contains("-128") || d.contains("user canceled") || d.contains("cancelled") {
         io::Error::new(io::ErrorKind::Interrupted, "autorização cancelada; o item continua no lugar")
-    } else if d.contains("permission") || d.contains("not permitted") || d.contains("-54") || d.contains("-5000") {
+    } else if d.contains("permission")
+        || d.contains("not permitted")
+        || d.contains("-54")
+        || d.contains("-5000")
+        || d.contains("(code 513)")
+        || d.contains("(code 257)")
+    {
         io::Error::new(io::ErrorKind::PermissionDenied, "sem permissão: o item pertence ao sistema ou a outro usuário")
     } else {
         io::Error::other(format!("não foi possível mover para o Lixo ({detail})"))
@@ -56,10 +78,13 @@ fn needs_finder(path: &Path, detail: &str) -> bool {
 
 impl Remover for SystemRemover {
     /// NSFileManager first: no Automation prompt and no sound. Root-owned app bundles fall back to Finder.
-    fn trash(&self, path: &Path) -> io::Result<()> {
-        match trash_with(path, DeleteMethod::NsFileManager) {
-            Ok(()) => Ok(()),
-            Err(e) if needs_finder(path, &e) => trash_with(path, DeleteMethod::Finder).map_err(|e| trash_error(&e)),
+    /// The Finder fallback does not say where the item went, so it has no in-app undo (Finder's Put Back works).
+    fn trash(&self, path: &Path) -> io::Result<Option<PathBuf>> {
+        match trash_ns(path) {
+            Ok(landed) => Ok(landed),
+            Err(e) if needs_finder(path, &e) => {
+                trash_with(path, DeleteMethod::Finder).map(|()| None).map_err(|e| trash_error(&e))
+            }
             Err(e) => Err(trash_error(&e)),
         }
     }
@@ -100,6 +125,8 @@ fn is_permanent(item: &Item) -> bool {
 pub struct RemoveOptions<'a> {
     pub permanent: bool,
     pub cancel: Option<&'a AtomicBool>,
+    /// Journal and batch id for undo; Trash moves are journaled only when both are set.
+    pub undo: Option<(&'a TrashJournal, &'a str)>,
 }
 
 pub const CANCELLED: &str = "cancelado; o item continua no lugar";
@@ -130,7 +157,15 @@ fn remove_one(item: &Item, guard: &Guard, r: &dyn Remover, log: &ActionLog, opts
         Policy::DeleteJunk { .. } => ("apagar", r.delete(&real)),
         Policy::EmptyTrashEntry => ("esvaziar", r.delete(&real)),
         Policy::MoveToTrash if opts.permanent => ("apagar-definitivo", r.delete(&real)),
-        Policy::MoveToTrash => ("lixo", r.trash(&real)),
+        Policy::MoveToTrash => match r.trash(&real) {
+            Ok(landed) => {
+                if let (Some(to), Some((journal, batch))) = (landed, opts.undo) {
+                    journal.record(batch, &real, &to, item.size);
+                }
+                ("lixo", Ok(()))
+            }
+            Err(e) => ("lixo", Err(e)),
+        },
     };
     let (freed, error) = match result {
         Ok(()) => (item.size, None),
@@ -216,8 +251,8 @@ mod tests {
     }
 
     impl Remover for FakeRemover {
-        fn trash(&self, path: &Path) -> io::Result<()> {
-            self.call("trash", path)
+        fn trash(&self, path: &Path) -> io::Result<Option<PathBuf>> {
+            self.call("trash", path).map(|()| None)
         }
         fn delete(&self, path: &Path) -> io::Result<()> {
             self.call("delete", path)
@@ -228,7 +263,7 @@ mod tests {
     struct PartialRemover;
 
     impl Remover for PartialRemover {
-        fn trash(&self, _: &Path) -> io::Result<()> {
+        fn trash(&self, _: &Path) -> io::Result<Option<PathBuf>> {
             unreachable!()
         }
         fn delete(&self, path: &Path) -> io::Result<()> {
@@ -494,12 +529,55 @@ mod tests {
         fs::write(&stray, b"x").unwrap();
         let bad = Item::new(stray.clone(), 1, Policy::MoveToTrash);
         let fake = FakeRemover::default();
-        let opts = RemoveOptions { permanent: true, cancel: None };
+        let opts = RemoveOptions { permanent: true, ..Default::default() };
         let out = remove_items_with(&[item, bad], &f.guard, &fake, &f.log, opts);
         assert!(out[0].ok && !out[1].ok, "{out:?}");
         assert_eq!(fake.calls(), vec![("delete".to_string(), doc.clone())], "deleted, never trashed");
         assert!(stray.exists(), "guard still refuses outside paths");
         assert!(f.log_lines().iter().any(|l| l.contains("\tapagar-definitivo\tok\t")));
+    }
+
+    /// Moves the item into `<home>/.Trash` like NSFileManager would and reports where it landed.
+    struct MovingRemover(PathBuf);
+
+    impl Remover for MovingRemover {
+        fn trash(&self, path: &Path) -> io::Result<Option<PathBuf>> {
+            let to = self.0.join(".Trash").join(path.file_name().unwrap());
+            fs::rename(path, &to)?;
+            Ok(Some(to))
+        }
+        fn delete(&self, _: &Path) -> io::Result<()> {
+            unreachable!()
+        }
+    }
+
+    #[test]
+    fn trash_moves_are_journaled_and_can_be_undone() {
+        let f = fixture();
+        let doc = f.home.join("Documents/report.pdf");
+        fs::write(&doc, b"pdf").unwrap();
+        let journal = TrashJournal::in_home(&f.home);
+        let opts = RemoveOptions { undo: Some((&journal, "b1")), ..Default::default() };
+        let out = remove_items_with(
+            &[f.item(doc.clone(), Policy::MoveToTrash)],
+            &f.guard,
+            &MovingRemover(f.home.clone()),
+            &f.log,
+            opts,
+        );
+        assert!(out[0].ok && !doc.exists());
+        let batches = journal.batches();
+        assert_eq!(batches.len(), 1);
+        assert_eq!(batches[0].items[0].from, doc);
+        let restored = journal.restore(&["b1".into()], &f.log);
+        assert!(restored[0].ok, "{restored:?}");
+        assert_eq!(fs::read(&doc).unwrap(), b"pdf");
+        // Without a journal nothing is recorded.
+        let other = f.home.join("Documents/other.pdf");
+        fs::write(&other, b"o").unwrap();
+        let out = remove_items(&[f.item(other, Policy::MoveToTrash)], &f.guard, &MovingRemover(f.home.clone()), &f.log);
+        assert!(out[0].ok);
+        assert!(journal.batches().is_empty());
     }
 
     #[test]
@@ -514,7 +592,7 @@ mod tests {
             &f.guard,
             &SystemRemover,
             &f.log,
-            RemoveOptions { permanent: false, cancel: Some(&stop) },
+            RemoveOptions { cancel: Some(&stop), ..Default::default() },
         );
         assert!(out.iter().all(|o| !o.ok && o.error.as_deref() == Some(CANCELLED)));
         assert!(a.exists() && b.exists());

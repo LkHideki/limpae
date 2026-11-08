@@ -20,6 +20,7 @@ use limpa_core::remove::{RemoveOptions, SystemRemover, remove_items_with, trash_
 use limpa_core::running::{app_icon_png, cache_in_use, running_bundle_ids, running_keys};
 use limpa_core::settings::Settings;
 use limpa_core::trashes::external_trash_entries;
+use limpa_core::undo::{Batch, RestoreOutcome, new_batch_id};
 use limpa_core::{Group, Item, Policy, Progress};
 use tauri::{AppHandle, Emitter, State};
 
@@ -249,16 +250,22 @@ pub async fn app_leftovers(app: AppHandle, state: State<'_, Shared>, app_id: u64
 
 /// Removes `items` (id, item) through the guarded engine and forgets the ids that succeeded.
 /// Honors "Apagar definitivamente" and the Stop button through `opts`.
+/// Every call is one undo batch: items that went to the Trash carry its id.
 pub(crate) fn run_removal_with(st: &AppState, items: &[(u64, Item)], opts: RemoveOptions) -> HashMap<u64, OutcomeDto> {
     let plain: Vec<Item> = items.iter().map(|(_, it)| it.clone()).collect();
+    let batch = new_batch_id();
+    let opts = RemoveOptions { undo: Some((&st.journal, &batch)), ..opts };
     let outcomes = remove_items_with(&plain, &st.guard, &SystemRemover, &st.log, opts);
     let mut by_id = HashMap::new();
     let mut done = Vec::new();
-    for ((id, _), o) in items.iter().zip(outcomes) {
+    for ((id, it), o) in items.iter().zip(outcomes) {
         if o.ok {
             done.push(*id);
         }
-        by_id.insert(*id, OutcomeDto { id: *id, ok: o.ok, freed: if o.ok { o.freed } else { 0 }, error: o.error });
+        let trashed = o.ok && it.policy == Policy::MoveToTrash && !opts.permanent;
+        let freed = if o.ok { o.freed } else { 0 };
+        let undo = trashed.then(|| batch.clone());
+        by_id.insert(*id, OutcomeDto { id: *id, ok: o.ok, freed, error: o.error, undo });
     }
     lock(&st.registry).forget(&done);
     by_id
@@ -282,7 +289,7 @@ pub async fn remove(state: State<'_, Shared>, ids: Vec<u64>, permanent: Option<b
     blocking(move || {
         // Registered like a scan so the Stop button (cancel_scan) halts the batch between items.
         let session = ScanSession::new(&st);
-        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&session.flag) };
+        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&session.flag), undo: None };
         let mut resolved = lock(&st.registry).resolve_removal(&ids);
         // An app opened after the scan must not lose its cache while running.
         let keys = running_keys();
@@ -307,7 +314,7 @@ pub async fn uninstall(
     let st = Arc::clone(state.inner());
     blocking(move || {
         let session = ScanSession::new(&st);
-        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&session.flag) };
+        let opts = RemoveOptions { permanent: permanent.unwrap_or(false), cancel: Some(&session.flag), undo: None };
         let info = lock(&st.apps).get(&app_id).cloned().ok_or(ERR_APP_GONE)?;
         let running = running_bundle_ids();
         if running.contains(&info.bundle_id) {
@@ -478,7 +485,7 @@ mod tests {
     use super::*;
 
     fn ok(id: u64, freed: u64) -> (u64, OutcomeDto) {
-        (id, OutcomeDto { id, ok: true, freed, error: None })
+        (id, OutcomeDto::done(id, freed))
     }
 
     #[test]
@@ -552,4 +559,18 @@ mod tests {
         let log_item = Item::new(logs.join("Google"), 1, Policy::DeleteJunk { root: logs });
         assert!(!cache_of_running_app(&log_item, &keys), "only caches are tied to running apps");
     }
+}
+
+/// Removal batches that still have items in the Trash, newest first (the undo list).
+#[tauri::command]
+pub async fn trash_history(state: State<'_, Shared>) -> Result<Vec<Batch>, String> {
+    let st = Arc::clone(state.inner());
+    blocking(move || Ok(st.journal.batches())).await
+}
+
+/// Moves the items of `batches` back from the Trash. Each move is re-checked; nothing is ever overwritten.
+#[tauri::command]
+pub async fn restore_trashed(state: State<'_, Shared>, batches: Vec<String>) -> Result<Vec<RestoreOutcome>, String> {
+    let st = Arc::clone(state.inner());
+    blocking(move || Ok(st.journal.restore(&batches, &st.log))).await
 }

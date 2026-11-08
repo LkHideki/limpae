@@ -4,6 +4,7 @@ import { icon } from '../art.js';
 import { api, call } from '../api.js';
 import { bytesParts, fmtBytes, fmtNum, pct, plural } from '../format.js';
 import { t, tn, tr, lazyIntl } from '../i18n.js';
+import { restoreBatches } from '../undo.js';
 
 const getHealth = () => call('health', undefined, { quiet: true });
 const getActivity = () => call('activity', undefined, { quiet: true });
@@ -18,6 +19,7 @@ const LEVELS = {
 };
 const SEV_ICON = { critical: 'alert', warn: 'alert', info: 'clock' };
 const shortDateFmt = lazyIntl('DateTimeFormat', { day: 'numeric', month: 'short' });
+const whenFmt = lazyIntl('DateTimeFormat', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 function dayStart(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
 
@@ -132,14 +134,49 @@ function statCards(ctx, a) {
   ];
 }
 
+// Recently trashed: removal batches that still have items in the Trash, with "Restore". Hidden when empty.
+const RESTORE_SHOWN = 8;
+function restoreSection(ctx, batches, reload) {
+  if (!batches.length) return null;
+  const row = (b) => {
+    const ready = b.items.filter((i) => i.state === 'ready');
+    const noAccess = b.items.some((i) => i.state === 'noAccess');
+    const size = b.items.reduce((n, i) => n + i.size, 0);
+    const names = b.items.map((i) => i.name).slice(0, 3).join(' · ') + (b.items.length > 3 ? ' …' : '');
+    const btn = ready.length
+      ? h('button', { class: 'btn sm', type: 'button', onClick: async (e) => { e.currentTarget.disabled = true; await restoreBatches([b.id]); reload(); } }, t('Restaurar'))
+      : noAccess
+        ? h('button', { class: 'btn sm', type: 'button', onClick: () => api.openFda().catch(() => {}) }, t('Conceder acesso'))
+        : null;
+    const why = !ready.length && !noAccess ? t('O local original está ocupado ou não existe mais.') : null;
+    return h('li', { class: 'rec' },
+      h('span', { class: 'rec-ic', 'aria-hidden': 'true' }, icon('trash', 18)),
+      h('div', { class: 'rec-main' },
+        h('b', null, tn(b.items.length, '{n} item', '{n} itens'), ' · ', h('span', { class: 'num' }, fmtBytes(size))),
+        h('p', { title: b.items.map((i) => i.from).join('\n') }, whenFmt.format(new Date(b.time * 1000)), ' — ', names),
+        why ? h('p', null, why) : null),
+      btn);
+  };
+  return h('section', { class: 'act-recs act-restore', 'aria-label': t('Movidos para o Lixo') },
+    h('h2', { class: 'act-h' }, t('Movidos para o Lixo')),
+    h('p', { class: 'act-note' }, t('Itens que o Limpae moveu para o Lixo e que ainda podem voltar para onde estavam.')),
+    h('ul', { class: 'rec-list' }, batches.slice(0, RESTORE_SHOWN).map(row)));
+}
+
 export function enter(ctx) {
   const healthBox = h('div', { class: 'act-health-box' }, h('section', { class: 'act-card act-health loading' }, h('span', { class: 'spin' }), t('Verificando o Mac…')));
   const statsBox = h('div', { class: 'act-stats' });
   const recsBox = h('div', { class: 'act-recs-box' });
+  const restoreBox = h('div', { class: 'act-restore-box' });
   mount(ctx.root, h('div', { class: 'act' },
     h('header', { class: 'set-head' }, h('h1', { class: 'h2' }, t('Saúde'))),
     h('div', { class: 'act-grid' }, healthBox, statsBox),
-    recsBox));
+    recsBox, restoreBox));
+
+  const loadRestore = () => api.trashHistory().then((batches) => {
+    if (ctx.alive) mount(restoreBox, restoreSection(ctx, batches, loadRestore));
+  }).catch(() => {});
+  loadRestore();
 
   getHealth().then((hl) => {
     if (!ctx.alive) return;

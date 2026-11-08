@@ -394,7 +394,7 @@ pub async fn cloud_evict(state: State<'_, Shared>, ids: Vec<u64>) -> Result<Remo
                 Ok(freed) => {
                     st.log.record("desincronizar", &item.path, true, freed);
                     done.push(*id);
-                    by_id.insert(*id, OutcomeDto { id: *id, ok: true, freed, error: None });
+                    by_id.insert(*id, OutcomeDto::done(*id, freed));
                 }
                 Err(e) => {
                     st.log.record("desincronizar", &item.path, false, 0);

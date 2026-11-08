@@ -8,6 +8,7 @@ use limpa_core::apps::AppInfo;
 use limpa_core::lens::{LensTree, Root};
 use limpa_core::log::ActionLog;
 use limpa_core::settings::Settings;
+use limpa_core::undo::TrashJournal;
 
 use crate::registry::Registry;
 
@@ -22,6 +23,8 @@ pub struct AppState {
     pub home: PathBuf,
     pub guard: Guard,
     pub log: ActionLog,
+    /// Trash moves that can be undone.
+    pub journal: TrashJournal,
     pub registry: Mutex<Registry>,
     pub apps: Mutex<HashMap<u64, AppInfo>>,
     /// App id to PNG data URL (`None` = app has no renderable icon). Cleared whenever the app list is replaced.
@@ -46,6 +49,11 @@ impl AppState {
             settings_path,
             guard: Guard::new(&home),
             log: ActionLog::in_home_migrating(&home),
+            journal: {
+                let j = TrashJournal::in_home(&home);
+                j.prune();
+                j
+            },
             home,
             registry: Mutex::default(),
             apps: Mutex::default(),

@@ -9,6 +9,20 @@ let cancelRequested = false;
 
 export const setNotifier = (fn) => { notifier = fn; };
 
+// Undo: removals that sent items to the Trash return a batch id per item. Batches from removals that follow each
+// other (a Sweep removes group by group) are gathered and offered as one "Undo" once the burst ends.
+let undoNotifier = () => {};
+let undoBatches = new Set(), undoCount = 0, undoTimer = null;
+export const setUndoNotifier = (fn) => { undoNotifier = fn; };
+function collectUndo(res) {
+  for (const o of (res && res.outcomes) || []) if (o.ok && o.undo) { undoBatches.add(o.undo); undoCount++; }
+  if (undoBatches.size) {
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => { const b = [...undoBatches], n = undoCount; undoBatches = new Set(); undoCount = 0; undoNotifier(b, n); }, 900);
+  }
+  return res;
+}
+
 export function onProgress(cb) {
   if (!hooked) {
     hooked = true;
@@ -40,8 +54,10 @@ export const api = {
   apps: () => call('list_apps'),
   icon: (appId) => call('app_icon', { appId }, { quiet: true }),
   leftovers: (appId) => call('app_leftovers', { appId }),
-  remove: (ids, permanent = false) => call('remove', { ids, permanent }),
-  uninstall: (appId, leftoverIds, permanent = false) => call('uninstall', { appId, leftoverIds, permanent }),
+  remove: (ids, permanent = false) => call('remove', { ids, permanent }).then(collectUndo),
+  uninstall: (appId, leftoverIds, permanent = false) => call('uninstall', { appId, leftoverIds, permanent }).then(collectUndo),
+  trashHistory: () => call('trash_history', undefined, { quiet: true }),
+  restoreTrashed: (batches) => call('restore_trashed', { batches }),
   cancel: () => { play('stop'); return call('cancel_scan', undefined, { quiet: true }); },
   reveal: (id) => call('reveal', { id }),
   openApp: (appId) => call('open_app', { appId }),
@@ -74,7 +90,7 @@ export const api = {
   tccPermissions: () => call('tcc_permissions'),
   tccRevoke: (ids) => call('tcc_revoke', { ids }),
   privacyScan: () => call('privacy_scan'),
-  privacyRemove: (ids, permanent = false) => call('privacy_remove', { ids, permanent }),
+  privacyRemove: (ids, permanent = false) => call('privacy_remove', { ids, permanent }).then(collectUndo),
   perfScan: () => call('perf_scan'),
   perfMonitor: () => call('perf_monitor', undefined, { quiet: true }),
   perfIcon: (id) => call('perf_icon', { id }, { quiet: true }),

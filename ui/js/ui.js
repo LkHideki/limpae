@@ -4,11 +4,15 @@ import { icon, orb } from './art.js';
 import { plural } from './format.js';
 import { t, tn, tr } from './i18n.js';
 
-export function toast(msg, kind = 'err') {
+// action: { label, onClick } adds a button (e.g. "Undo"); the toast then stays longer and closes when clicked.
+export function toast(msg, kind = 'err', action = null) {
   const root = document.getElementById('toast-root');
-  const el = h('div', { class: 'toast ' + (kind === 'ok' ? 'ok' : ''), role: 'status' }, icon(kind === 'ok' ? 'check' : 'alert', 16), h('span', null, msg));
+  let gone = false;
+  const close = () => { if (gone) return; gone = true; el.classList.add('out'); setTimeout(() => el.remove(), 320); };
+  const btn = action ? h('button', { class: 'toast-act', type: 'button', onClick: () => { close(); action.onClick(); } }, action.label) : null;
+  const el = h('div', { class: 'toast ' + (kind === 'ok' ? 'ok' : ''), role: 'status' }, icon(kind === 'ok' ? 'check' : 'alert', 16), h('span', null, msg), btn);
   root.append(el);
-  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 320); }, 5200);
+  setTimeout(close, action ? 9000 : 5200);
 }
 
 function modal({ title, body, buttons, glyph = 'alert', danger = false, mod, extra }) {
@@ -120,7 +124,8 @@ export function toggleSwitch(on, onChange, label) {
   return b;
 }
 
-export function failuresSheet(failures) {
+// copy: { title, body(n) } replaces the removal wording (e.g. for restores).
+export function failuresSheet(failures, copy = null) {
   // Failures with the same reason (e.g. leftovers kept because the app was running) become a single card.
   const byReason = new Map();
   for (const f of failures) {
@@ -140,8 +145,8 @@ export function failuresSheet(failures) {
   };
   const list = h('div', { class: 'fail-list' }, [...byReason].map(([reason, fs]) => card(fs, reason)));
   return modal({
-    title: t('Alguns itens não foram removidos'),
-    body: tn(failures.length, '{n} item não pôde ser removido e continua no lugar.', '{n} itens não puderam ser removidos e continuam no lugar.'),
+    title: copy ? copy.title : t('Alguns itens não foram removidos'),
+    body: copy ? copy.body(failures.length) : tn(failures.length, '{n} item não pôde ser removido e continua no lugar.', '{n} itens não puderam ser removidos e continuam no lugar.'),
     glyph: 'alert', extra: list, buttons: [{ label: t('Entendi'), value: true, kind: 'primary' }],
   });
 }

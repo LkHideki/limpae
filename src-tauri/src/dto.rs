@@ -106,11 +106,18 @@ pub struct OutcomeDto {
     pub ok: bool,
     pub freed: u64,
     pub error: Option<String>,
+    /// Undo batch of an item that went to the Trash (see `restore_trashed`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub undo: Option<String>,
 }
 
 impl OutcomeDto {
     pub fn failed(id: u64, error: impl Into<String>) -> Self {
-        Self { id, ok: false, freed: 0, error: Some(error.into()) }
+        Self { id, ok: false, freed: 0, error: Some(error.into()), undo: None }
+    }
+
+    pub fn done(id: u64, freed: u64) -> Self {
+        Self { id, ok: true, freed, error: None, undo: None }
     }
 }
 
@@ -203,10 +210,7 @@ mod tests {
 
     #[test]
     fn remove_result_keys() {
-        let r = RemoveResult {
-            outcomes: vec![OutcomeDto::failed(1, "x"), OutcomeDto { id: 2, ok: true, freed: 5, error: None }],
-            freed: 5,
-        };
+        let r = RemoveResult { outcomes: vec![OutcomeDto::failed(1, "x"), OutcomeDto::done(2, 5)], freed: 5 };
         let v = serde_json::to_value(r).unwrap();
         assert_eq!(
             v,

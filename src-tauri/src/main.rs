@@ -65,6 +65,8 @@ fn main() {
             commands::ignore_item,
             commands::list_ignored,
             commands::unignore,
+            commands::trash_history,
+            commands::restore_trashed,
             cmd_cleanup::quick_look,
             cmd_clutter::clutter_locations,
             cmd_clutter::scan_duplicates,

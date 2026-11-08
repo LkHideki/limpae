@@ -25,6 +25,7 @@ pub mod security;
 pub mod settings;
 pub mod size;
 pub mod trashes;
+pub mod undo;
 
 pub use guard::{Guard, GuardError};
 pub use model::{Group, Item, Policy, Progress};

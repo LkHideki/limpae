@@ -1,7 +1,7 @@
 // Shell: sidebar, disk footer, router and the context handed to the views.
 import { h, mount, clear } from './dom.js';
 import { icon, MODS } from './art.js';
-import { api, onProgress, setNotifier } from './api.js';
+import { api, onProgress, setNotifier, setUndoNotifier } from './api.js';
 import { store, bump } from './store.js';
 import { fmtBytes } from './format.js';
 import { createGo, toast } from './ui.js';
@@ -20,7 +20,8 @@ import * as settings from './views/settings.js';
 import { setSoundEnabled } from './sound.js';
 import './feel.js';
 import './motion.js';
-import { applyLangSetting, onLang, t, tr } from './i18n.js';
+import { applyLangSetting, onLang, t, tn, tr } from './i18n.js';
+import { restoreBatches } from './undo.js';
 
 const VIEWS = { smart, clean, trash, protect, perf, apps, files, lens, cloud, tools, activity, settings };
 const view = document.getElementById('view');
@@ -33,6 +34,7 @@ let fdaDismissed = false;
 try { fdaDismissed = localStorage.getItem('limpae.fda.dismissed') === '1'; } catch (e) { /* storage unavailable */ }
 
 setNotifier((msg) => toast(tr(msg)));
+setUndoNotifier((batches, n) => toast(tn(n, '{n} item movido para o Lixo', '{n} itens movidos para o Lixo'), 'ok', { label: t('Desfazer'), onClick: () => restoreBatches(batches) }));
 window.addEventListener('unhandledrejection', (e) => { if (!(e.reason && e.reason.reported)) toast(tr(String((e.reason && e.reason.message) || e.reason || t('Erro inesperado')))); });
 
 function setBusy(b) {
