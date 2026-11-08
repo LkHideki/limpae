@@ -102,6 +102,18 @@ To keep the grant across rebuilds, create a self-signed code-signing certificate
 
 Removing system-installed apps asks Finder to move them, which prompts for your administrator password. Listing login items uses System Events. Both prompts are localized.
 
+### Building a release
+
+`scripts/release.sh` builds `dist/Limpae-<version>.dmg` and its SHA-256. Without credentials the app inside is signed ad hoc, which only opens on the Mac that built it. With a Developer ID it signs with the hardened runtime, notarizes, staples and checks the result with Gatekeeper:
+
+```sh
+xcrun notarytool store-credentials limpae-notary --apple-id <apple-id> --team-id <TEAMID>   # once
+LIMPAE_DEVELOPER_ID="Developer ID Application: Your Name (TEAMID)" \
+LIMPAE_NOTARY_PROFILE=limpae-notary scripts/release.sh
+```
+
+Pushing a `v*` tag runs the same script in GitHub Actions (`.github/workflows/release.yml`). It drafts a GitHub Release only when the signing secrets are configured; otherwise the DMG is kept as a workflow artifact and nothing is published.
+
 ## Languages
 
 Pick the language in **Settings › General**. English is the default.
