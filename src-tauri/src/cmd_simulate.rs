@@ -52,9 +52,10 @@ fn reports_dir(home: &Path) -> PathBuf {
 
 /// Tab-separated, like the action log: action, would-happen/refused, bytes, path, reason.
 fn report_text(rows: &[(u64, Plan)], permanent: bool) -> String {
-    let mut s = format!("# Limpae — simulação de limpeza, {}\n", local_time());
-    let _ = writeln!(s, "# Nada foi removido. Apagar definitivamente: {}", if permanent { "sim" } else { "não" });
-    s.push_str("# ação\tresultado\tbytes\tcaminho\tmotivo\n");
+    // The report is a file, in the same language as the action log; it never reaches the UI. i18n-ignore below.
+    let mut s = format!("# Limpae — simulação de limpeza, {}\n", local_time()); // i18n-ignore
+    let _ = writeln!(s, "# Nada foi removido. Apagar definitivamente: {}", if permanent { "sim" } else { "não" }); // i18n-ignore
+    s.push_str("# ação\tresultado\tbytes\tcaminho\tmotivo\n"); // i18n-ignore
     for (_, p) in rows {
         let status = if p.error.is_some() { "recusado" } else { "ok" };
         let _ = writeln!(

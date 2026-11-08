@@ -186,7 +186,11 @@ pub fn revoke(service: &str, bundle_id: &str) -> Result<(), String> {
         Ok(())
     } else {
         let why = out.stderr.trim();
-        Err(format!("O macOS recusou a revogação{}.", if why.is_empty() { String::new() } else { format!(": {why}") }))
+        Err(if why.is_empty() {
+            "O macOS recusou a revogação.".into()
+        } else {
+            format!("O macOS recusou a revogação: {why}.")
+        })
     }
 }
 

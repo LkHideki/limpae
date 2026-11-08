@@ -249,4 +249,11 @@ export default {
   'está na sua lista de ignorados': { en: 'is on your ignore list', id: 'ada di daftar abaikan Anda' },
   'Essa pasta não pode ser ignorada.': { en: 'This folder cannot be ignored.', id: 'Folder ini tidak dapat diabaikan.' },
   'Não foi possível abrir o seletor de pastas: {e}': { en: 'Couldn’t open the folder chooser: {e}', id: 'Tidak dapat membuka pemilih folder: {e}' },
+  'sem permissão para alterar este item': { en: 'no permission to change this item', id: 'tidak ada izin untuk mengubah item ini' },
+  'o disco é somente leitura': { en: 'the disk is read-only', id: 'disk hanya-baca' },
+  'não há espaço livre no disco': { en: 'there is no free space on the disk', id: 'tidak ada ruang kosong di disk' },
+  'o nome do item é longo demais': { en: 'the item name is too long', id: 'nama item terlalu panjang' },
+  'o item está em outro disco': { en: 'the item is on another disk', id: 'item ada di disk lain' },
+  'erro de leitura ou gravação no disco': { en: 'disk read or write error', id: 'kesalahan baca atau tulis disk' },
+  'erro do sistema: {e}': { en: 'system error: {e}', id: 'kesalahan sistem: {e}' },
 };

@@ -236,7 +236,7 @@ fn describe(e: &io::Error) -> String {
         Some(libc::EEXIST) => "já existe um item com esse nome no local original".into(),
         Some(libc::EXDEV) => "o item está em outro disco; use “Devolver” no Finder".into(),
         Some(libc::EPERM | libc::EACCES) => "sem permissão para restaurar este item".into(),
-        _ => e.to_string(),
+        _ => crate::errors::describe_io(e),
     }
 }
 

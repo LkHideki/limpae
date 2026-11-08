@@ -9,6 +9,7 @@ pub mod apps_extra;
 pub mod cloud;
 pub mod clutter;
 pub mod disk;
+pub mod errors;
 pub mod fda;
 pub mod guard;
 pub mod health;

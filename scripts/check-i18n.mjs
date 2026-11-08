@@ -4,6 +4,8 @@
 //  - the key is a literal (or a ternary of literals); text built at runtime is an error (mark the line `i18n-dynamic`);
 //  - Portuguese literals outside t()/tn()/plural()/tr() are reported (mark the line `i18n-ignore` if legitimate);
 //  - keys repeated across dictionaries must have the same translation.
+//  - Portuguese string literals in the Rust backend (outside tests) must be dictionary keys, since the UI shows them
+//    through tr(); `{x}` in format! strings matches any {placeholder}. Mark a line `i18n-ignore` if it never reaches the UI.
 // Exits with code 1 on any problem.
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
@@ -155,11 +157,43 @@ function checkFile(path) {
   }
 }
 
+// ---- Rust backend texts ----------------------------------------------------------------------------------
+// Heuristic: a literal with a space and Portuguese marks or words is user-facing text. The menu bar extra is
+// localized natively (tray.rs), so it is skipped.
+const RUST_DIRS = ['crates/limpa-core/src', 'src-tauri/src'].map((d) => join(ROOT, d));
+const RUST_SKIP = new Set(['tray.rs']);
+const RUST_PT = /[ãõçáéíóúâêôà]|\b(não|sem|para|itens?|arquivos?|pasta|está|foi|uma?)\b/i;
+const shape = (s) => s.replace(/\{[^}]*\}/g, '{}');
+function checkRust() {
+  const known = new Set(Object.keys(EN).map(shape));
+  const rs = (dir) => readdirSync(dir).flatMap((n) => {
+    const p = join(dir, n);
+    return statSync(p).isDirectory() ? rs(p) : p.endsWith('.rs') && !RUST_SKIP.has(n) ? [p] : [];
+  });
+  let count = 0;
+  for (const f of RUST_DIRS.flatMap(rs)) {
+    count++;
+    let src = readFileSync(f, 'utf8');
+    const cut = src.indexOf('#[cfg(test)]');
+    if (cut >= 0) src = src.slice(0, cut);
+    src.split('\n').forEach((line, i) => {
+      if (/^\s*\/\//.test(line) || /i18n-ignore/.test(line)) return;
+      for (const m of line.matchAll(/"((?:[^"\\]|\\.)*)"/g)) {
+        const s = m[1].replace(/\\"/g, '"');
+        if (s.length < 6 || !/ /.test(s) || !RUST_PT.test(s)) continue;
+        if (!known.has(shape(s))) problems.push(`${relative(ROOT, f)}:${i + 1}: backend text without translation: "${s.slice(0, 80)}"`);
+      }
+    });
+  }
+  return count;
+}
+
 const targets = process.argv.length > 2 ? process.argv.slice(2).map((p) => resolve(p)) : walk(UI);
 for (const f of targets) checkFile(f);
+const rustFiles = process.argv.length > 2 ? 0 : checkRust();
 if (problems.length) {
   console.log(problems.join('\n'));
   console.log(`\n${problems.length} problem(s) in ${targets.length} file(s).`);
   process.exit(1);
 }
-console.log(`ok: ${targets.length} file(s), ${Object.keys(EN).length} dictionary keys.`);
+console.log(`ok: ${targets.length} UI file(s), ${rustFiles} Rust file(s), ${Object.keys(EN).length} dictionary keys.`);

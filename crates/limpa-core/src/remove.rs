@@ -109,7 +109,7 @@ fn describe(e: &io::Error) -> String {
         io::ErrorKind::PermissionDenied if e.get_ref().is_none() => "sem permissão para remover este item".into(),
         io::ErrorKind::NotFound => "o item não existe mais".into(),
         io::ErrorKind::DirectoryNotEmpty | io::ErrorKind::ResourceBusy => "o item está em uso; tente de novo".into(),
-        _ => e.to_string(),
+        _ => crate::errors::describe_io(e),
     }
 }
 

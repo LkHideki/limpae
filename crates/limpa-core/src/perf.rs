@@ -918,7 +918,7 @@ mod native {
         (rc == 0 && len == size_of::<T>()).then(|| unsafe { v.assume_init() })
     }
 
-    #[allow(deprecated, reason = "libc recomenda mach2; novas dependências estão fora do escopo")]
+    #[allow(deprecated, reason = "libc recomenda mach2; novas dependências estão fora do escopo")] // i18n-ignore
     fn host() -> libc::mach_port_t {
         static HOST: OnceLock<libc::mach_port_t> = OnceLock::new();
         // SAFETY: no arguments; the port is cached so references do not pile up on every read.
