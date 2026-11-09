@@ -15,6 +15,8 @@
 
 /* ---- Manager rows ---- */
 .rv-item.ctx-open { background: rgba(255, 255, 255, .1); }
+/* The row itself has focus (a click on it): Space previews it, so it reads as the selected row, as in Finder. */
+.rv-item:focus { background: rgba(255, 255, 255, .08); }
 .rv-item:focus-within .rv-act { opacity: 1; }
 /* Action buttons only take space on hover or focus: the name column stays wider. */
 .rv-item .rv-act { width: 0; margin-left: -12px; overflow: hidden; transition: opacity .15s, width .15s var(--ease), margin .15s var(--ease), background-color .2s, color .2s; }

@@ -82,7 +82,9 @@ export const api = {
   ignored: () => call('list_ignored', undefined, { quiet: true }),
   unignore: (path) => call('unignore', { path }),
   ignoreFolder: (prompt) => call('ignore_folder', { prompt }),
+  // Resolve to whether the panel is showing afterwards (a second request for the same item closes it).
   quickLook: (id) => call('quick_look', { id }),
+  quickLookClose: () => call('quick_look_close', {}, { quiet: true }),
   clutterLocations: () => call('clutter_locations', undefined, { quiet: true }),
   duplicates: (location) => call('scan_duplicates', { location }),
   similar: (location) => call('scan_similar', { location }),

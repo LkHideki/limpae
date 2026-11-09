@@ -10,6 +10,7 @@ import { confirmDialog, confirmRestart, failuresSheet, stage, checkbox } from '.
 import { removeGroups, realFailures, stopDock } from '../actions.js';
 import { fitBubbles } from '../pack.js';
 import { createReview, openMenu } from './review.js';
+import { lensQuickLook, quickLookRow } from '../quicklook.js';
 
 // How many bubbles the map shows at most; the rest becomes "Other items". In small areas the map shows fewer.
 const TOP_MAX = 13, TOP_MIN = 6, TOP_TRY = [13, 12, 11, 10, 9, 8, 7, 6];
@@ -336,10 +337,13 @@ export function enter(ctx) {
         ...(n.drillable ? [{ label: t('Abrir pasta'), icon: 'folder', onSelect: () => drill(n, from) }] : []),
         { sep: true },
         { label: t('Mostrar no Finder'), icon: 'reveal', onSelect: () => api.lensReveal(n.id).catch(() => {}) },
-        { label: t('Visualização Rápida'), icon: 'eye', disabled: n.kind === 'small', onSelect: () => api.lensQuicklook(n.id).catch(() => {}) },
+        { label: t('Visualização Rápida'), icon: 'eye', disabled: !canPreview(n), onSelect: () => lensQuickLook(n.id) },
       ],
     });
   }
+
+  // The synthetic small-files node stands for no file of its own (the backend refuses it too).
+  const canPreview = (n) => n.kind !== 'small';
 
   // One click checks; the second click of a double click undoes the check and the folder opens (as in Finder).
   function clickable(el, n, mark) {
@@ -362,7 +366,8 @@ export function enter(ctx) {
     el.addEventListener('keydown', (e) => {
       if (e.target !== el) return;
       if (e.key === 'Enter') { e.preventDefault(); n.drillable ? drill(n, bubs.get(n.id)) : toggle(n.id); }
-      else if (e.key === ' ') { e.preventDefault(); toggle(n.id); }
+      // Space previews (quicklook.js); Shift+Space selects, and plain Space still selects where there is nothing to preview.
+      else if (e.key === ' ' && (e.shiftKey || !canPreview(n))) { e.preventDefault(); toggle(n.id); }
       else if (isMenuKey(e)) { e.preventDefault(); nodeMenu(n, below(el), el, mark || el); }
     });
   }
@@ -390,6 +395,7 @@ export function enter(ctx) {
       open, more,
       h('span', { class: 'ln-size' }, fmtBytes(n.size)));
     clickable(el, n);
+    if (canPreview(n)) quickLookRow(el, () => lensQuickLook(n.id));
     rows.set(n.id, el);
     return el;
   }

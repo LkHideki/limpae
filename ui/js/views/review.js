@@ -8,6 +8,7 @@ import { t, tn, tr, cmp } from '../i18n.js';
 import { checkbox, confirmDialog, segmented, toast, managerBar } from '../ui.js';
 import { selectedSize } from '../store.js';
 import { nativeMenuApi, popupNative } from '../native-menu.js';
+import { quickLook as previewItem, quickLookRow } from '../quicklook.js';
 
 const CHUNK = 250;
 
@@ -235,7 +236,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
       items: [
         { label: on ? t('Desmarcar') : t('Selecionar'), icon: 'select', selects: on ? 'off' : 'on', onSelect: () => { on ? sel.delete(it.id) : sel.add(it.id); refresh(); } },
         { label: t('Mostrar no Finder'), icon: 'reveal', onSelect: () => api.reveal(it.id).catch(() => {}) },
-        quickLook ? { label: t('Visualização Rápida'), icon: 'eye', onSelect: () => api.quickLook(it.id).catch(() => {}) } : null,
+        quickLook ? { label: t('Visualização Rápida'), icon: 'eye', onSelect: () => previewItem(it.id) } : null,
         ignore ? { sep: true } : null,
         ignore ? { label: t('Ignorar'), icon: 'ban', onSelect: () => ignoreItem(it) } : null,
       ].filter(Boolean),
@@ -271,6 +272,7 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
       class: 'rv-item' + (longNote ? ' has-note' : ''), onClick: (e) => toggle(e),
       onContextmenu: (e) => { e.preventDefault(); rowMenu(g, it, list, row, { x: e.clientX, y: e.clientY }, null); },
       onKeydown: (e) => { if (isMenuKey(e)) { e.preventDefault(); rowMenu(g, it, list, row, below(more), more); } },
+      dataset: { fk: 'r:' + it.id },
     },
     cb,
     h('div', { class: 'rv-ic' }, icon(groupIcon(g.id), 16)),
@@ -281,6 +283,8 @@ export function createReview({ result, sel, mod, title, subtitle, actionLabel, s
     h('span', { class: 'rv-size' }, fmtBytes(it.size), showAge && it.modified ? h('small', { class: 'rv-age' }, ageText(it.modified)) : null),
     h('button', { class: 'icon-btn rv-act', type: 'button', dataset: { fk: 'ir:' + it.id }, title: t('Mostrar no Finder'), 'aria-label': t('Mostrar {name} no Finder', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)),
     more);
+    // Space previews the row while the row itself has focus (see quicklook.js).
+    if (quickLook) quickLookRow(row, () => previewItem(it.id));
     return row;
   }
 

@@ -9,6 +9,7 @@ mod cmd_simulate;
 mod commands;
 mod dto;
 mod lifecycle;
+mod quicklook;
 mod registry;
 mod state;
 mod tray;
@@ -84,6 +85,7 @@ fn main() {
             commands::trash_history,
             commands::restore_trashed,
             cmd_cleanup::quick_look,
+            cmd_cleanup::quick_look_close,
             cmd_clutter::clutter_locations,
             cmd_clutter::scan_duplicates,
             cmd_clutter::scan_download_dups,

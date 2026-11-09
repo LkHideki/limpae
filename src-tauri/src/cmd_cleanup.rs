@@ -1,17 +1,15 @@
 //! Commands of the Cleanup Manager. Like every command, they take registry ids, never paths.
 
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 use std::sync::Arc;
 
-use tauri::State;
+use tauri::{AppHandle, State};
 
+use crate::commands::blocking;
 use crate::registry::ERR_UNKNOWN_ITEM;
 use crate::state::{AppState, lock};
 
 type Shared = Arc<AppState>;
-
-const QLMANAGE: &str = "/usr/bin/qlmanage";
 
 /// Path of a scanned item (or listed app) that still exists on disk.
 fn registered_path(st: &AppState, id: u64) -> Result<PathBuf, String> {
@@ -26,23 +24,22 @@ fn registered_path(st: &AppState, id: u64) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-/// Opens the Quick Look preview of an item (`qlmanage -p`). The process is detached: it lives until the user
-/// closes the preview window, and a thread reaps it so it never lingers as a zombie.
+/// Toggles the Quick Look panel for an item, like Space in Finder: the panel closes if it already shows the item.
+/// Returns whether the panel is showing afterwards. The registry id is resolved here; the UI never sends a path.
 #[tauri::command]
-pub fn quick_look(state: State<'_, Shared>, id: u64) -> Result<(), String> {
-    let path = registered_path(&state, id)?;
-    let mut child = Command::new(QLMANAGE)
-        .arg("-p")
-        .arg(&path)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| format!("Não foi possível abrir a Visualização Rápida: {e}"))?;
-    std::thread::spawn(move || {
-        let _ = child.wait();
-    });
-    Ok(())
+pub async fn quick_look(app: AppHandle, state: State<'_, Shared>, id: u64) -> Result<bool, String> {
+    let st = Arc::clone(state.inner());
+    blocking(move || {
+        let path = registered_path(&st, id)?;
+        crate::quicklook::preview(&app, path)
+    })
+    .await
+}
+
+/// Closes the Quick Look panel if it is open (Esc in the UI).
+#[tauri::command]
+pub fn quick_look_close(app: AppHandle) {
+    crate::quicklook::close(&app);
 }
 
 #[cfg(test)]

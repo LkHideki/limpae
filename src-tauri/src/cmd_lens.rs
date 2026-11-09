@@ -7,7 +7,6 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -36,7 +35,6 @@ const ERR_EMPTY_ROOT: &str = "Não foi possível ler este local.";
 const ERR_NOTHING_REMOVABLE: &str = "Nenhum dos itens selecionados pode ser removido.";
 const ERR_GONE: &str = "O item não existe mais no disco.";
 const ERR_NO_PREVIEW: &str = "Este item não tem uma pasta própria para visualizar.";
-const QLMANAGE: &str = "/usr/bin/qlmanage";
 const ICON_PX: u32 = 128;
 /// Icons are tiny and few (one per `.app` on screen); the cache is dropped wholesale when it grows past this.
 const ICON_CACHE_MAX: usize = 256;
@@ -330,25 +328,14 @@ pub async fn lens_reveal(state: State<'_, Shared>, node_id: u32) -> Result<(), S
     .await
 }
 
-/// Quick Look preview (`qlmanage -p`), detached: it lives until the user closes the window; a thread reaps it.
+/// Toggles the Quick Look panel for a node (see `cmd_cleanup::quick_look`); the path is resolved from the tree.
 #[tauri::command]
-pub async fn lens_quicklook(state: State<'_, Shared>, node_id: u32) -> Result<(), String> {
+pub async fn lens_quicklook(app: AppHandle, state: State<'_, Shared>, node_id: u32) -> Result<bool, String> {
     let st = Arc::clone(state.inner());
     blocking(move || {
         let tree = current_tree(&st)?;
         let path = node_path(&tree, node_id, false)?;
-        let mut child = Command::new(QLMANAGE)
-            .arg("-p")
-            .arg(&path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|e| format!("Não foi possível abrir a Visualização Rápida: {e}"))?;
-        std::thread::spawn(move || {
-            let _ = child.wait();
-        });
-        Ok(())
+        crate::quicklook::preview(&app, path)
     })
     .await
 }

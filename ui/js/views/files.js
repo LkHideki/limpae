@@ -12,6 +12,7 @@ import { bytesParts, fmtBytes, fmtNum, plural } from '../format.js';
 import { confirmDialog, confirmRestart, failuresSheet, stage, chipRow, checkbox, segmented, managerBar } from '../ui.js';
 import { outcomesToFailures, realFailures, stopDock } from '../actions.js';
 import { attachMenu, selectMenuButton } from '../menus.js';
+import { quickLook, quickLookRow } from '../quicklook.js';
 import { openSettings, reopenButton } from '../fda.js';
 
 const OPTIONS = [{ value: 50, label: '50 MB' }, { value: 100, label: '100 MB' }, { value: 500, label: '500 MB' }, { value: 1000, label: '1 GB' }];
@@ -478,9 +479,12 @@ export function enter(ctx) {
         h('div', { class: 'fm-ic' }, itemIcon(it.name)),
         main,
         h('span', { class: 'fm-size' }, fmtBytes(it.size), opts.when && !opts.dir ? h('small', null, opts.when(it)) : null),
-        opts.noQuickLook ? null : h('button', { class: 'icon-btn fm-act', type: 'button', title: t('Visualização Rápida'), 'aria-label': t('Visualização Rápida de {name}', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.quickLook(it.id).catch(() => {}); } }, icon('eye', 16)),
+        opts.noQuickLook ? null : h('button', { class: 'icon-btn fm-act', type: 'button', title: t('Visualização Rápida'), 'aria-label': t('Visualização Rápida de {name}', { name: it.name }), onClick: (e) => { e.stopPropagation(); quickLook(it.id); } }, icon('eye', 16)),
         h('button', { class: 'icon-btn fm-act', type: 'button', title: t('Mostrar no Finder'), 'aria-label': t('Mostrar {name} no Finder', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)));
       attachMenu(row, () => ({ id: it.id, name: it.name, select: { on: sel.has(it.id), toggle }, quickLook: !opts.noQuickLook, onIgnored: () => dropItem(it) }));
+      // The list re-renders on every toggle: the row key lets keepFocus put focus back on the row.
+      row.dataset.fk = 'r:' + it.id;
+      if (!opts.noQuickLook) quickLookRow(row, () => quickLook(it.id));
       return row;
     }
 

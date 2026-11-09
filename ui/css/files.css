@@ -78,6 +78,7 @@
 .fm-sec-head .badge { flex: none; }
 .fm-row { position: relative; display: flex; align-items: center; gap: 12px; padding: 0 18px; height: 56px; border-bottom: 1px solid rgba(255, 255, 255, .05); transition: background-color .15s; cursor: pointer; }
 .fm-row:hover { background: rgba(255, 255, 255, .06); }
+.fm-row:focus { background: rgba(255, 255, 255, .08); }
 .fm-ic { width: 32px; height: 32px; border-radius: 10px; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, .09); color: var(--text-2); }
 .fm-main { flex: 1; min-width: 0; overflow: hidden; }
 .fm-name { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500; min-width: 0; }
