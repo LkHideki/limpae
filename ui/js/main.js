@@ -78,7 +78,7 @@ function makeCtx(seq) {
 }
 
 function navigate(id, force = false) {
-  if (!VIEWS[id] || (store.busy && !force && id !== current)) return;
+  if (!Object.hasOwn(VIEWS, id) || (store.busy && !force && id !== current)) return;
   if (store.busy && id !== current && !force) return;
   cleanups.forEach((f) => { try { f(); } catch (e) { /* ignore */ } });
   cleanups = [];
@@ -182,7 +182,7 @@ syncIdle();
 function bootModule() {
   const m = /^#nav=([a-z]+)$/.exec(location.hash);
   try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignore */ }
-  return m && VIEWS[m[1]] ? m[1] : 'smart';
+  return m && Object.hasOwn(VIEWS, m[1]) ? m[1] : 'smart';
 }
 
 // Language switch in Settings: rebuilds the menu, footer and current screen in the new language.
@@ -201,5 +201,5 @@ api.settings().catch(() => null).then((st) => {
   const hash = bootModule();
   let pending = null;
   try { pending = Promise.resolve(window.__TAURI__.core.invoke('ui_ready')).catch(() => null); } catch (e) { /* browser preview */ }
-  Promise.resolve(pending).then((m) => navigate(typeof m === 'string' && VIEWS[m] ? m : hash));
+  Promise.resolve(pending).then((m) => navigate(typeof m === 'string' && Object.hasOwn(VIEWS, m) ? m : hash));
 });

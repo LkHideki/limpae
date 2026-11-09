@@ -158,8 +158,9 @@ pub fn check(app: &AppHandle) {
     });
 }
 
-/// The UI reports whether a scan, removal or other operation is in progress (`setBusy` in main.js).
-#[tauri::command]
+/// The UI reports whether a scan, removal or other operation is in progress (`setBusy` in main.js). Async so a
+/// destroy it triggers runs on a later event-loop turn, never inside the webview's own IPC request.
+#[tauri::command(async)]
 pub fn ui_busy(app: AppHandle, state: State<'_, Lifecycle>, busy: bool) {
     state.ui_busy.store(busy, Ordering::Relaxed);
     if !busy {

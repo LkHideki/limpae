@@ -1,15 +1,18 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Minimal permissions for the main window.",
+  "description": "Least privilege for the main window: events, window drag/fullscreen, and native context menus (create, pop up, release). No tray, app-menu, window or webview creation rights.",
   "windows": [
     "main"
   ],
   "permissions": [
-    "core:default",
+    "core:event:default",
     "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
     "core:window:allow-set-fullscreen",
+    "core:window:allow-is-fullscreen",
     "core:menu:allow-new",
-    "core:menu:allow-popup"
+    "core:menu:allow-popup",
+    "core:resources:allow-close"
   ]
 }

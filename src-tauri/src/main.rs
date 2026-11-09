@@ -48,6 +48,8 @@ fn main() {
             match event {
                 WindowEvent::CloseRequested { api, .. } if tray::menu_bar_enabled(window.app_handle()) => {
                     api.prevent_close();
+                    // A visible Quick Look panel would count as a visible window and swallow the Dock's Reopen.
+                    quicklook::close(window.app_handle());
                     let _ = window.hide();
                     lifecycle::on_hidden(window.app_handle());
                 }
@@ -128,7 +130,11 @@ fn main() {
 
     app.run(|app, event| match event {
         // Clicking the Dock icon while the window is hidden (or destroyed by `lifecycle`) brings it back.
-        RunEvent::Reopen { has_visible_windows: false, .. } => tray::show_main(app, None),
+        // Dock click: bring the main window back when it is hidden or destroyed, even if another window (Quick Look)
+        // is still visible.
+        RunEvent::Reopen { .. } if !app.get_webview_window("main").is_some_and(|w| w.is_visible().unwrap_or(false)) => {
+            tray::show_main(app, None)
+        }
         // Destroying the last window must not end the process while the menu bar extra lives on. `code: None` is
         // the "no windows left" case; explicit quits (menu, relaunch) carry a code and go through.
         RunEvent::ExitRequested { code: None, api, .. } if tray::menu_bar_enabled(app) => api.prevent_exit(),
