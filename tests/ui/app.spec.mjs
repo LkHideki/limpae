@@ -772,6 +772,12 @@ test.describe('gauntlet round 2', () => {
     expect(new URL(page.url()).hash).toBe('');
   });
 
+  test('a module requested while the UI was booting (ui_ready) wins over the URL', async ({ page }) => {
+    await boot(page, "{ ui_ready: () => 'settings' }", { hash: '#nav=trash' });
+    await expect(page.locator('body')).toHaveAttribute('data-mod', 'settings');
+    expect((await calls(page, 'ui_ready')).length).toBe(1);
+  });
+
   test('an unknown #nav module opens Sweep', async ({ page }) => {
     await boot(page, '{}', { hash: '#nav=nope' });
     await expect(page.locator('body')).toHaveAttribute('data-mod', 'smart');

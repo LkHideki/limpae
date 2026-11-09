@@ -194,5 +194,9 @@ api.settings().catch(() => null).then((st) => {
   applyLangSetting(st && st.language);
   buildNav();
   refreshDisk().then(() => maybeOnboard(store.disk)).then(renderFoot);
-  navigate(bootModule());
+  // The backend hands over a module requested while this UI was booting (menu click right after a rebuild).
+  const hash = bootModule();
+  let pending = null;
+  try { pending = Promise.resolve(window.__TAURI__.core.invoke('ui_ready')).catch(() => null); } catch (e) { /* browser preview */ }
+  Promise.resolve(pending).then((m) => navigate(typeof m === 'string' && VIEWS[m] ? m : hash));
 });

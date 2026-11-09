@@ -66,6 +66,7 @@ fn main() {
             commands::uninstall,
             commands::cancel_scan,
             lifecycle::ui_busy,
+            lifecycle::ui_ready,
             commands::reveal,
             commands::open_app,
             commands::reveal_log,

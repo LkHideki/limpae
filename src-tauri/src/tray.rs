@@ -260,13 +260,14 @@ const RETRY_GAP: Duration = Duration::from_millis(50);
 
 fn show_main_retrying(app: &AppHandle, module: Option<&str>, attempt: u32) {
     let lc = app.state::<Lifecycle>();
+    if attempt >= RETRY_LIMIT && lc.is_destroying() {
+        // A teardown that never finishes must not lock the user out: treat the window as alive and show it.
+        eprintln!("janela principal: o fechamento não terminou");
+        lc.mark_visible();
+    }
     match app.get_webview_window("main") {
         // `destroy()` is asynchronous: until the runtime drops the window it is still registered but dying.
         Some(_) if lc.is_destroying() => {
-            if attempt >= RETRY_LIMIT {
-                eprintln!("janela principal: o fechamento não terminou");
-                return;
-            }
             let (app, module) = (app.clone(), module.map(str::to_owned));
             std::thread::spawn(move || {
                 std::thread::sleep(RETRY_GAP);
@@ -280,7 +281,12 @@ fn show_main_retrying(app: &AppHandle, module: Option<&str>, attempt: u32) {
             let _ = w.show();
             let _ = w.set_focus();
             if let Some(m) = module {
-                let _ = app.emit("navigate", m);
+                if lc.is_ui_ready() {
+                    let _ = app.emit("navigate", m);
+                } else {
+                    // The UI is still booting (fresh window): no listener yet, and its boot would override the event.
+                    lc.set_pending_nav(m);
+                }
             }
         }
         None => {

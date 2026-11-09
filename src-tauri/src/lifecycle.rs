@@ -37,11 +37,20 @@ pub struct Lifecycle {
     phase: Mutex<Phase>,
     /// Last value reported by the UI through `ui_busy`.
     ui_busy: AtomicBool,
+    /// The current window's UI has booted and listens for `navigate` (reported through `ui_ready`).
+    ui_ready: AtomicBool,
+    /// Module requested while the UI was still booting; the boot code picks it up via `ui_ready`.
+    pending_nav: Mutex<Option<String>>,
 }
 
 impl Default for Lifecycle {
     fn default() -> Self {
-        Self { phase: Mutex::new(Phase::Shown), ui_busy: AtomicBool::new(false) }
+        Self {
+            phase: Mutex::new(Phase::Shown),
+            ui_busy: AtomicBool::new(false),
+            ui_ready: AtomicBool::new(false),
+            pending_nav: Mutex::new(None),
+        }
     }
 }
 
@@ -70,10 +79,28 @@ impl Lifecycle {
         self.set(Phase::Shown);
     }
 
-    /// The window is gone or has just been (re)created: it has a fresh UI that reports its own busy state.
+    /// The window is gone or has just been (re)created: it has a fresh UI that reports its own busy state and has
+    /// not booted yet, so a navigation request for the old one is void.
     pub fn mark_shown(&self) {
         self.set(Phase::Shown);
         self.ui_busy.store(false, Ordering::Relaxed);
+        self.ui_ready.store(false, Ordering::Relaxed);
+        *self.pending_nav.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
+    pub fn is_ui_ready(&self) -> bool {
+        self.ui_ready.load(Ordering::Relaxed)
+    }
+
+    /// Remembers the module for a UI that is still booting (the latest request wins).
+    pub fn set_pending_nav(&self, module: &str) {
+        *self.pending_nav.lock().unwrap_or_else(|e| e.into_inner()) = Some(module.to_owned());
+    }
+
+    /// The UI finished booting: from now on it receives `navigate` events; hands over what it missed meanwhile.
+    fn take_pending_nav(&self) -> Option<String> {
+        self.ui_ready.store(true, Ordering::Relaxed);
+        self.pending_nav.lock().unwrap_or_else(|e| e.into_inner()).take()
     }
 }
 
@@ -115,8 +142,16 @@ pub fn check(app: &AppHandle) {
             return;
         }
         if let Some(w) = handle.get_webview_window("main") {
+            // Never destroy a window the user can see, whatever the bookkeeping says (e.g. shown by AppKit itself).
+            if w.is_visible().unwrap_or(true) {
+                lc.mark_visible();
+                return;
+            }
             lc.set(Phase::Destroying);
-            let _ = w.destroy();
+            // A failed destroy must not leave the phase stuck: `show_main` would wait for a teardown that never ends.
+            if w.destroy().is_err() {
+                lc.set(Phase::Hidden(Instant::now()));
+            }
         } else {
             lc.mark_shown();
         }
@@ -130,6 +165,13 @@ pub fn ui_busy(app: AppHandle, state: State<'_, Lifecycle>, busy: bool) {
     if !busy {
         check(&app);
     }
+}
+
+/// Called once by the UI when it has booted and registered its `navigate` listener. Returns the module requested
+/// while it was booting, if any, which takes precedence over the default landing screen.
+#[tauri::command]
+pub fn ui_ready(state: State<'_, Lifecycle>) -> Option<String> {
+    state.take_pending_nav()
 }
 
 #[cfg(test)]
@@ -178,6 +220,22 @@ mod tests {
         assert_eq!(lc.hidden_for(t0 + Duration::from_secs(61)), None);
         lc.set(Phase::Hidden(t0 + Duration::from_secs(60)));
         assert!(!should_destroy(lc.hidden_for(t0 + Duration::from_secs(61)), false));
+    }
+
+    #[test]
+    fn navigation_requested_while_booting_reaches_the_ui_once() {
+        let lc = Lifecycle::default();
+        assert!(!lc.is_ui_ready());
+        lc.set_pending_nav("trash");
+        lc.set_pending_nav("settings");
+        assert_eq!(lc.take_pending_nav().as_deref(), Some("settings"));
+        assert!(lc.is_ui_ready());
+        assert_eq!(lc.take_pending_nav(), None);
+        // A new window starts unready and forgets requests aimed at the old one.
+        lc.set_pending_nav("trash");
+        lc.mark_shown();
+        assert!(!lc.is_ui_ready());
+        assert_eq!(lc.take_pending_nav(), None);
     }
 
     #[test]
