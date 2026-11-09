@@ -3,7 +3,8 @@
 //  - makes Space on a row preview it, and Esc close the panel before anything else reacts to it.
 // Space rule: only when the row ITSELF has focus (event target === row). A focused button, checkbox or text field
 // is never the row, so Space keeps its native meaning there (toggle the checkbox, press the button, type a space).
-// Rows are focusable with the mouse (tabindex -1) and the focus survives re-renders through their data-fk.
+// Rows get tabindex 0 so a keyboard-only user can Tab to the row itself (the checkbox and buttons inside it are
+// separate stops); the focus survives re-renders through their data-fk.
 import { api } from './api.js';
 
 // Whether the panel is on screen; the backend answers every toggle and reports closes it did not start.
@@ -23,7 +24,7 @@ const rows = new WeakMap();
 // Makes `row` previewable with Space. run() starts the preview (one of the helpers above).
 export function quickLookRow(row, run) {
   rows.set(row, run);
-  if (!row.hasAttribute('tabindex')) row.tabIndex = -1;
+  if (!row.hasAttribute('tabindex')) row.tabIndex = 0;
   return row;
 }
 

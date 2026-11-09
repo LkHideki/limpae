@@ -136,6 +136,34 @@ test.describe('Quick Look with Space', () => {
     await expect.poll(() => ql(page)).toHaveLength(2);
   });
 
+  const FILES = `{ ${QL}
+      scan_large_at: () => ({ total: 3000, needsFda: false, groups: [{ id: 'large', title: 'Arquivos grandes', description: '', total: 3000, items: [${item(7, 'big.mov', 2000)}, ${item(8, 'other.zip')}] }] }),
+      scan_downloads: () => ({ groups: [], total: 0, needsFda: false }), scan_duplicates: () => ({ groups: [], total: 0, needsFda: false }), scan_similar: () => ({ groups: [], total: 0, needsFda: false }) }`;
+  async function openLarge(page) {
+    await boot(page, FILES);
+    await nav(page, 'Arquivos').click();
+    await page.locator('#dock .go').click();
+    await expect(page.locator('.fl-tiles')).toBeVisible({ timeout: 8000 });
+    await page.locator('.fl-tile[data-cat="large"] .btn').click();
+    await expect(page.locator('.fm-row').first()).toBeVisible();
+  }
+
+  test('Files: the context menu entry previews the row (menus.js helper)', async ({ page }) => {
+    await openLarge(page);
+    await page.locator('.fm-row').first().click({ button: 'right' });
+    await page.getByRole('menuitem', { name: en('Visualização Rápida') }).click();
+    await expect.poll(() => ql(page)).toHaveLength(1);
+  });
+
+  test('keyboard only: Tab reaches the row itself and Space previews it', async ({ page }) => {
+    await openLarge(page);
+    await page.locator('.fm-row').first().getByRole('checkbox').focus();
+    await page.keyboard.press('Shift+Tab'); // back to the row that contains the checkbox
+    await expect(page.locator('.fm-row:focus')).toHaveCount(1);
+    await page.keyboard.press('Space');
+    await expect.poll(() => ql(page)).toHaveLength(1);
+  });
+
   const node = (id, name, extra = {}) => ({ id, parent: 1, name, path: '/Users/u/' + name, size: 5e6, isDir: false, kind: 'file', items: 0, selectable: true, drillable: false, ...extra });
   const LENS = `{ ${QL}
     lens_roots: () => [{ index: 0, path: '/', root: null, isVolume: true, total: 1e9, used: 5e8, name: 'Mac' }],

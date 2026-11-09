@@ -6,7 +6,7 @@ import { api } from './api.js';
 import { toast } from './ui.js';
 import { t } from './i18n.js';
 import { openMenu } from './views/review.js';
-import { quickLook } from './quicklook.js';
+import { quickLook as previewItem } from './quicklook.js';
 
 const below = (el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.bottom + 6 }; };
 const isMenuKey = (e) => e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10');
@@ -19,7 +19,7 @@ export function entryMenu({ id, name, at, opener = null, label, select = null, o
   if (select) items.push({ label: select.on ? t('Desmarcar') : t('Selecionar'), icon: 'select', selects: select.on ? 'off' : 'on', onSelect: select.toggle });
   if (openApp) items.push({ label: t('Abrir'), icon: 'apps', onSelect: () => api.openApp(id).catch(() => {}) });
   if (reveal) items.push({ label: t('Mostrar no Finder'), icon: 'reveal', onSelect: () => api.reveal(id).catch(() => {}) });
-  if (quickLook) items.push({ label: t('Visualização Rápida'), icon: 'eye', onSelect: () => quickLook(id) });
+  if (quickLook) items.push({ label: t('Visualização Rápida'), icon: 'eye', onSelect: () => previewItem(id) });
   if (ignore) {
     items.push({ sep: true });
     items.push({

@@ -38,8 +38,11 @@ fn plan(showing: Option<&Path>, want: &Path) -> Step {
 /// Returns whether the panel is showing afterwards.
 pub fn preview(app: &AppHandle, path: PathBuf) -> Result<bool, String> {
     #[cfg(target_os = "macos")]
-    if let Some(open) = panel::toggle(app, &path) {
-        return Ok(open);
+    match panel::toggle(app, &path) {
+        panel::Toggle::Done(open) => return Ok(open),
+        // The closure is still queued and may open the panel later: a `qlmanage` window now would double the preview.
+        panel::Toggle::Unresponsive => return Err("Não foi possível abrir a Visualização Rápida.".into()),
+        panel::Toggle::Unavailable => {}
     }
     let _ = app;
     fallback(&path).map(|()| true)
@@ -199,6 +202,16 @@ mod panel {
         }
     }
 
+    /// How a toggle ended.
+    pub enum Toggle {
+        /// The panel is showing (true) or hidden (false) afterwards.
+        Done(bool),
+        /// No native panel can be shown (no window, odd path, no shared panel): the caller falls back to `qlmanage`.
+        Unavailable,
+        /// The main thread did not answer in time. The queued closure may still run, so no fallback may start.
+        Unresponsive,
+    }
+
     /// Runs `f` on the main thread and waits for its answer; `None` when it cannot run (event loop gone or stuck).
     fn on_main<T: Send + 'static>(
         app: &AppHandle,
@@ -215,10 +228,13 @@ mod panel {
         rx.recv_timeout(MAIN_THREAD_WAIT).ok()
     }
 
-    /// `None`: no native panel could be shown, the caller falls back to `qlmanage`.
-    pub fn toggle(app: &AppHandle, path: &Path) -> Option<bool> {
+    pub fn toggle(app: &AppHandle, path: &Path) -> Toggle {
         let path = path.to_path_buf();
-        on_main(app, move |mtm, app| toggle_on_main(mtm, app, &path)).flatten()
+        match on_main(app, move |mtm, app| toggle_on_main(mtm, app, &path)) {
+            Some(Some(open)) => Toggle::Done(open),
+            Some(None) => Toggle::Unavailable,
+            None => Toggle::Unresponsive,
+        }
     }
 
     fn toggle_on_main(mtm: MainThreadMarker, app: &AppHandle, path: &Path) -> Option<bool> {

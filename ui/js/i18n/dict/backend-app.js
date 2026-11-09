@@ -29,6 +29,7 @@ export default {
 
   // Quick Look (cmd_cleanup.rs, cmd_lens.rs)
   'Não foi possível abrir a Visualização Rápida: {e}': { en: 'Couldn’t open Quick Look: {e}', id: 'Tidak dapat membuka Quick Look: {e}' },
+  'Não foi possível abrir a Visualização Rápida.': { en: 'Couldn’t open Quick Look.', id: 'Tidak dapat membuka Quick Look.' },
 
   // locations (cmd_clutter.rs)
   'Local desconhecido. Atualize a lista de locais.': { en: 'Unknown location. Refresh the list of locations.', id: 'Lokasi tidak dikenal. Muat ulang daftar lokasi.' },
