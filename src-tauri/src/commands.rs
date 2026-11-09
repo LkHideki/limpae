@@ -119,6 +119,17 @@ pub(crate) fn store(st: &AppState, task: Task, groups: Vec<Group>, progress: &Pr
     Ok(ScanResult::new(dto, !has_full_disk_access(&st.home)))
 }
 
+/// True when the window config asks for a native sidebar material (transparent window plus window effects), so the
+/// UI can make its own sidebar translucent. Read from the config, so a window rebuilt from it answers the same.
+fn vibrancy_configured(cfg: &tauri::utils::config::WindowConfig) -> bool {
+    cfg.transparent && cfg.window_effects.is_some()
+}
+
+#[tauri::command]
+pub fn sidebar_vibrancy(app: AppHandle) -> bool {
+    cfg!(target_os = "macos") && app.config().app.windows.iter().any(|w| w.label == "main" && vibrancy_configured(w))
+}
+
 #[tauri::command]
 pub async fn disk_overview(state: State<'_, Shared>) -> Result<DiskOverview, String> {
     let st = Arc::clone(state.inner());
@@ -520,6 +531,20 @@ pub fn unignore(state: State<'_, Shared>, path: String) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use tauri::utils::config::{WindowConfig, WindowEffectsConfig};
+
+    #[test]
+    fn vibrancy_needs_transparency_and_effects() {
+        let mut cfg = WindowConfig::default();
+        assert!(!vibrancy_configured(&cfg));
+        cfg.transparent = true;
+        assert!(!vibrancy_configured(&cfg));
+        cfg.window_effects = Some(WindowEffectsConfig::default());
+        assert!(vibrancy_configured(&cfg));
+        cfg.transparent = false;
+        assert!(!vibrancy_configured(&cfg));
+    }
+
     use super::*;
 
     fn ok(id: u64, freed: u64) -> (u64, OutcomeDto) {

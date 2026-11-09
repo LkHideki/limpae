@@ -7,15 +7,30 @@ import { fmtBytes, ageText } from '../format.js';
 import { t, tn, tr, cmp } from '../i18n.js';
 import { checkbox, confirmDialog, segmented, toast, managerBar } from '../ui.js';
 import { selectedSize } from '../store.js';
+import { nativeMenuApi, popupNative } from '../native-menu.js';
 
 const CHUNK = 250;
 
 // ---- Accessible DOM menu (context and "Select") ----
 let closeActive = null, activeOpener = null;
 
-// items: { label, icon?, checked?, disabled?, danger?, onSelect } | { sep: true }.
+// items: { label, icon?, checked?, disabled?, danger?, selects?, onSelect } | { sep: true }.
 // `at` = { x, y } in viewport coordinates; `opener` receives focus on close.
-export function openMenu({ items, at, label, opener, onClose }) {
+// Inside the app (Tauri menu API present) this is a native NSMenu; the accessible DOM menu below is the fallback for a
+// browser preview and for the case where the native one cannot be shown.
+export function openMenu(opts) {
+  const api = nativeMenuApi();
+  if (!api) return openDomMenu(opts);
+  let dom = null;
+  const { opener, onClose } = opts;
+  popupNative(api, opts).then(() => {
+    if (onClose) onClose();
+    if (opener && opener.isConnected) opener.focus();
+  }, () => { dom = openDomMenu(opts); });
+  return { close() { if (dom) dom.close(); } };
+}
+
+function openDomMenu({ items, at, label, opener, onClose }) {
   // Clicking the opener of the open menu toggles it closed (no new menu, so no second 'menu' cue).
   if (opener && closeActive && activeOpener === opener) { closeActive(true); return { close() {} }; }
   if (closeActive) closeActive(false);

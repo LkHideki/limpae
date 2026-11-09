@@ -1469,3 +1469,56 @@ test.describe('gauntlet round 4', () => {
     });
   });
 });
+
+test.describe('native look', () => {
+  test('the sidebar turns translucent only when the backend reports the native material', async ({ page }) => {
+    await boot(page, '{ sidebar_vibrancy: () => true }');
+    await expect(page.locator('html')).toHaveClass(/vfx/);
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  });
+
+  test('without the native material the sidebar and body stay opaque', async ({ page }) => {
+    await boot(page);
+    await expect(page.locator('html')).not.toHaveClass(/vfx/);
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundImage)).toContain('linear-gradient');
+  });
+
+  test('the row menu is native when the Tauri menu API exists', async ({ page }) => {
+    await boot(page, JUNK, { nativeMenu: true });
+    await scanJunk(page);
+    await page.getByRole('button', { name: en('Revisar todo o lixo') }).click();
+    await page.locator('.rv-item').first().click({ button: 'right' });
+    await expect.poll(() => page.evaluate(() => window.__menus.length)).toBe(1);
+    await expect(page.locator('.ctx-menu')).toHaveCount(0);
+    const items = await page.evaluate(() => window.__menus[0].items.map((i) => ({ kind: i.kind, text: i.text, enabled: i.enabled })));
+    expect(items.filter((i) => i.kind !== 'Predefined').map((i) => i.text)).toEqual(
+      expect.arrayContaining([en('Selecionar'), en('Mostrar no Finder'), en('Visualização Rápida'), en('Ignorar')]));
+    expect(items.some((i) => i.kind === 'Predefined')).toBe(true); // the separator before "Ignore"
+    expect(await page.evaluate(() => window.__menus[0].at.type)).toBe('Logical');
+    // Picking an entry runs the same handler as the DOM menu.
+    await page.evaluate((txt) => window.__menus[0].items.find((i) => i.text === txt).action(), en('Mostrar no Finder'));
+    expect((await calls(page, 'reveal')).length).toBe(1);
+  });
+
+  test('the button menu is native too, with its current choice checked', async ({ page }) => {
+    await boot(page, JUNK, { nativeMenu: true });
+    await scanJunk(page);
+    await page.getByRole('button', { name: en('Revisar todo o lixo') }).click();
+    await page.locator('.sel-btn').first().click();
+    await expect.poll(() => page.evaluate(() => window.__menus.length)).toBe(1);
+    await expect(page.locator('.ctx-menu')).toHaveCount(0);
+    const kinds = await page.evaluate(() => window.__menus[0].items.map((i) => [i.kind, !!i.checked]));
+    expect(kinds.every(([k]) => k === 'CheckMenuItem')).toBe(true);
+    expect(kinds.some(([, c]) => c)).toBe(true);
+    await expect(page.locator('.sel-btn').first()).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('a menu that cannot be shown natively falls back to the HTML menu', async ({ page }) => {
+    await boot(page, JUNK, { nativeMenu: true });
+    await page.evaluate(() => { window.__TAURI__.menu.Menu.new = () => Promise.reject(new Error('denied')); });
+    await scanJunk(page);
+    await page.getByRole('button', { name: en('Revisar todo o lixo') }).click();
+    await page.locator('.rv-item').first().click({ button: 'right' });
+    await expect(page.locator('.ctx-menu')).toBeVisible();
+  });
+});

@@ -56,6 +56,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::disk_overview,
+            commands::sidebar_vibrancy,
             commands::scan_junk,
             commands::scan_trash,
             commands::scan_large,

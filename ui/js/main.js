@@ -188,6 +188,9 @@ function bootModule() {
 // Language switch in Settings: rebuilds the menu, footer and current screen in the new language.
 onLang(() => { buildNav(); renderFoot(); if (current) navigate(current, true); });
 
+// The window has a native sidebar material (config-driven, so a rebuilt window gets it too): the sidebar turns translucent.
+api.sidebarVibrancy().then((on) => { if (on === true) document.documentElement.classList.add('vfx'); }, () => {});
+
 // The language must be set before the first paint (the default is English; reading the settings is local and fast).
 api.settings().catch(() => null).then((st) => {
   if (st) { store.settings = st; setSoundEnabled(st.sounds); }

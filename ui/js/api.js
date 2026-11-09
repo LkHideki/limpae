@@ -56,6 +56,7 @@ export async function call(name, args, opts = {}) {
 }
 
 export const api = {
+  sidebarVibrancy: () => call('sidebar_vibrancy', undefined, { quiet: true }),
   disk: () => call('disk_overview', undefined, { quiet: true }),
   junk: () => call('scan_junk'),
   trash: () => call('scan_trash'),

@@ -80,6 +80,21 @@ input { font: inherit; color: inherit; }
   -webkit-backdrop-filter: blur(30px) saturate(1.3); backdrop-filter: blur(30px) saturate(1.3);
   border-right: 1px solid var(--line);
 }
+/* Native sidebar material (NSVisualEffectView "sidebar", see windowEffects in tauri.conf.json). main.js sets html.vfx
+   when the backend reports it. The window is transparent then, so the content area paints its own opaque gradient
+   (on the aurora layer, which starts where the sidebar ends) and only the sidebar lets the material through. The
+   navy tint keeps the brand look over any wallpaper. The material itself follows the window theme (forced dark). */
+.vfx body { background: transparent; }
+.vfx .aurora { left: var(--sb-w); background: linear-gradient(160deg, var(--bg0) 0%, var(--bg1) 100%); }
+.vfx .sidebar {
+  background: linear-gradient(180deg, rgba(7, 18, 38, .34), rgba(7, 18, 38, .22));
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+/* Reduce Transparency (macOS accessibility): the material turns solid on its own; the tint becomes an opaque panel
+   so contrast does not depend on what the system paints behind it. */
+@media (prefers-reduced-transparency: reduce) {
+  .vfx .sidebar { background: linear-gradient(180deg, #0a1b36, #08162d); }
+}
 .nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .nav-item {
   display: flex; align-items: center; gap: 12px; height: 42px; padding: 0 10px; border-radius: 13px;
