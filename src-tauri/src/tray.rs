@@ -10,9 +10,10 @@ use limpa_core::lang::Lang;
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::cmd_health::{Effort, inputs};
+use crate::lifecycle::Lifecycle;
 use crate::state::{AppState, lock};
 
 const TRAY_ID: &str = "limpae-tray";
@@ -246,17 +247,60 @@ fn on_menu(app: &AppHandle, event: MenuEvent) {
     }
 }
 
-/// Shows (and focuses) the main window; with `module`, asks the UI to navigate there. The UI ignores the request
-/// while an operation is running, so a menu click can never interrupt a cleanup.
+/// Shows (and focuses) the main window, rebuilding it from the config if `lifecycle` destroyed it; with `module`,
+/// sends the UI there. The UI ignores the request while an operation is running, so a menu click can never
+/// interrupt a cleanup. A rebuilt window has no listener yet, so the module travels in the URL (`#nav=<id>`).
 pub fn show_main(app: &AppHandle, module: Option<&str>) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.unminimize();
-        let _ = w.show();
-        let _ = w.set_focus();
+    show_main_retrying(app, module, 0);
+}
+
+/// How often (every `RETRY_GAP`) to wait for a window that is still being torn down before giving up.
+const RETRY_LIMIT: u32 = 40;
+const RETRY_GAP: Duration = Duration::from_millis(50);
+
+fn show_main_retrying(app: &AppHandle, module: Option<&str>, attempt: u32) {
+    let lc = app.state::<Lifecycle>();
+    match app.get_webview_window("main") {
+        // `destroy()` is asynchronous: until the runtime drops the window it is still registered but dying.
+        Some(_) if lc.is_destroying() => {
+            if attempt >= RETRY_LIMIT {
+                eprintln!("janela principal: o fechamento não terminou");
+                return;
+            }
+            let (app, module) = (app.clone(), module.map(str::to_owned));
+            std::thread::spawn(move || {
+                std::thread::sleep(RETRY_GAP);
+                let again = app.clone();
+                let _ = app.run_on_main_thread(move || show_main_retrying(&again, module.as_deref(), attempt + 1));
+            });
+        }
+        Some(w) => {
+            lc.mark_visible();
+            let _ = w.unminimize();
+            let _ = w.show();
+            let _ = w.set_focus();
+            if let Some(m) = module {
+                let _ = app.emit("navigate", m);
+            }
+        }
+        None => {
+            if let Err(e) = rebuild_main(app, module) {
+                eprintln!("janela principal: {e}");
+            }
+        }
     }
-    if let Some(m) = module {
-        let _ = app.emit("navigate", m);
+}
+
+/// Creates the main window again from `tauri.conf.json`, landing on `module` when given.
+fn rebuild_main(app: &AppHandle, module: Option<&str>) -> Result<(), String> {
+    let mut cfg = app.config().app.windows.first().cloned().ok_or("sem janela na configuração")?;
+    if let Some(m) = module.filter(|m| m.bytes().all(|b| b.is_ascii_alphanumeric())) {
+        cfg.url = WebviewUrl::App(format!("index.html#nav={m}").into());
     }
+    let w = WebviewWindowBuilder::from_config(app, &cfg).and_then(|b| b.build()).map_err(|e| e.to_string())?;
+    app.state::<Lifecycle>().mark_shown();
+    let _ = w.set_focus();
+    Ok(())
 }
 
 fn refresh_from_event(app: &AppHandle) {

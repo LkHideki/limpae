@@ -1,6 +1,6 @@
 // A fake `window.__TAURI__` installed before the app loads. Every invoke is recorded in `window.__calls`;
 // `handlers` (JS source of an object literal of functions, evaluated in the page) override the defaults.
-export async function boot(page, handlers = '{}', { storage = {} } = {}) {
+export async function boot(page, handlers = '{}', { storage = {}, hash = '' } = {}) {
   await page.addInitScript(({ handlers, storage }) => {
     for (const [k, v] of Object.entries(storage)) localStorage.setItem(k, v);
     const calls = [];
@@ -32,7 +32,7 @@ export async function boot(page, handlers = '{}', { storage = {} } = {}) {
       event: { listen: (name, cb) => { (window.__ev = window.__ev || {})[name] = cb; return Promise.resolve(() => {}); } },
     };
   }, { handlers, storage });
-  await page.goto('/index.html');
+  await page.goto('/index.html' + hash);
   await page.locator('#nav .nav-item').first().waitFor();
 }
 

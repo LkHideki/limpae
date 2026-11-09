@@ -8,6 +8,7 @@ mod cmd_security;
 mod cmd_simulate;
 mod commands;
 mod dto;
+mod lifecycle;
 mod registry;
 mod state;
 mod tray;
@@ -30,20 +31,27 @@ fn main() {
     let app = tauri::Builder::default()
         .manage(Arc::new(state))
         .manage(tray::TrayState::default())
+        .manage(lifecycle::Lifecycle::default())
         .setup(|app| {
             tray::apply(app.handle());
             tray::start_timer(app.handle());
             Ok(())
         })
         // With the menu bar extra on, closing the window only hides it (the app keeps living in the menu bar and
-        // the Dock icon stays). Without it, closing quits as before.
+        // the Dock icon stays); `lifecycle` frees the webview if it stays hidden. Without the extra, closing quits
+        // as before.
         .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event
-                && window.label() == "main"
-                && tray::menu_bar_enabled(window.app_handle())
-            {
-                api.prevent_close();
-                let _ = window.hide();
+            if window.label() != "main" {
+                return;
+            }
+            match event {
+                WindowEvent::CloseRequested { api, .. } if tray::menu_bar_enabled(window.app_handle()) => {
+                    api.prevent_close();
+                    let _ = window.hide();
+                    lifecycle::on_hidden(window.app_handle());
+                }
+                WindowEvent::Destroyed => lifecycle::on_destroyed(window.app_handle()),
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -57,6 +65,7 @@ fn main() {
             commands::remove,
             commands::uninstall,
             commands::cancel_scan,
+            lifecycle::ui_busy,
             commands::reveal,
             commands::open_app,
             commands::reveal_log,
@@ -113,10 +122,12 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("erro ao iniciar o Limpae");
 
-    app.run(|app, event| {
-        // Clicking the Dock icon while the window is hidden brings it back.
-        if let RunEvent::Reopen { has_visible_windows: false, .. } = event {
-            tray::show_main(app, None);
-        }
+    app.run(|app, event| match event {
+        // Clicking the Dock icon while the window is hidden (or destroyed by `lifecycle`) brings it back.
+        RunEvent::Reopen { has_visible_windows: false, .. } => tray::show_main(app, None),
+        // Destroying the last window must not end the process while the menu bar extra lives on. `code: None` is
+        // the "no windows left" case; explicit quits (menu, relaunch) carry a code and go through.
+        RunEvent::ExitRequested { code: None, api, .. } if tray::menu_bar_enabled(app) => api.prevent_exit(),
+        _ => {}
     });
 }

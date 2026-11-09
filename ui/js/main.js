@@ -30,6 +30,7 @@ const navEl = document.getElementById('nav');
 const foot = document.getElementById('sb-foot');
 let current = null, cleanups = [], navSeq = 0;
 let backFn = null; // "Back" of the manager mounted right now (Esc and ⌘[ call the same one)
+let reportedBusy = false;
 let fdaDismissed = false;
 try { fdaDismissed = localStorage.getItem('limpae.fda.dismissed') === '1'; } catch (e) { /* storage unavailable */ }
 
@@ -49,6 +50,11 @@ window.addEventListener('unhandledrejection', (e) => { if (!(e.reason && e.reaso
 function setBusy(b) {
   store.busy = b;
   document.body.classList.toggle('locked', b);
+  // The backend frees the webview after the window stays hidden, but never during an operation.
+  if (b !== reportedBusy) {
+    reportedBusy = b;
+    try { Promise.resolve(window.__TAURI__.core.invoke('ui_busy', { busy: b })).catch(() => {}); } catch (e) { /* browser preview */ }
+  }
 }
 
 // One ctx per screen entry. Work a screen started may finish after the user moved on: `alive` turns false for it and
@@ -171,6 +177,14 @@ window.addEventListener('focus', syncIdle);
 document.addEventListener('visibilitychange', syncIdle);
 syncIdle();
 
+// A window rebuilt by the backend (after it freed the webview) lands on the requested module via `#nav=<id>`; the live
+// `navigate` event can't reach a UI that did not exist yet.
+function bootModule() {
+  const m = /^#nav=([a-z]+)$/.exec(location.hash);
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* ignore */ }
+  return m && VIEWS[m[1]] ? m[1] : 'smart';
+}
+
 // Language switch in Settings: rebuilds the menu, footer and current screen in the new language.
 onLang(() => { buildNav(); renderFoot(); if (current) navigate(current, true); });
 
@@ -180,5 +194,5 @@ api.settings().catch(() => null).then((st) => {
   applyLangSetting(st && st.language);
   buildNav();
   refreshDisk().then(() => maybeOnboard(store.disk)).then(renderFoot);
-  navigate('smart');
+  navigate(bootModule());
 });

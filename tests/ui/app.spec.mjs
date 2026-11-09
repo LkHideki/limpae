@@ -766,6 +766,28 @@ test.describe('gauntlet round 2', () => {
     await expect(page.locator('body')).toHaveAttribute('data-mod', 'clean');
   });
 
+  test('a rebuilt window lands on the module asked for in the URL', async ({ page }) => {
+    await boot(page, '{}', { hash: '#nav=trash' });
+    await expect(page.locator('body')).toHaveAttribute('data-mod', 'trash');
+    expect(new URL(page.url()).hash).toBe('');
+  });
+
+  test('an unknown #nav module opens Sweep', async ({ page }) => {
+    await boot(page, '{}', { hash: '#nav=nope' });
+    await expect(page.locator('body')).toHaveAttribute('data-mod', 'smart');
+  });
+
+  test('the UI reports operations in progress to the backend (ui_busy) only when the state changes', async ({ page }) => {
+    await boot(page, JUNK);
+    expect(await calls(page, 'ui_busy')).toEqual([]);
+    await scanJunk(page);
+    const seen = (await calls(page, 'ui_busy')).map((c) => c.args.busy);
+    expect(seen.length).toBeGreaterThanOrEqual(2);
+    expect(seen[0]).toBe(true);
+    expect(seen.at(-1)).toBe(false);
+    expect(seen.every((b, i) => i === 0 || b !== seen[i - 1])).toBe(true);
+  });
+
   test('a Simulate in progress disables the removal action, and Esc closes one stacked dialog at a time', async ({ page }) => {
     await boot(page, JUNK.replace("simulate_removal: ({ ids }) => (", "simulate_removal: ({ ids }) => new Promise((r) => setTimeout(() => r(").replace("report: '/r.tsv' }),", "report: '/r.tsv' }), 500)),"));
     await scanJunk(page);
