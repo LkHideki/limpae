@@ -107,7 +107,7 @@ export default {
   '{n} itens continuam na Lixeira.': { en: '{n} items remain in the Trash.', id: '{n} item masih berada di Tempat Sampah.' },
   'A Lixeira foi esvaziada.': { en: 'The Trash was emptied.', id: 'Tempat Sampah telah dikosongkan.' },
 
-  // ---- iCloud (cloud.js) ----
+  // ---- iCloud (former module, now a Files category; shared strings) ----
   'Libere espaço sem perder nada do iCloud': { en: 'Free up space without losing anything from iCloud', id: 'Bebaskan ruang tanpa kehilangan apa pun dari iCloud' },
   'Remova do Mac as cópias dos arquivos do iCloud Drive que você não usa agora.': { en: 'Remove from your Mac the copies of iCloud Drive files you aren’t using right now.', id: 'Hapus dari Mac salinan file iCloud Drive yang tidak sedang Anda gunakan.' },
   'Os arquivos continuam guardados no iCloud': { en: 'Files stay safely stored in iCloud', id: 'File tetap tersimpan di iCloud' },

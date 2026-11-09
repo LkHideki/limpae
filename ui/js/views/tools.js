@@ -37,7 +37,6 @@ const getTools = () => [
   { id: 'leftovers', name: t('Restos de apps'), desc: t('Encontre o que sobrou de apps que já foram removidos.'), ic: 'unlink', mod: 'apps', to: 'apps' },
   { id: 'installers', name: t('Instaladores'), desc: t('Arquivos .dmg e .pkg que já cumpriram o papel.'), ic: 'box', mod: 'apps', to: 'apps' },
   { id: 'lens', name: t('Mapa do Disco'), desc: t('Um mapa visual do que ocupa espaço no disco.'), ic: 'lens', mod: 'lens', to: 'lens' },
-  { id: 'cloud', name: t('iCloud'), desc: t('Libere espaço tirando do Mac cópias que já estão no iCloud.'), ic: 'cloud', mod: 'cloud', to: 'cloud' },
   { id: 'security', name: t('Verificação de segurança'), desc: t('Gatekeeper, FileVault, firewall e outros ajustes de proteção.'), ic: 'shield', mod: 'protect', to: 'protect' },
   { id: 'perms', name: t('Permissões de apps'), desc: t('Veja e revogue o que cada app pode acessar no Mac.'), ic: 'lock', mod: 'protect', to: 'protect' },
   { id: 'privacy', name: t('Privacidade'), desc: t('Históricos e rastros de uso que ficam registrados.'), ic: 'eye', mod: 'protect', to: 'protect' },

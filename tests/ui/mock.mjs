@@ -11,6 +11,8 @@ export async function boot(page, handlers = '{}', { storage = {} } = {}) {
       set_settings: () => null,
       disk_overview: () => ({ total: 500e9, free: 120e9, used: 380e9, fda: true }),
       list_ignored: () => [],
+      cloud_scan: () => ({ total: 0, needsFda: false, groups: [] }),
+      cloud_optimize_status: () => null,
       trash_history: () => [],
       health: () => ({ score: 90, level: 'Excelente', model: 'MacBook Pro', diskTotal: 500e9, diskFree: 120e9, factors: [] }),
       activity: () => ({ totalFreed: 0, monthFreed: 0, items: 0, lastCleanup: null, days: [] }),

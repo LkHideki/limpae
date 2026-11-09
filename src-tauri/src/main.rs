@@ -92,6 +92,7 @@ fn main() {
             cmd_lens::lens_quicklook,
             cmd_lens::cloud_scan,
             cmd_lens::cloud_evict,
+            cmd_lens::cloud_optimize_status,
             cmd_health::health,
             cmd_health::activity,
             cmd_health::mark_smart_care,

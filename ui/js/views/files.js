@@ -1,5 +1,6 @@
 // Files: large and old files, duplicates, similar images and downloads.
-// Nothing comes preselected; the action is move to Trash; the UI only sends registry ids, never paths.
+// Nothing comes preselected; the action is move to Trash ("Remover do Mac" in the iCloud category, which only evicts
+// the local copy and never deletes anything from iCloud); the UI only sends registry ids, never paths.
 // Names and paths come from disk (untrusted): only textContent / createElement.
 import { play } from '../sound.js';
 import { t, tn, tr, lazyIntl, cmp } from '../i18n.js';
@@ -11,11 +12,15 @@ import { bytesParts, fmtBytes, fmtNum, plural } from '../format.js';
 import { confirmDialog, confirmRestart, failuresSheet, stage, chipRow, checkbox, segmented, managerBar } from '../ui.js';
 import { outcomesToFailures, realFailures, stopDock } from '../actions.js';
 import { attachMenu, selectMenuButton } from '../menus.js';
+import { openSettings, reopenButton } from '../fda.js';
 
 const OPTIONS = [{ value: 50, label: '50 MB' }, { value: 100, label: '100 MB' }, { value: 500, label: '500 MB' }, { value: 1000, label: '1 GB' }];
 const CHUNK = 60;
 const SETS_CHUNK = 40;
 const REMOVE_BATCH = 100;
+const EVICT_BATCH = 8;
+const MARK = '\u0001'; // {b} marker where the bold fragment goes
+const withNode = (str, node) => { const [a, b = ''] = str.split(MARK); return [a, node, b]; };
 
 // Local icons (art.js belongs to another module): same stroke as the others.
 const PATHS = {
@@ -51,13 +56,17 @@ const CATS = [
   { id: 'dups', label: 'Duplicados', ic: 'copy', desc: 'Cópias idênticas de arquivos, em pastas diferentes, que ocupam espaço à toa. Acima de 100 KB.' }, // i18n-ignore (key; translated on display)
   { id: 'sim', label: 'Imagens parecidas', ic: 'image', desc: 'Fotos quase iguais. O ponto verde marca a melhor cópia para manter. Acima de 100 KB.' }, // i18n-ignore (key; translated on display)
   { id: 'dl', label: 'Downloads', ic: 'download', desc: 'Arquivos da pasta Downloads, agrupados pelo app que os baixou.' }, // i18n-ignore (key; translated on display)
+  { id: 'icloud', label: 'Baixados do iCloud', ic: 'cloud', desc: 'Arquivos do iCloud Drive que estão baixados neste Mac. Remover do Mac libera espaço; nada é apagado do iCloud.' }, // i18n-ignore (key; translated on display)
 ];
+// Categories whose action is "move to Trash". iCloud has its own action (evict) and its own selection.
+const TRASH_CATS = CATS.filter((c) => c.id !== 'icloud');
 // "Select" modes per category: [id, label]. The Smart/All/None/Partial labels apply across the whole app.
 const SELECT_MODES = { // i18n-ignore (key; translated on display)
   dups: [['smart', 'Recomendado'], ['oldest', 'Mais antigos'], ['newest', 'Mais novos'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
   sim: [['smart', 'Recomendado'], ['smallest', 'Menores'], ['largest', 'Maiores'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
   large: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
   dl: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
+  icloud: [['all', 'Tudo'], ['none', 'Nada']], // i18n-ignore (key; translated on display)
 };
 // "Show" filter for duplicates, by file type.
 const SHOW = [['all', 'Todos os arquivos'], ['apps', 'Aplicativos'], ['archives', 'Compactados'], ['pictures', 'Imagens'], ['other', 'Outros']]; // i18n-ignore (key; translated on display)
@@ -84,9 +93,11 @@ function accessText(sec) {
 // State that survives module switch (the view is recreated on every entry).
 const S = {
   locs: null, loc: 0,
-  res: null,            // { large, dups, sim, dl, loc, locName, minMb, full }; each one is a ScanResult or null
+  res: null,            // { large, dups, sim, dl, icloud, loc, locName, minMb, full }; each one is a ScanResult or null
   lsel: new Set(),      // selection of Large and old
   sel: new Set(),       // selection of duplicates, similar images and downloads (ids are unique)
+  csel: new Set(),      // selection of the iCloud category (evicted, never sent to the Trash)
+  optimize: undefined,  // macOS "Optimize Mac Storage": undefined = not asked yet, null = unknown, else boolean
   cat: 'large', view: 'kind', open: new Set(), limits: new Map(), thumbs: new Map(),
   q: '', sort: 'size', show: 'all',
 };
@@ -94,7 +105,7 @@ const S = {
 const catLabel = (c) => t(c.label); // i18n-dynamic
 const catDesc = (c) => t(c.desc); // i18n-dynamic
 const resOf = (c) => (S.res ? S.res[c] : null);
-const selOf = (c) => (c === 'large' ? S.lsel : S.sel);
+const selOf = (c) => (c === 'large' ? S.lsel : c === 'icloud' ? S.csel : S.sel);
 const countOf = (c) => (resOf(c) ? countItems(resOf(c)) : 0);
 const keeperOf = (g) => g.items.find((i) => i.note) || g.items[0];
 
@@ -107,7 +118,7 @@ function reclaim(result) {
 
 function totals() {
   let bytes = 0, count = 0;
-  for (const c of CATS) { const sz = selectedSize(resOf(c.id), selOf(c.id)); bytes += sz.bytes; count += sz.count; }
+  for (const c of TRASH_CATS) { const sz = selectedSize(resOf(c.id), selOf(c.id)); bytes += sz.bytes; count += sz.count; }
   return { bytes, count };
 }
 
@@ -175,8 +186,8 @@ export function enter(ctx) {
   // Sweep hands over the Downloads duplicates ("review" phase): opens the manager with only that category, with nothing
   // checked. "Back" returns to Sweep.
   if (store.filesFrom && F.phase === 'review' && (!S.res || S.res.fromRef !== store.filesFrom)) {
-    S.res = { large: null, dups: store.filesFrom, sim: null, dl: null, loc: 0, locName: 'Downloads', minMb: store.largeMb, full: false, largeRef: null, ownsStore: false, fromRef: store.filesFrom, fromSmart: true };
-    S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.autoOpened = false; S.limits = new Map(); S.thumbs = new Map(); S.cat = 'dups'; S.q = ''; S.show = 'all';
+    S.res = { large: null, dups: store.filesFrom, sim: null, dl: null, icloud: null, loc: 0, locName: 'Downloads', minMb: store.largeMb, full: false, largeRef: null, ownsStore: false, fromRef: store.filesFrom, fromSmart: true };
+    S.lsel = new Set(); S.sel = new Set(); S.csel = new Set(); S.open = new Set(); S.autoOpened = false; S.limits = new Map(); S.thumbs = new Map(); S.cat = 'dups'; S.q = ''; S.show = 'all';
   }
   // Back goes to Sweep only when the manager was entered from it in this visit; a handed-over result reopened from
   // the landing ("Back to results") returns to the landing.
@@ -207,7 +218,7 @@ export function enter(ctx) {
     F.phase = 'idle';
     const select = h('select', { class: 'fl-select', 'aria-label': t('Local para analisar'), onChange: (e) => { S.loc = Number(e.target.value); } },
       (S.locs || [{ index: 0, name: HOME_NAME, free: 0, total: 0 }]).map((l) => h('option', { value: l.index, selected: l.index === S.loc }, l.total ? t('{name} · {free} livres', { name: locLabel(l.name), free: fmtBytes(l.free) }) : locLabel(l.name))));
-    const feats = [['folder', t('Arquivos grandes e antigos')], ['copy', t('Duplicados')], ['image', t('Imagens parecidas')], ['download', t('Downloads')]];
+    const feats = [['folder', t('Arquivos grandes e antigos')], ['copy', t('Duplicados')], ['image', t('Imagens parecidas')], ['download', t('Downloads')], ['cloud', t('Baixados do iCloud')]];
     st.show(h('h1', { class: 'h1' }, t('Arquivos')),
       h('p', { class: 'sub' }, t('Organize seus arquivos e reduza a bagunça em poucos cliques.')),
       h('ul', { class: 'feats' }, feats.map(([ic, txt]) => h('li', null, h('span', { class: 'feat-chip' }, fi(ic, 17)), txt))),
@@ -232,6 +243,7 @@ export function enter(ctx) {
       home && { k: 'dl', task: 'downloads', label: t('Downloads'), run: () => api.downloads() },
       { k: 'dups', task: 'duplicates', label: t('Duplicados'), run: () => api.duplicates(loc) },
       { k: 'sim', task: 'similar', label: t('Imagens parecidas'), run: () => api.similar(loc) },
+      home && { k: 'icloud', task: 'icloud', label: t('Baixados do iCloud'), run: () => api.cloudScan() },
     ].filter(Boolean);
     cancelled = false;
     F.phase = 'scanning';
@@ -275,8 +287,9 @@ export function enter(ctx) {
     if (!ctx.alive) return;
     if (cancelled) { F.phase = 'idle'; return render(); }
     const empty = { groups: [], total: 0, needsFda: false };
-    S.res = { large: out.large || empty, dl: out.dl || (home ? empty : null), dups: out.dups || empty, sim: out.sim || empty, loc, locName: S.locs && S.locs[loc] ? S.locs[loc].name : HOME_NAME, minMb: mb, full: true, largeRef: null, ownsStore: home, failed, steps: steps.length };
-    S.lsel = new Set(); S.sel = new Set(); S.open = new Set(); S.autoOpened = false; S.limits = new Map(); S.thumbs = new Map();
+    S.res = { large: out.large || empty, dl: out.dl || (home ? empty : null), dups: out.dups || empty, sim: out.sim || empty, icloud: out.icloud || (home ? empty : null), loc, locName: S.locs && S.locs[loc] ? S.locs[loc].name : HOME_NAME, minMb: mb, full: true, largeRef: null, ownsStore: home, failed, steps: steps.length };
+    S.lsel = new Set(); S.sel = new Set(); S.csel = new Set(); S.open = new Set(); S.autoOpened = false; S.limits = new Map(); S.thumbs = new Map();
+    S.optimize = undefined; // asked again the next time the iCloud category is opened
     if (home) { store.large = S.res.large; store.largeSel = S.lsel; }
     S.res.largeRef = store.large;
     bump();
@@ -293,7 +306,7 @@ export function enter(ctx) {
     const r = S.res;
     const dup = reclaim(r.dups), sim = reclaim(r.sim);
     const dlTop = r.dl && r.dl.groups[0];
-    const total = countOf('large') + dup.n + sim.n + countOf('dl');
+    const total = countOf('large') + dup.n + sim.n + countOf('dl') + countOf('icloud');
     const failed = r.failed || new Set();
     const allFailed = failed.size > 0 && failed.size >= (r.steps || 0);
     const tiles = [
@@ -318,6 +331,14 @@ export function enter(ctx) {
         title: t('{size} em arquivos grandes e antigos', { size: fmtBytes(r.large.total) }),
         sub: t('{files} acima de {size}.', { files: plural(countOf('large'), 'arquivo', 'arquivos'), size: fmtBytes(r.minMb * 1e6) }), empty: t('Nenhum arquivo acima de {size}.', { size: fmtBytes(r.minMb * 1e6) }),
       },
+      {
+        cat: 'icloud', ic: 'cloud', n: countOf('icloud'), label: t('Baixados do iCloud'),
+        title: r.icloud ? t('{size} baixados do iCloud', { size: fmtBytes(r.icloud.total) }) : t('Baixados do iCloud'),
+        sub: r.icloud ? t('{files} neste Mac. Continuam no iCloud.', { files: plural(countOf('icloud'), 'arquivo', 'arquivos') }) : '',
+        empty: !r.icloud ? t('O iCloud Drive é analisado só na pasta pessoal.')
+          : r.icloud.needsFda ? t('O macOS protege o iCloud Drive. Conceda Acesso Total ao Disco para listar os arquivos baixados.')
+            : t('Nenhum arquivo grande do iCloud Drive baixado neste Mac.'),
+      },
     ];
     const el = h('section', { class: 'fl-results enter', dataset: { mod: 'files' }, 'aria-label': t('Resultados') },
       h('div', { class: 'fl-bar' }, h('button', { class: 'btn sm ghost', type: 'button', onClick: async () => { if (await confirmRestart('files')) { F.phase = 'idle'; render(); } } }, icon('back', 15), t('Recomeçar')), h('span', { class: 'fl-where-tag' }, locLabel(r.locName))),
@@ -325,12 +346,13 @@ export function enter(ctx) {
       h('p', { class: 'sub fl-sub' }, allFailed ? t('Tente de novo em instantes.') : total ? t('Revise cada categoria. Nada é selecionado nem removido sem a sua escolha.') : t('Tente outro local ou um tamanho mínimo menor.')),
       allFailed ? h('button', { class: 'btn primary fl-all', type: 'button', onClick: scan }, t('Analisar de novo')) : null,
       total ? h('button', { class: 'btn primary fl-all', type: 'button', onClick: () => open(CATS.find((c) => countOf(c.id))?.id || 'large') }, t('Revisar todos os arquivos')) : null,
-      h('div', { class: 'fl-tiles' }, tiles.map((tile) => h('div', { class: 'fl-tile' + (tile.n ? '' : ' none') + (failed.has(tile.cat) ? ' failed' : ''), dataset: { cat: tile.cat } },
+      h('div', { class: 'fl-tiles', dataset: { n: tiles.length } }, tiles.map((tile) => h('div', { class: 'fl-tile' + (tile.n ? '' : ' none') + (failed.has(tile.cat) ? ' failed' : ''), dataset: { cat: tile.cat } },
         h('span', { class: 'fl-tile-ic' }, fi(tile.ic, 26)),
         h('div', { class: 'fl-tile-t' }, tile.n ? tile.title : tile.label),
         h('div', { class: 'fl-tile-s' }, tile.n ? tile.sub : failed.has(tile.cat) ? t('Não foi possível analisar esta categoria.') : tile.empty),
         tile.n ? h('button', { class: 'btn sm', type: 'button', onClick: () => open(tile.cat) }, t('Revisar'))
-          : failed.has(tile.cat) && !allFailed ? h('button', { class: 'btn sm', type: 'button', onClick: scan }, t('Analisar de novo')) : null))));
+          : failed.has(tile.cat) && !allFailed ? h('button', { class: 'btn sm', type: 'button', onClick: scan }, t('Analisar de novo'))
+            : tile.cat === 'icloud' && r.icloud && r.icloud.needsFda ? h('button', { class: 'btn sm', type: 'button', onClick: () => openSettings().then(ctx.refreshDisk) }, t('Abrir Ajustes')) : null))));
     mount(ctx.root, el);
   }
 
@@ -365,7 +387,7 @@ export function enter(ctx) {
     const headEl = h('div', { class: 'fm-pane-head' });
     const listEl = h('div', { class: 'fm-list' });
     const selEl = h('div', { class: 'rv-sel' });
-    const actionBtn = h('button', { class: 'btn primary', type: 'button', onClick: () => move() }, t('Mover para o Lixo'));
+    const actionBtn = h('button', { class: 'btn primary', type: 'button', onClick: () => (S.cat === 'icloud' ? evict() : move()) }, t('Mover para o Lixo'));
     let io = null;
     listeners.push(() => { if (io) io.disconnect(); });
     const queue = [];
@@ -379,17 +401,21 @@ export function enter(ctx) {
       mount(catsEl, avail.map((c) => {
         const sz = selectedSize(resOf(c.id), selOf(c.id));
         const result = resOf(c.id);
-        return h('button', { class: 'fm-cat', type: 'button', dataset: { fk: 'cat:' + c.id }, 'aria-current': String(c.id === S.cat), onClick: () => { if (S.cat !== c.id) keepFocus(ctx.root, () => { S.cat = c.id; renderPane(); renderCats(); }); } },
+        return h('button', { class: 'fm-cat', type: 'button', dataset: { fk: 'cat:' + c.id }, 'aria-current': String(c.id === S.cat), onClick: () => { if (S.cat !== c.id) keepFocus(ctx.root, () => { S.cat = c.id; renderPane(); renderCats(); renderFoot(); }); } },
           h('span', { class: 'fm-cat-ic' }, fi(c.ic, 17)),
-          h('span', { class: 'fm-cat-t' }, h('b', null, catLabel(c)), h('span', null, countOf(c.id) ? t('{items} · {size}', { items: plural(countOf(c.id), 'item', 'itens'), size: fmtBytes(result.total) }) : t('Nada encontrado'))),
+          h('span', { class: 'fm-cat-t' }, h('b', null, catLabel(c)), h('span', null, countOf(c.id) ? t('{items} · {size}', { items: plural(countOf(c.id), 'item', 'itens'), size: fmtBytes(result.total) }) : result.needsFda ? t('Acesso necessário') : t('Nada encontrado'))),
           sz.count ? h('span', { class: 'fm-cat-n', title: plural(sz.count, 'item selecionado', 'itens selecionados') }, fmtNum(sz.count)) : null);
       }));
     }
 
     function renderFoot() {
-      const { bytes, count } = totals();
+      // The iCloud category has its own action and selection; every other category shares the Trash selection.
+      const cloud = S.cat === 'icloud';
+      const { bytes, count } = cloud ? selectedSize(resOf('icloud'), S.csel) : totals();
       if (!count) mount(selEl, t('Nenhum item selecionado'));
       else mount(selEl, t('Selecionado:') + ' ', h('b', null, fmtBytes(bytes)), h('small', null, plural(count, 'item', 'itens')));
+      actionBtn.textContent = cloud ? t('Remover do Mac') : t('Mover para o Lixo');
+      actionBtn.dataset.act = cloud ? 'evict' : 'trash';
       actionBtn.disabled = count === 0;
     }
 
@@ -406,7 +432,22 @@ export function enter(ctx) {
         tools.push(selectMenuButton({ label: t('Selecionar'), modes: SELECT_MODES[c.id].map(([i, l]) => [i, t(l)]), mode: modeOf(c.id), onPick: (m) => { applySelect(c.id, m); refresh(); } })); // i18n-dynamic
       }
       if (tools.length) kids.push(h('div', { class: 'fm-tools' }, tools));
+      if (c.id === 'icloud') kids.push(cloudNote());
       mount(headEl, kids);
+    }
+
+    // iCloud category notice: nothing is deleted from iCloud, plus whether macOS "Optimize Mac Storage" is on.
+    function cloudNote() {
+      if (S.optimize === undefined) {
+        S.optimize = null; // asked once; the answer repaints the header
+        api.cloudOptimizeStatus().then((v) => { S.optimize = typeof v === 'boolean' ? v : null; }).catch(() => {})
+          .finally(() => { if (ctx.alive && F.phase === 'review' && S.cat === 'icloud') renderHead(); });
+      }
+      const opt = S.optimize === true ? t('Otimizar Armazenamento do Mac está ativado: o macOS também libera esses arquivos sozinho quando falta espaço.')
+        : S.optimize === false ? t('Otimizar Armazenamento do Mac está desativado. Ative em Ajustes do Sistema › Apple ID › iCloud › Drive para o macOS liberar esses arquivos sozinho quando faltar espaço.') : '';
+      return h('div', { class: 'cloud-note fm-cloud-note', dataset: { optimize: S.optimize === null ? 'unknown' : String(S.optimize) } },
+        h('b', null, t('Nada é apagado do iCloud.')), ' ' + t('Os arquivos continuam guardados lá e baixam de novo quando você abrir.'),
+        opt ? h('p', { class: 'fm-cloud-opt' }, opt) : null);
     }
 
     function renderPane() {
@@ -420,6 +461,7 @@ export function enter(ctx) {
 
     // ---- rows and sections ----
     // opts.dir: row of one copy (the name is the same in all of them): shows the folder, which is what tells them apart.
+    // opts.noQuickLook: iCloud files (previewing one would download it again).
     function fileRow(it, sel, opts = {}) {
       const cb = checkbox(sel.has(it.id) ? 'on' : 'off', () => toggle(), t('Selecionar {name}', { name: it.name }));
       cb.dataset.fk = 'c:' + it.id;
@@ -436,9 +478,9 @@ export function enter(ctx) {
         h('div', { class: 'fm-ic' }, itemIcon(it.name)),
         main,
         h('span', { class: 'fm-size' }, fmtBytes(it.size), opts.when && !opts.dir ? h('small', null, opts.when(it)) : null),
-        h('button', { class: 'icon-btn fm-act', type: 'button', title: t('Visualização Rápida'), 'aria-label': t('Visualização Rápida de {name}', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.quickLook(it.id).catch(() => {}); } }, icon('eye', 16)),
+        opts.noQuickLook ? null : h('button', { class: 'icon-btn fm-act', type: 'button', title: t('Visualização Rápida'), 'aria-label': t('Visualização Rápida de {name}', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.quickLook(it.id).catch(() => {}); } }, icon('eye', 16)),
         h('button', { class: 'icon-btn fm-act', type: 'button', title: t('Mostrar no Finder'), 'aria-label': t('Mostrar {name} no Finder', { name: it.name }), onClick: (e) => { e.stopPropagation(); api.reveal(it.id).catch(() => {}); } }, icon('reveal', 16)));
-      attachMenu(row, () => ({ id: it.id, name: it.name, select: { on: sel.has(it.id), toggle }, onIgnored: () => dropItem(it) }));
+      attachMenu(row, () => ({ id: it.id, name: it.name, select: { on: sel.has(it.id), toggle }, quickLook: !opts.noQuickLook, onIgnored: () => dropItem(it) }));
       return row;
     }
 
@@ -522,6 +564,18 @@ export function enter(ctx) {
       }
     }
 
+    // macOS protects the iCloud Drive folder: same guidance as the other protected locations.
+    function fdaPanel() {
+      return h('div', { class: 'fm-fda' },
+        h('div', { class: 'glyph-chip' }, icon('lock', 22)),
+        h('h3', null, t('Acesso Total ao Disco necessário')),
+        h('p', null, t('O macOS protege a pasta do iCloud Drive. Para o Limpae listar os arquivos baixados, conceda acesso:')),
+        h('ol', null, h('li', null, t('Abra Ajustes do Sistema › Privacidade e Segurança.')), h('li', null, t('Entre em Acesso Total ao Disco e ative o Limpae.')), h('li', null, t('Volte aqui e analise de novo.'))),
+        h('div', { class: 'row-actions' },
+          h('button', { class: 'btn primary', type: 'button', onClick: () => openSettings().then(ctx.refreshDisk) }, t('Abrir Ajustes')),
+          reopenButton()));
+    }
+
     function renderList() { keepFocus(ctx.root, drawList); }
     function drawList() {
       const keep = listEl.scrollTop;
@@ -537,7 +591,12 @@ export function enter(ctx) {
       const result = resOf(c);
       let body;
       if (!countOf(c)) {
-        body = h('div', { class: 'rv-empty' }, c === 'large' ? t('Nenhum arquivo acima de {size}.', { size: fmtBytes(S.res.minMb * 1e6) }) : t('Nada encontrado nesta categoria.'));
+        body = c === 'icloud' && result.needsFda ? fdaPanel()
+          : h('div', { class: 'rv-empty' }, c === 'large' ? t('Nenhum arquivo acima de {size}.', { size: fmtBytes(S.res.minMb * 1e6) }) : c === 'icloud' ? t('Nenhum arquivo grande do iCloud Drive baixado neste Mac.') : t('Nada encontrado nesta categoria.'));
+      } else if (c === 'icloud') {
+        body = result.groups.map((g) => ({ id: g.id, title: tr(g.title), items: sortItems(g.items.filter(matches)) })).filter((sec) => sec.items.length)
+          .map((sec) => section(sec, S.csel, `icloud:${sec.id}`, { noQuickLook: true, when: (i) => fmtDate(i.modified) }));
+        if (!body.length) body = noMatch();
       } else if (c === 'large') {
         body = largeSections(result, S.view).map((sec) => ({ ...sec, items: sortItems(sec.items.filter(matches)) })).filter((sec) => sec.items.length)
           .map((sec) => section(sec, S.lsel, `large:${S.view}:${sec.id}`, { when: (i) => accessText(i.accessed) || t('modificado {date}', { date: fmtDate(i.modified) }) }));
@@ -584,7 +643,7 @@ export function enter(ctx) {
   // ---------- Removal ----------
   async function move() {
     const picked = [];
-    for (const c of CATS) { const r = resOf(c.id); if (r) for (const g of r.groups) for (const i of g.items) if (selOf(c.id).has(i.id)) picked.push(i); }
+    for (const c of TRASH_CATS) { const r = resOf(c.id); if (r) for (const g of r.groups) for (const i of g.items) if (selOf(c.id).has(i.id)) picked.push(i); }
     if (!picked.length) return;
     const bytes = picked.reduce((a, i) => a + i.size, 0);
     let allSel = 0;
@@ -628,7 +687,7 @@ export function enter(ctx) {
     }
     prune(okIds);
     bump(); store.trash = null;
-    F.moved = freed; F.failed = failures.length; F.permanent = permanent; F.phase = 'done';
+    F.moved = freed; F.failed = failures.length; F.permanent = permanent; F.evicted = false; F.phase = 'done';
     const real = realFailures(failures);
     if (freed) play('clean'); else if (!sd.stopped() || real.length) play('error'); // a bare Stop is not an error
     ctx.setBusy(false);
@@ -638,12 +697,59 @@ export function enter(ctx) {
     if (real.length) failuresSheet(real);
   }
 
+  // ---------- iCloud: remove the local copy ("Remover do Mac"); the file stays in iCloud ----------
+  async function evict() {
+    const r = resOf('icloud');
+    if (!r) return;
+    const picked = r.groups.flatMap((g) => g.items).filter((i) => S.csel.has(i.id));
+    if (!picked.length) return;
+    const bytes = picked.reduce((a, i) => a + i.size, 0);
+    const ok = await confirmDialog({
+      title: t('Remover {files} deste Mac?', { files: plural(picked.length, 'arquivo', 'arquivos') }),
+      body: withNode(t('Isso libera cerca de {size}. {b} e baixam de novo quando você abrir. Nada é apagado da nuvem nem enviado ao Lixo.', { size: fmtBytes(bytes), b: MARK }), h('strong', null, t('Os arquivos continuam no iCloud'))),
+      confirm: t('Remover do Mac'), glyph: 'cloud', mod: 'files',
+    });
+    if (!ok) return;
+    F.phase = 'moving';
+    ctx.setBusy(true);
+    st = null; ensureStage(); st.busy(true);
+    const line = h('p', { class: 'sub' }, t('{done} de {total}', { done: fmtNum(0), total: fmtNum(picked.length) }));
+    st.show(h('h1', { class: 'h1' }, t('Removendo do Mac…')), line);
+    ctx.setDock(null); // the backend cannot interrupt between batches: no button that looks like Stop
+    const byId = new Map(picked.map((i) => [i.id, i]));
+    const okIds = new Set(), failures = [];
+    let freed = 0, done = 0;
+    for (let i = 0; i < picked.length; i += EVICT_BATCH) {
+      const chunk = picked.slice(i, i + EVICT_BATCH);
+      try {
+        const res = await api.cloudEvict(chunk.map((c) => c.id));
+        for (const o of res.outcomes) if (o.ok) { okIds.add(o.id); freed += o.freed || 0; }
+        failures.push(...outcomesToFailures(res.outcomes, byId));
+      } catch (e) {
+        failures.push(...chunk.map((c) => ({ id: c.id, name: c.name, path: c.path, error: tr(e.message) })));
+      }
+      done += chunk.length;
+      if (ctx.alive) line.textContent = t('{done} de {total}', { done: fmtNum(done), total: fmtNum(picked.length) });
+    }
+    prune(okIds);
+    bump(); // the Trash is untouched: its cached result stays valid
+    F.moved = freed; F.failed = failures.length; F.permanent = false; F.evicted = true; F.phase = 'done';
+    play(freed ? 'clean' : 'error');
+    ctx.setBusy(false);
+    ctx.refreshDisk();
+    if (!ctx.alive) return;
+    render();
+    if (failures.length) failuresSheet(failures);
+  }
+
   function renderDone() {
     const left = CATS.some((c) => countOf(c.id));
-    st.show(h('div', { class: 'big' }, bytesParts(F.moved).value, h('small', null, bytesParts(F.moved).unit)), h('div', { class: 'big-cap' }, F.permanent ? t('apagados definitivamente') : t('movidos para o Lixo')),
+    const cap = F.evicted ? t('liberados neste Mac') : F.permanent ? t('apagados definitivamente') : t('movidos para o Lixo');
+    st.show(h('div', { class: 'big' }, bytesParts(F.moved).value, h('small', null, bytesParts(F.moved).unit)), h('div', { class: 'big-cap' }, cap),
       h('p', { class: 'sub' }, [
         // With nothing moved, "Empty the Trash" would send the user to do something pointless.
-        F.moved === 0 ? t('Nada foi movido.') : F.permanent ? t('O espaço já foi liberado.') : t('Esvazie a Lixeira para liberar o espaço no disco.'),
+        F.evicted ? (F.moved > 0 || !F.failed ? t('Os arquivos continuam no iCloud e baixam de novo quando você abrir.') : t('Nada foi liberado.'))
+          : F.moved === 0 ? t('Nada foi movido.') : F.permanent ? t('O espaço já foi liberado.') : t('Esvazie a Lixeira para liberar o espaço no disco.'),
         F.failed ? ' ' + tn(F.failed, '{n} item não foi removido.', '{n} itens não foram removidos.') : '',
       ]),
       h('div', { class: 'row-actions' },

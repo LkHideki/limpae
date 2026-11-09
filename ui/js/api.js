@@ -97,6 +97,7 @@ export const api = {
   lensReview: (nodeIds) => call('lens_select_review', { nodeIds }),
   cloudScan: () => call('cloud_scan'),
   cloudEvict: (ids) => call('cloud_evict', { ids }),
+  cloudOptimizeStatus: () => call('cloud_optimize_status', undefined, { quiet: true }),
   securityChecks: () => call('security_checks'),
   openSecurityFix: (checkId) => call('open_security_fix', { checkId }),
   tccPermissions: () => call('tcc_permissions'),

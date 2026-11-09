@@ -930,7 +930,7 @@ test.describe('gauntlet round 3', () => {
 
   test('when every Files scan step fails the results say so instead of "nothing found"', async ({ page }) => {
     const boom = `() => { throw 'falhou'; }`;
-    await boot(page, `{ scan_large_at: ${boom}, scan_downloads: ${boom}, scan_duplicates: ${boom}, scan_similar: ${boom} }`);
+    await boot(page, `{ scan_large_at: ${boom}, scan_downloads: ${boom}, scan_duplicates: ${boom}, scan_similar: ${boom}, cloud_scan: ${boom} }`);
     await nav(page, 'Arquivos').click();
     await page.locator('#dock .go').click();
     await expect(page.locator('.fl-title')).toBeVisible({ timeout: 8000 });
@@ -939,19 +939,91 @@ test.describe('gauntlet round 3', () => {
     await expect(page.locator('.fl-all')).toHaveText(en('Analisar de novo'));
   });
 
-  test('cancelling a Cloud tile eviction keeps the selection made in the review', async ({ page }) => {
-    const item = (id, name, size) => `{ id: ${id}, name: '${name}', path: '/Users/u/Library/Mobile Documents/${name}', size: ${size}, selected: false, note: null, modified: null, trash: false, accessed: null }`;
-    await boot(page, `{ cloud_scan: () => ({ total: 100 + 600e6, needsFda: false, groups: [{ id: 'g', title: 'Documentos', description: '', total: 100 + 600e6, items: [${item(1, 'c.txt', 100)}, ${item(2, 'big.mov', 600e6)}] }] }) }`);
-    await nav(page, 'iCloud').click();
-    await page.locator('#dock .go').click();
-    await page.getByRole('button', { name: en('Revisar todos os arquivos') }).click();
+  // The iCloud category of Files: a scan with empty results for the other categories, plus the given iCloud handlers.
+  const FILES_EMPTY = '({ groups: [], total: 0, needsFda: false })';
+  const cloudItem = (id, name, size, selected = false) => `{ id: ${id}, name: '${name}', path: '/Users/u/Library/Mobile Documents/${name}', size: ${size}, selected: ${selected}, note: null, modified: null, trash: false, accessed: null }`;
+  const bootFiles = (page, extra) => boot(page, `{ scan_large_at: () => ${FILES_EMPTY}, scan_downloads: () => ${FILES_EMPTY}, scan_duplicates: () => ${FILES_EMPTY}, scan_similar: () => ${FILES_EMPTY}, ${extra} }`);
+  const scanFiles = async (page) => { await nav(page, 'Arquivos').click(); await page.locator('#dock .go').click(); await expect(page.locator('.fl-tiles')).toBeVisible({ timeout: 8000 }); };
+
+  test('cancelling the iCloud eviction in Files keeps the selection made in the review', async ({ page }) => {
+    await bootFiles(page, `cloud_scan: () => ({ total: 100 + 600e6, needsFda: false, groups: [{ id: 'g', title: 'Documentos', description: '', total: 100 + 600e6, items: [${cloudItem(1, 'c.txt', 100)}, ${cloudItem(2, 'big.mov', 600e6)}] }] })`);
+    await scanFiles(page);
+    await page.locator('.fl-tile[data-cat="icloud"] .btn').click();
     await page.getByRole('checkbox', { name: en('Selecionar {name}', { name: 'c.txt' }) }).click();
     await expect(page.locator('.rv-sel')).not.toContainText(en('Nenhum item selecionado'));
-    await page.locator('.mgr-back').click();
-    await page.locator('.cl-tile[data-tile="big"] .btn.primary').click();
+    const act = page.locator('.rv-foot .btn.primary');
+    await expect(act).toHaveText(en('Remover do Mac'));
+    await act.click();
     await page.getByRole('alertdialog').getByRole('button', { name: en('Cancelar') }).click();
-    await page.getByRole('button', { name: en('Revisar todos os arquivos') }).click();
     await expect(page.locator('.rv-sel')).not.toContainText(en('Nenhum item selecionado'));
+    await expect(page.getByRole('checkbox', { name: en('Selecionar {name}', { name: 'c.txt' }) })).toBeChecked();
+  });
+
+  test('the iCloud category evicts through cloud_evict (never the Trash), keeps its own selection and refreshes the disk', async ({ page }) => {
+    await bootFiles(page, `cloud_scan: () => ({ total: 600e6, needsFda: false, groups: [{ id: 'g', title: 'Documentos', description: '', total: 600e6, items: [${cloudItem(2, 'big.mov', 600e6)}] }] }),
+      cloud_evict: ({ ids }) => ({ freed: 600e6, outcomes: ids.map((id) => ({ id, ok: true, freed: 600e6, error: null })) })`);
+    await scanFiles(page);
+    await page.locator('.fl-tile[data-cat="icloud"] .btn').click();
+    // The Trash action of the other categories stays out of this category: nothing selected there, own label here.
+    await expect(page.locator('.rv-foot .btn.primary')).toHaveAttribute('data-act', 'evict');
+    await expect(page.locator('.rv-foot .btn.primary')).toBeDisabled();
+    await page.getByRole('checkbox', { name: en('Selecionar {name}', { name: 'big.mov' }) }).click();
+    const disk = (await calls(page, 'disk_overview')).length;
+    await page.locator('.rv-foot .btn.primary').click();
+    await expect(page.getByRole('alertdialog')).toContainText(en('Os arquivos continuam no iCloud'));
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Remover do Mac') }).click();
+    await expect(page.locator('.big-cap')).toHaveText(en('liberados neste Mac'), { timeout: 8000 });
+    await expect(page.locator('.stage .sub')).toContainText(en('Os arquivos continuam no iCloud e baixam de novo quando você abrir.'));
+    expect((await calls(page, 'cloud_evict')).map((c) => c.args.ids)).toEqual([[2]]);
+    expect(await calls(page, 'remove')).toHaveLength(0);
+    expect((await calls(page, 'disk_overview')).length).toBeGreaterThan(disk);
+  });
+
+  test('the iCloud category shows the "Optimize Mac Storage" state and what is not deleted', async ({ page }) => {
+    for (const [value, expected] of [[true, 'true'], [false, 'false'], [null, 'unknown']]) {
+      await bootFiles(page, `cloud_scan: () => ({ total: 600e6, needsFda: false, groups: [{ id: 'g', title: 'Documentos', description: '', total: 600e6, items: [${cloudItem(2, 'big.mov', 600e6)}] }] }), cloud_optimize_status: () => ${value}`);
+      await scanFiles(page);
+      await page.locator('.fl-tile[data-cat="icloud"] .btn').click();
+      const note = page.locator('.fm-cloud-note');
+      await expect(note).toContainText(en('Nada é apagado do iCloud.'));
+      await expect(note).toHaveAttribute('data-optimize', expected);
+      if (value === false) await expect(note).toContainText(en('Otimizar Armazenamento do Mac está desativado. Ative em Ajustes do Sistema › Apple ID › iCloud › Drive para o macOS liberar esses arquivos sozinho quando faltar espaço.'));
+      if (value === true) await expect(note).toContainText(en('Otimizar Armazenamento do Mac está ativado: o macOS também libera esses arquivos sozinho quando falta espaço.'));
+      if (value === null) await expect(page.locator('.fm-cloud-opt')).toHaveCount(0);
+    }
+  });
+
+  test('iCloud in Files: empty and needs-access states', async ({ page }) => {
+    await bootFiles(page, `cloud_scan: () => ({ total: 0, needsFda: false, groups: [] })`);
+    await scanFiles(page);
+    await expect(page.locator('.fl-tile[data-cat="icloud"]')).toHaveClass(/none/);
+    await expect(page.locator('.fl-tile[data-cat="icloud"] .fl-tile-s')).toHaveText(en('Nenhum arquivo grande do iCloud Drive baixado neste Mac.'));
+    await boot(page, `{ scan_large_at: () => ${FILES_EMPTY}, scan_downloads: () => ${FILES_EMPTY}, scan_duplicates: () => ({ total: 400, needsFda: false, groups: [{ id: 'd', title: 'Arquivo', description: '', total: 200, items: [${cloudItem(11, 'a', 100)}, ${cloudItem(12, 'b', 100)}] }] }), scan_similar: () => ${FILES_EMPTY}, cloud_scan: () => ({ total: 0, needsFda: true, groups: [] }) }`);
+    await scanFiles(page);
+    const tile = page.locator('.fl-tile[data-cat="icloud"]');
+    await expect(tile.locator('.fl-tile-s')).toHaveText(en('O macOS protege o iCloud Drive. Conceda Acesso Total ao Disco para listar os arquivos baixados.'));
+    await expect(tile.getByRole('button', { name: en('Abrir Ajustes') })).toBeVisible();
+    // Reachable from the manager's category list too, with the access guide instead of an empty list.
+    await page.locator('.fl-tile[data-cat="dups"] .btn').click();
+    await page.locator('.fm-cat[data-fk="cat:icloud"]').click();
+    await expect(page.locator('.fm-fda')).toContainText(en('Acesso Total ao Disco necessário'));
+  });
+
+  test('moving to the Trash in Files never includes iCloud selections', async ({ page }) => {
+    await bootFiles(page, `cloud_scan: () => ({ total: 600e6, needsFda: false, groups: [{ id: 'g', title: 'Documentos', description: '', total: 600e6, items: [${cloudItem(2, 'big.mov', 600e6)}] }] }),
+      scan_downloads: () => ({ total: 50, needsFda: false, groups: [{ id: 'dl', title: 'Outros', description: '', total: 50, items: [${cloudItem(7, 'x.zip', 50)}] }] })`);
+    await scanFiles(page);
+    await page.locator('.fl-tile[data-cat="icloud"] .btn').click();
+    await page.getByRole('checkbox', { name: en('Selecionar {name}', { name: 'big.mov' }) }).click();
+    await page.locator('.fm-cat[data-fk="cat:dl"]').click();
+    await expect(page.locator('.rv-sel')).toContainText(en('Nenhum item selecionado')); // the iCloud pick does not leak in
+    await expect(page.locator('.rv-foot .btn.primary')).toHaveAttribute('data-act', 'trash');
+    await page.getByRole('checkbox', { name: en('Selecionar {name}', { name: 'x.zip' }) }).click();
+    await page.locator('.rv-foot .btn.primary').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: en('Mover para o Lixo') }).click();
+    await expect(page.locator('.big-cap')).toHaveText(en('movidos para o Lixo'), { timeout: 8000 });
+    expect((await calls(page, 'remove')).map((c) => c.args.ids)).toEqual([[7]]);
+    expect(await calls(page, 'cloud_evict')).toHaveLength(0);
   });
 });
 
@@ -1176,14 +1248,18 @@ test.describe('gauntlet round 4', () => {
     await expect(page.locator('.rv-group .cb[data-mark="1"]')).toHaveCount(1);
   });
 
-  test('finishing a Cloud eviction keeps the orb that was floating', async ({ page }) => {
+  test('finishing an iCloud eviction in Files keeps the orb that was floating', async ({ page }) => {
+    const FILES_EMPTY = '({ groups: [], total: 0, needsFda: false })';
     const item = (id, name, size) => `{ id: ${id}, name: '${name}', path: '/Users/u/Library/Mobile Documents/${name}', size: ${size}, selected: true, note: null, modified: null, trash: false, accessed: null }`;
-    await boot(page, `{ cloud_scan: () => ({ total: 600e6, needsFda: false, groups: [{ id: 'g', title: 'Documentos', description: '', total: 600e6, items: [${item(2, 'big.mov', 600e6)}] }] }),
+    await boot(page, `{ scan_large_at: () => ${FILES_EMPTY}, scan_downloads: () => ${FILES_EMPTY}, scan_duplicates: () => ${FILES_EMPTY}, scan_similar: () => ${FILES_EMPTY},
+      cloud_scan: () => ({ total: 600e6, needsFda: false, groups: [{ id: 'g', title: 'Documentos', description: '', total: 600e6, items: [${item(2, 'big.mov', 600e6)}] }] }),
       cloud_evict: async () => { await new Promise((r) => setTimeout(r, 600)); return { freed: 600e6, outcomes: [{ id: 2, ok: true, freed: 600e6, error: null }] }; } }`);
-    await nav(page, 'iCloud').click();
+    await nav(page, 'Arquivos').click();
     await page.locator('#dock .go').click();
-    await expect(page.locator('.cl-tile[data-tile="big"] .btn.primary')).toBeVisible();
-    await page.locator('.cl-tile[data-tile="big"] .btn.primary').click();
+    await expect(page.locator('.fl-tile[data-cat="icloud"] .btn')).toBeVisible({ timeout: 8000 });
+    await page.locator('.fl-tile[data-cat="icloud"] .btn').click();
+    await page.getByRole('checkbox', { name: en('Selecionar {name}', { name: 'big.mov' }) }).click();
+    await page.locator('.rv-foot .btn.primary').click();
     await page.getByRole('alertdialog').getByRole('button').last().click();
     await expect(page.locator('.orb.busy')).toHaveCount(1);
     await page.locator('.orb').evaluate((el) => { el.dataset.mark = '1'; });

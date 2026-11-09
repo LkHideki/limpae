@@ -13,7 +13,6 @@ import * as files from './views/files.js';
 import * as protect from './views/protection.js';
 import * as perf from './views/performance.js';
 import * as lens from './views/lens.js';
-import * as cloud from './views/cloud.js';
 import * as activity from './views/activity.js';
 import * as tools from './views/tools.js';
 import * as settings from './views/settings.js';
@@ -24,7 +23,7 @@ import { applyLangSetting, onLang, t, tn, tr } from './i18n.js';
 import { restoreBatches } from './undo.js';
 import { maybeOnboard, noticeGrant, openSettings, relaunch, showGuide, visitedSettings } from './fda.js';
 
-const VIEWS = { smart, clean, trash, protect, perf, apps, files, lens, cloud, tools, activity, settings };
+const VIEWS = { smart, clean, trash, protect, perf, apps, files, lens, tools, activity, settings };
 const view = document.getElementById('view');
 const go = createGo(document.getElementById('dock'));
 const navEl = document.getElementById('nav');

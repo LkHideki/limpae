@@ -380,6 +380,12 @@ pub async fn cloud_scan(app: AppHandle, state: State<'_, Shared>) -> Result<Scan
     .await
 }
 
+/// Whether macOS "Optimize Mac Storage" is on; `None` when the system does not say (key unset).
+#[tauri::command]
+pub fn cloud_optimize_status() -> Option<bool> {
+    cloud::optimize_storage_enabled()
+}
+
 /// Drops the local copy of the listed iCloud files ("desincronizar"). Only ids of the last cloud scan are
 /// accepted, and every file is re-validated by `cloud::evict` right before the system call.
 #[tauri::command]

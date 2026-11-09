@@ -56,9 +56,8 @@ No antivirus and no telemetry. Limpae makes no network requests of its own; ever
 | **Security** | Security posture, app permissions (TCC) and privacy traces. Read-only checks; fixes open the right Settings pane. |
 | **Speed** | Background agents, login items, live monitor, snapshots. |
 | **Apps** | Uninstaller, updater, leftovers, installers, vendor view. |
-| **Files** | Large and old files, duplicates, similar images, Downloads. |
+| **Files** | Large and old files, duplicates, similar images, Downloads, and iCloud downloads ("Remove from Mac" evicts the local copy; nothing is deleted from iCloud). |
 | **Disk Map** | Visual map of what uses your disk. |
-| **iCloud** | Evict local copies of files that are already in iCloud. |
 | **Toolbox** | Every tool in one place, with favorites and a screen cleaning mode. |
 | **Health** | Mac health score with recommendations. |
 

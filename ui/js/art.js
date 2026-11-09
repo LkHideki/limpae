@@ -82,7 +82,6 @@ export const MODS = [
   { id: 'apps', label: () => t('Aplicativos'), glyph: 'apps' },
   { id: 'files', label: () => t('Arquivos'), glyph: 'folder' },
   { id: 'lens', label: () => t('Mapa do Disco'), glyph: 'lens' },
-  { id: 'cloud', label: () => t('iCloud'), glyph: 'cloud' },
   { id: 'tools', label: () => t('Ferramentas'), glyph: 'tools' },
   { spacer: true },
   { id: 'activity', label: () => t('Saúde'), glyph: 'pulse' },

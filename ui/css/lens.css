@@ -1,13 +1,11 @@
-/* ============ Disk Map and iCloud ============ */
-[data-mod="cloud"] { --m1: #8fd3ff; --m2: #3b82f6; --t1: #2f7be0; --t2: #1f4fb0; --glow: 90, 170, 255; }
-.orb[data-mod="cloud"] { --shape: 46% 54% 42% 58% / 58% 48% 52% 42%; }
+/* ============ Disk Map ============ */
 
 /* The sidebar gained an item: it scrolls instead of pushing the footer down in short windows. */
 .nav { min-height: 0; overflow-y: auto; scrollbar-width: none; }
 .nav::-webkit-scrollbar { display: none; }
 @media (max-height: 720px) { .nav-item { height: 38px; } .nav { gap: 2px; } }
 
-.stage[data-mod="lens"] .ticker, .stage[data-mod="cloud"] .ticker { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stage[data-mod="lens"] .ticker { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lens-count { min-height: 24px; }
 
 /* ---- landing: location picker ---- */
@@ -167,6 +165,6 @@
   .bub-body, .bub-check, .ln-act { transition: none; }
 }
 
-/* ---- iCloud ---- */
+/* ---- iCloud notice (Files, iCloud category) ---- */
 .cloud-note { margin-top: 14px; padding: 12px 14px; border-radius: var(--r-m); background: rgba(255, 255, 255, .07); border: 1px solid var(--line); font-size: 13px; color: var(--text-2); line-height: 1.45; }
 .cloud-note b { color: var(--text); font-weight: 600; }

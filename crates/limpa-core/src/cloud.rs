@@ -205,12 +205,64 @@ fn is_ubiquitous(path: &Path) -> bool {
     })
 }
 
+/// What the `optimize-storage` preference can hold, reduced to the cases that matter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrefValue {
+    Bool(bool),
+    Int(i64),
+    Other,
+}
+
+/// Interprets the raw `optimize-storage` value: `None` when the key is absent or not a boolean/number, so the
+/// caller can say "unknown" instead of guessing.
+pub fn parse_optimize_storage(value: Option<PrefValue>) -> Option<bool> {
+    match value? {
+        PrefValue::Bool(b) => Some(b),
+        PrefValue::Int(n) => Some(n != 0),
+        PrefValue::Other => None,
+    }
+}
+
+/// Whether macOS "Optimize Mac Storage" is on, read from the `com.apple.bird` preferences domain through
+/// CoreFoundation (no shelling out). `None` when the key is not set or has an unexpected type.
+pub fn optimize_storage_enabled() -> Option<bool> {
+    use objc2_core_foundation::{CFBoolean, CFNumber, CFPreferencesCopyAppValue, CFString};
+
+    let key = CFString::from_str("optimize-storage");
+    let domain = CFString::from_str("com.apple.bird");
+    let raw = CFPreferencesCopyAppValue(&key, &domain)?;
+    let value = if let Some(b) = raw.downcast_ref::<CFBoolean>() {
+        PrefValue::Bool(b.as_bool())
+    } else if let Some(n) = raw.downcast_ref::<CFNumber>() {
+        n.as_i64().map_or(PrefValue::Other, PrefValue::Int)
+    } else {
+        PrefValue::Other
+    };
+    parse_optimize_storage(Some(value))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::cell::Cell;
     use std::io::Write;
     use std::os::unix::fs::symlink;
+
+    #[test]
+    fn optimize_storage_parsing() {
+        assert_eq!(parse_optimize_storage(Some(PrefValue::Bool(true))), Some(true));
+        assert_eq!(parse_optimize_storage(Some(PrefValue::Bool(false))), Some(false));
+        assert_eq!(parse_optimize_storage(Some(PrefValue::Int(1))), Some(true));
+        assert_eq!(parse_optimize_storage(Some(PrefValue::Int(0))), Some(false));
+        assert_eq!(parse_optimize_storage(Some(PrefValue::Other)), None);
+        assert_eq!(parse_optimize_storage(None), None);
+    }
+
+    #[test]
+    fn optimize_storage_read_does_not_panic() {
+        // The value depends on the machine; reading it must simply work.
+        let _ = optimize_storage_enabled();
+    }
 
     fn write(path: &Path, bytes: usize) {
         fs::create_dir_all(path.parent().unwrap()).unwrap();
