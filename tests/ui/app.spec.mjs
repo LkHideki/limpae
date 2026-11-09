@@ -1015,7 +1015,7 @@ test.describe('gauntlet round 3', () => {
       const note = page.locator('.fm-cloud-note');
       await expect(note).toContainText(en('Nada é apagado do iCloud.'));
       await expect(note).toHaveAttribute('data-optimize', expected);
-      if (value === false) await expect(note).toContainText(en('Otimizar Armazenamento do Mac está desativado. Ative em Ajustes do Sistema › Apple ID › iCloud › Drive para o macOS liberar esses arquivos sozinho quando faltar espaço.'));
+      if (value === false) await expect(note).toContainText(en('Otimizar Armazenamento do Mac está desativado. Ative em Ajustes do Sistema › [seu nome] › iCloud › Drive para o macOS liberar esses arquivos sozinho quando faltar espaço.'));
       if (value === true) await expect(note).toContainText(en('Otimizar Armazenamento do Mac está ativado: o macOS também libera esses arquivos sozinho quando falta espaço.'));
       if (value === null) await expect(page.locator('.fm-cloud-opt')).toHaveCount(0);
     }

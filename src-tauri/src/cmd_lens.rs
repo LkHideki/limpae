@@ -367,8 +367,9 @@ pub async fn cloud_scan(app: AppHandle, state: State<'_, Shared>) -> Result<Scan
     .await
 }
 
-/// Whether macOS "Optimize Mac Storage" is on; `None` when the system does not say (key unset).
-#[tauri::command]
+/// Whether macOS "Optimize Mac Storage" is on; `None` when the system does not say (key unset). Async so the
+/// cfprefsd round-trip never runs on the main thread.
+#[tauri::command(async)]
 pub fn cloud_optimize_status() -> Option<bool> {
     cloud::optimize_storage_enabled()
 }

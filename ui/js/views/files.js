@@ -357,7 +357,7 @@ export function enter(ctx) {
     mount(ctx.root, el);
   }
 
-  function open(cat) { S.cat = cat; F.phase = 'review'; render(); }
+  function open(cat) { if (cat === 'icloud') S.optimize = undefined; S.cat = cat; F.phase = 'review'; render(); }
 
   // ---------- Manager ----------
   // Removes ids from all categories (after removing or ignoring); a set of copies with a single item ceases to exist.
@@ -402,7 +402,7 @@ export function enter(ctx) {
       mount(catsEl, avail.map((c) => {
         const sz = selectedSize(resOf(c.id), selOf(c.id));
         const result = resOf(c.id);
-        return h('button', { class: 'fm-cat', type: 'button', dataset: { fk: 'cat:' + c.id }, 'aria-current': String(c.id === S.cat), onClick: () => { if (S.cat !== c.id) keepFocus(ctx.root, () => { S.cat = c.id; renderPane(); renderCats(); renderFoot(); }); } },
+        return h('button', { class: 'fm-cat', type: 'button', dataset: { fk: 'cat:' + c.id }, 'aria-current': String(c.id === S.cat), onClick: () => { if (S.cat !== c.id) keepFocus(ctx.root, () => { if (c.id === 'icloud') S.optimize = undefined; S.cat = c.id; renderPane(); renderCats(); renderFoot(); }); } },
           h('span', { class: 'fm-cat-ic' }, fi(c.ic, 17)),
           h('span', { class: 'fm-cat-t' }, h('b', null, catLabel(c)), h('span', null, countOf(c.id) ? t('{items} · {size}', { items: plural(countOf(c.id), 'item', 'itens'), size: fmtBytes(result.total) }) : result.needsFda ? t('Acesso necessário') : t('Nada encontrado'))),
           sz.count ? h('span', { class: 'fm-cat-n', title: plural(sz.count, 'item selecionado', 'itens selecionados') }, fmtNum(sz.count)) : null);
@@ -445,7 +445,7 @@ export function enter(ctx) {
           .finally(() => { if (ctx.alive && F.phase === 'review' && S.cat === 'icloud') renderHead(); });
       }
       const opt = S.optimize === true ? t('Otimizar Armazenamento do Mac está ativado: o macOS também libera esses arquivos sozinho quando falta espaço.')
-        : S.optimize === false ? t('Otimizar Armazenamento do Mac está desativado. Ative em Ajustes do Sistema › Apple ID › iCloud › Drive para o macOS liberar esses arquivos sozinho quando faltar espaço.') : '';
+        : S.optimize === false ? t('Otimizar Armazenamento do Mac está desativado. Ative em Ajustes do Sistema › [seu nome] › iCloud › Drive para o macOS liberar esses arquivos sozinho quando faltar espaço.') : '';
       return h('div', { class: 'cloud-note fm-cloud-note', dataset: { optimize: S.optimize === null ? 'unknown' : String(S.optimize) } },
         h('b', null, t('Nada é apagado do iCloud.')), ' ' + t('Os arquivos continuam guardados lá e baixam de novo quando você abrir.'),
         opt ? h('p', { class: 'fm-cloud-opt' }, opt) : null);
